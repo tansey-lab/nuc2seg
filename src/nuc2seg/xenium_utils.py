@@ -3,11 +3,14 @@ import logging
 import os
 import sys
 
+from scipy.special import softmax
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from shapely import Polygon
+from scipy.special import logsumexp
+from scipy.stats import poisson
 
 logger = logging.getLogger(__name__)
 
@@ -18,36 +21,6 @@ def configure_logging():
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
-
-
-def get_args():
-    parser = argparse.ArgumentParser(
-        description="Align transcripts and xenium cell segmentation"
-    )
-    parser.add_argument(
-        "--transcripts",
-        required=True,
-        help="Path to the transcripts.csv file produced by Xenium.",
-    )
-    parser.add_argument(
-        "--boundaries",
-        required=True,
-        help="Path to the cell_boundaries.csv file produced by Xenium.",
-    )
-    parser.add_argument(
-        "--sample-area",
-        default=None,
-        type=str,
-        help='Rectangular area to sample in "x1,x2,y1,y2 format.',
-    )
-    parser.add_argument("--output", required=True, help="Path to the output file.")
-    parser.add_argument(
-        "--boundaries-output", required=True, help="Path to the boundary shapefile."
-    )
-    parser.add_argument(
-        "--transcripts-output", required=True, help="Path to the transcripts shapefile."
-    )
-    return parser.parse_args()
 
 
 def create_shapely_rectangle(x1, y1, x2, y2):
@@ -135,7 +108,6 @@ def estimate_cell_types(
     tol=1e-4,
     warm_start=False,
 ):
-    from scipy.special import softmax
 
     n_nuclei, n_genes = gene_counts.shape
 
@@ -254,7 +226,6 @@ def estimate_cell_types(
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):
-    from scipy.special import logsumexp
 
     n_components = expression_profiles.shape[0]
     n_genes = expression_profiles.shape[1]
@@ -327,7 +298,7 @@ def calculate_pixel_loglikes(
     # Calculate the log-likelihoods for each pixel generating a certain set of transcripts.
     # NOTE: yes we could vectorize this, but that leads to memory issues.
     expression_loglikes = np.zeros_like(rate_loglikes)
-    log_expression = np.log(all_expression_profiles)
+    log_expression = np.log(expression_profiles)
     for i in range(expression_loglikes.shape[0]):
         if i % 100 == 0:
             print(i)
@@ -390,7 +361,7 @@ def load_and_filter_transcripts(transcripts_file: str, min_qv=20.0):
     mapping = dict(zip(gene_ids, np.arange(len(gene_ids))))
     tx_geo_df["gene_id"] = tx_geo_df["feature_name"].apply(lambda x: mapping.get(x, 0))
 
-    return tx_geo_df
+    return tx_geo_df, gene_ids
 
 
 def create_pixel_geodf(x_max, y_max):
@@ -414,7 +385,7 @@ def create_pixel_geodf(x_max, y_max):
 def spatial_as_sparse_arrays(
     nuclei_file: str,
     transcripts_file: str,
-    out_dir: str,
+    outdir: str,
     pixel_stride=1,
     min_qv=20.0,
     foreground_nucleus_distance=1,
@@ -431,7 +402,7 @@ def spatial_as_sparse_arrays(
     nuclei_geo_df = load_nuclei(nuclei_file)
 
     # Load the transcript locations
-    tx_geo_df = load_and_filter_transcripts(transcripts_file, min_qv=min_qv)
+    tx_geo_df, gene_ids = load_and_filter_transcripts(transcripts_file, min_qv=min_qv)
     n_genes = tx_geo_df["gene_id"].max() + 1
 
     # Get the approx bounds of the image

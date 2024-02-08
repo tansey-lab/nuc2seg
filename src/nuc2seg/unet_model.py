@@ -1,7 +1,7 @@
 """ Full assembly of the parts to form the complete network """
 
 from torch.nn import Embedding
-
+import numpy as np
 from nuc2seg.unet_parts import *
 
 

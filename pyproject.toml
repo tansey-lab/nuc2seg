@@ -33,7 +33,8 @@ dependencies = [
     "torchvision",
     "spatialdata-io",
     "matplotlib",
-    "autograd-minimize"
+    "autograd-minimize",
+    "scikit-learn"
 ]
 
 [project.optional-dependencies]

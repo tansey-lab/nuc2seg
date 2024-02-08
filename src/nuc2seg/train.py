@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
-from nuc2seg.utils.data_loading import XeniumDataset, xenium_collate_fn
+from nuc2seg.data_loading import XeniumDataset, xenium_collate_fn
 from torch import optim
 from torch.utils.data import DataLoader, random_split
 
 from nuc2seg.unet_model import SparseUNet
+from nuc2seg.evaluate import evaluate
 
 
 def angle_loss(predictions, targets):

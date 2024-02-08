@@ -1,11 +1,13 @@
 import torch
 import numpy as np
+import geopandas
+import pandas
 
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.special import expit, softmax
 
-from xenium_utils import pol2cart
+from xenium_utils import pol2cart, create_pixel_geodf, load_nuclei
 
 
 def temp_forward(model, x, y, z):
@@ -262,7 +264,7 @@ def flow_graph_segmentation(
         nuclei_geo_df = load_nuclei(nuclei_file)
 
         # Find the nearest nucleus to each pixel
-        labels_geo_df = gpd.sjoin_nearest(
+        labels_geo_df = geopandas.sjoin_nearest(
             labels_geo_df, nuclei_geo_df, how="left", distance_col="nucleus_distance"
         )
         labels_geo_df.rename(columns={"index_right": "nucleus_id_xenium"}, inplace=True)
@@ -314,7 +316,7 @@ def greedy_cell_segmentation(
         nuclei_geo_df = load_nuclei(nuclei_file)
 
         # Find the nearest nucleus to each pixel
-        labels_geo_df = gpd.sjoin_nearest(
+        labels_geo_df = geopandas.sjoin_nearest(
             labels_geo_df, nuclei_geo_df, how="left", distance_col="nucleus_distance"
         )
         labels_geo_df.rename(columns={"index_right": "nucleus_id_xenium"}, inplace=True)
@@ -587,4 +589,4 @@ def save_cell_matrix(pixel_labels_arr, tx_geo_df, outfile):
         df[gene_name] = counts[:, idx]
 
     # Save to file
-    pd.DataFrame(df).to_csv(outfile, index=False)
+    pandas.DataFrame(df).to_csv(outfile, index=False)

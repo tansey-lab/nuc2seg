@@ -122,8 +122,7 @@ def calc_plateaus(beta, edges, rel_tol=1e-4, verbose=0):
             for local_idx in local_check:
                 if (
                     not check_map[local_idx]
-                    and beta[local_idx] >= min_member
-                    and beta[local_idx] <= max_member
+                    and min_member <= beta[local_idx] <= max_member
                 ):
                     # Label this index as being checked so it's not re-checked unnecessarily
                     check_map[local_idx] = True

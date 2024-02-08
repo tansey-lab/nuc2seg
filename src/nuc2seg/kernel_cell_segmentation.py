@@ -2,6 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.special import softmax
 from scipy.stats import poisson
+import torch
+from torch.distributions import Poisson
+from autograd_minimize import minimize
+from tqdm import tqdm
+from nuc2seg.utils import grid_graph_edges, calc_plateaus
+from sklearn.cluster import KMeans
 
 
 def calculate_neighbor_weights(
@@ -167,10 +173,6 @@ def e_step(
 def fit_fused_lasso_count_process(
     counts, lam_min=1e-2, lam_max=50, n_lam=30, segmentation_threshold=0.1
 ):
-    import torch
-    from torch.distributions import Poisson
-    from autograd_minimize import minimize
-    from tqdm import tqdm
 
     # Estimates of the latent rates
     Rates = np.zeros((n_lam,) + counts.shape)
@@ -334,7 +336,6 @@ if __name__ == "__main__":
     )
 
     # Initialize cell type profiles and cell type IDs via K-means
-    from sklearn.cluster import KMeans
 
     kmeans = KMeans(n_clusters=n_cell_types).fit(cell_transcript_counts)
     model_cell_types = kmeans.labels_ + 1
