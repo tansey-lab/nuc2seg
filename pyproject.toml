@@ -1,0 +1,51 @@
+[project]
+name = "nuc2seg"
+version = "0.0.1"
+description = ""
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE.txt"}
+keywords = ["spatial", "expression", "rna"]
+authors = [
+    {name = "Wesley Tansey", email = "TanseyW@mskcc.org" },
+    {name = "Jeff Quinn", email = "quinnj2@mskcc.org" }
+]
+
+maintainers = [
+    {name = "Jeff Quinn", email = "quinnj2@mskcc.org" },
+]
+
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Build Tools",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+dependencies = [
+    "pandas>=2,<3",
+    "scipy>=1.7,<2",
+    "tqdm",
+    "seaborn",
+    "torch",
+    "torchvision",
+    "spatialdata-io",
+    "matplotlib"
+]
+
+[project.optional-dependencies]
+dev = ["check-manifest"]
+test = ["pytest", "pytest-mock", "tox", "coverage"]
+
+[project.urls]
+"Homepage" = "https://github.com/tansey-lab/nuc2seg"
+"Documentation" = "https://nuc2seg.readthedocs.io/en/latest/"
+"Source" = "https://github.com/tansey-lab/nuc2seg"
+
+[project.scripts]
+
+[build-system]
+requires = ["setuptools>=43.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
