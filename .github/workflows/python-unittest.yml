@@ -6,7 +6,7 @@ on:
 
 jobs:
   test_data_models:
-    name: Run python unittests for batchie
+    name: Run python unittests for nuc2seg
     runs-on: ubuntu-latest
 
     steps:

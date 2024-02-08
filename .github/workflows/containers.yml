@@ -24,8 +24,8 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: jeffquinnmsk/batchie:latest
-          cache-from: type=registry,ref=jeffquinnmsk/batchie:latest
+          tags: jeffquinnmsk/nuc2seg:latest
+          cache-from: type=registry,ref=jeffquinnmsk/nuc2seg:latest
           cache-to: type=inline
   nextflow-integration:
     runs-on: ubuntu-20.04
