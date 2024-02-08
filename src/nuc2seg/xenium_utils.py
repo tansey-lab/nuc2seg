@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 from shapely import Polygon
 from scipy.special import logsumexp
 from scipy.stats import poisson
+from scipy.spatial import KDTree
 
 logger = logging.getLogger(__name__)
 
@@ -382,6 +383,18 @@ def create_pixel_geodf(x_max, y_max):
     return idx_geo_df
 
 
+def plot_distribution_of_cell_types(cell_type_probs):
+    n_rows = cell_type_probs.shape[1] // 3 + int(cell_type_probs.shape[1] % 3 > 0)
+    n_cols = 3
+    fig, axarr = plt.subplots(n_rows, n_cols, sharex=True)
+    for idx in range(cell_type_probs.shape[1]):
+        i, j = idx // 3, idx % 3
+        axarr[i, j].hist(
+            cell_type_probs[np.argmax(cell_type_probs, axis=1) == idx, idx], bins=200
+        )
+    plt.show()
+
+
 def spatial_as_sparse_arrays(
     nuclei_file: str,
     transcripts_file: str,
@@ -399,9 +412,11 @@ def spatial_as_sparse_arrays(
     """Creates a list of sparse CSC arrays. First array is the nuclei mask.
     All other arrays are the transcripts."""
     # Load the nuclei boundaries and assign them unique integer IDs
+    logger.info("Loading nuclei boundaries")
     nuclei_geo_df = load_nuclei(nuclei_file)
 
     # Load the transcript locations
+    logger.info("Loading transcript locations")
     tx_geo_df, gene_ids = load_and_filter_transcripts(transcripts_file, min_qv=min_qv)
     n_genes = tx_geo_df["gene_id"].max() + 1
 
@@ -409,10 +424,15 @@ def spatial_as_sparse_arrays(
     x_max, y_max = int(tx_geo_df["x_location"].max() + 1), int(
         tx_geo_df["y_location"].max() + 1
     )
+    x_min, y_min = int(tx_geo_df["x_location"].min()), int(
+        tx_geo_df["y_location"].min()
+    )
 
+    logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
     idx_geo_df = create_pixel_geodf(x_max, y_max)
 
+    logger.info("Find the nearest nucleus to each pixel")
     # Find the nearest nucleus to each pixel
     labels_geo_df = gpd.sjoin_nearest(
         idx_geo_df, nuclei_geo_df, how="left", distance_col="nucleus_distance"
@@ -420,8 +440,8 @@ def spatial_as_sparse_arrays(
     labels_geo_df.rename(columns={"index_right": "nucleus_id_xenium"}, inplace=True)
 
     # Calculate the nearest transcript neighbors
-    from scipy.spatial import KDTree
 
+    logger.info("Calculating the nearest transcript neighbors")
     transcript_xy = np.array(
         [tx_geo_df["x_location"].values, tx_geo_df["y_location"].values]
     ).T
@@ -481,6 +501,7 @@ def spatial_as_sparse_arrays(
         1,
     )
 
+    logger.info("Estimating cell types")
     # Estimate the cell types
     results = estimate_cell_types(nuclei_count_matrix)
     best_k = 12
@@ -508,17 +529,6 @@ def spatial_as_sparse_arrays(
     cell_type_rates = (cell_type_probs[L] * tx_count_grid[X, Y][:, None]).sum(
         axis=0
     ) / cell_type_probs[L].sum(axis=0)
-
-    # Plot the distribution of cell type probabilities
-    n_rows = cell_type_probs.shape[1] // 3 + int(cell_type_probs.shape[1] % 3 > 0)
-    n_cols = 3
-    fig, axarr = plt.subplots(n_rows, n_cols, sharex=True)
-    for idx in range(cell_type_probs.shape[1]):
-        i, j = idx // 3, idx % 3
-        axarr[i, j].hist(
-            cell_type_probs[np.argmax(cell_type_probs, axis=1) == idx, idx], bins=200
-        )
-    plt.show()
 
     # Combine the background and foreground classes
     all_expression_profiles = np.vstack(
@@ -622,7 +632,10 @@ def spatial_as_sparse_arrays(
         os.makedirs(f"{outdir}/tiles/angles/")
     if not os.path.exists(f"{outdir}/tiles/classes/"):
         os.makedirs(f"{outdir}/tiles/classes/")
-    for x_start in np.arange(0, x_max + 1, tile_stride):
+
+    logger.info("Creating tiles")
+
+    for x_start in np.arange(x_min, x_max + 1, tile_stride):
         # Handle edge cases
         x_start = min(x_start, x_max - tile_width)
 
@@ -633,7 +646,7 @@ def spatial_as_sparse_arrays(
             )
         ]
 
-        for y_start in np.arange(0, y_max + 1, tile_stride):
+        for y_start in np.arange(y_min, y_max + 1, tile_stride):
             print(f"({x_start}, {y_start})")
             # Handle edge cases
             y_start = min(y_start, y_max - tile_height)

@@ -22,7 +22,7 @@ def xenium_collate_fn(data):
     outputs["classes"] = torch.stack(outputs["classes"])
     outputs["label_mask"] = torch.stack(outputs["label_mask"]).type(torch.bool)
     outputs["nucleus_mask"] = torch.stack(outputs["nucleus_mask"]).type(torch.bool)
-    outputs["location"] = torch.stack(outputs["location"]).type(torch.long)
+    outputs["location"] = torch.tensor(np.stack(outputs["location"])).type(torch.long)
 
     # Edge case: pad_sequence will squeeze tensors if there are no entries.
     # In that case, we just need to add the dimension back.
