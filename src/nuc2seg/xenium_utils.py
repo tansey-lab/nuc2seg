@@ -335,7 +335,7 @@ def load_nuclei(nuclei_file: str):
 
 
 def load_and_filter_transcripts(transcripts_file: str, min_qv=20.0):
-    transcripts_df = pd.read_csv(transcripts_file, header=0)
+    transcripts_df = pd.read_parquet(transcripts_file)
     transcripts_df.drop(columns=["nucleus_distance"], inplace=True)
 
     # Filter out controls and low quality transcripts

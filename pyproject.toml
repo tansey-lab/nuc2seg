@@ -31,10 +31,12 @@ dependencies = [
     "seaborn",
     "torch",
     "torchvision",
-    "spatialdata-io",
+    "geopandas",
+    "shapely",
     "matplotlib",
     "autograd-minimize",
-    "scikit-learn"
+    "scikit-learn",
+    "pyarrow"
 ]
 
 [project.optional-dependencies]
