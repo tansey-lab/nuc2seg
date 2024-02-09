@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import tqdm
+
 from nuc2seg.data_loading import XeniumDataset, xenium_collate_fn
 from torch import optim
 from torch.utils.data import DataLoader, random_split
@@ -96,11 +98,11 @@ def train(
     validation_scores = []
 
     # 5. Begin training
-    for epoch in range(1, epochs + 1):
+    for epoch in tqdm.trange(1, epochs + 1, position=0, desc="Epoch"):
         model.train()
         epoch_loss = 0
         # with tqdm(total=n_train, desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
-        for batch in train_loader:
+        for batch in tqdm.tqdm(train_loader, position=1, desc="Batch"):
             x, y, z, labels, angles, classes, label_mask, nucleus_mask = (
                 batch["X"],
                 batch["Y"],
@@ -141,10 +143,6 @@ def train(
                     class_pred[nucleus_mask], classes[nucleus_mask] - 1
                 )
 
-            # TODO: include DICE coefficient in loss?
-
-            print(loss)
-
             # Backprop
             optimizer.zero_grad(set_to_none=True)
             grad_scaler.scale(loss).backward()
@@ -159,9 +157,6 @@ def train(
             # for Evaluating model performance/ convergence
             if global_step % 500 == 0:
                 validation_score = evaluate(model, val_loader, device, amp)
-                print("Previous validation scores:")
-                print(validation_scores)
-                print(f"Current: {validation_score:.2f}")
                 validation_scores.append(validation_score)
 
 

@@ -2,12 +2,15 @@ import torch
 import numpy as np
 import geopandas
 import pandas
-
+import tqdm
+import logging
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.special import expit, softmax
 
 from xenium_utils import pol2cart, create_pixel_geodf, load_nuclei
+
+logger = logging.getLogger(__name__)
 
 
 def temp_forward(model, x, y, z):
@@ -36,9 +39,7 @@ def stitch_tile_predictions(model, dataset, tile_buffer=8):
     tile_width, tile_height = dataset[0]["labels"].numpy().shape
 
     results = np.zeros((x_max + tile_width, y_max + tile_height, dataset.n_classes + 2))
-    for idx in range(len(dataset)):
-        if idx % 100 == 0:
-            print(f"{idx}/{len(dataset)}")
+    for idx in tqdm.trange(len(dataset), desc="Stitching tiles"):
         tile = dataset[idx]
 
         x, y, z, labels, angles, classes, label_mask, nucleus_mask, location = (
@@ -80,12 +81,6 @@ def stitch_tile_predictions(model, dataset, tile_buffer=8):
         if y_start < y_max:
             y_end_offset -= tile_buffer
 
-        print(
-            x_start + x_start_offset,
-            x_start + x_end_offset,
-            y_start + y_start_offset,
-            y_start + y_end_offset,
-        )
         results[
             x_start + x_start_offset : x_start + x_end_offset,
             y_start + y_start_offset : y_start + y_end_offset,
@@ -115,8 +110,7 @@ def greedy_expansion(
     foreground_mask,
     max_expansion_steps=50,
 ):
-    for step in range(max_expansion_steps):
-        print(f"Expansion step {step+1}/{max_expansion_steps}")
+    for step in tqdm.trange(max_expansion_steps, desc="greedy_expansion", unit="step"):
         # Filter down to unassigned pixels that would flow to an assigned pixel
         pixel_labels_flat = pixel_labels_arr[start_xy[:, 0], start_xy[:, 1]]
         flow_labels_flat = flow_labels[start_xy[:, 0], start_xy[:, 1]]
@@ -129,7 +123,7 @@ def greedy_expansion(
 
         # If there are no pixels to update, just exit early
         if update_mask.sum() == 0:
-            print("No pixels left to update. Stopping expansion.")
+            logger.debug("No pixels left to update. Stopping expansion.")
             break
 
         # Update the filtered pixels to have the assignment of their flow neighbor
@@ -373,7 +367,7 @@ def greedy_cell_segmentation(
     # Update the pixel labels with the new cells
     n_nuclei = pixel_labels_arr.max() + 1
     for offset, connected_label in enumerate(uniques):
-        print(f"Segmenting cells without nuclei ({offset+1}/{len(uniques)}")
+        logger.info(f"Segmenting cells without nuclei ({offset+1}/{len(uniques)}")
         mask = connected_labels == connected_label
         pixel_labels_arr[start_xy[mask, 0], start_xy[mask, 1]] = n_nuclei + offset
 

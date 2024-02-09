@@ -3,6 +3,8 @@ import numpy as np
 from scipy.special import softmax, expit
 from torch import Tensor
 from matplotlib import pyplot as plt
+import tqdm
+
 from nuc2seg.xenium_utils import pol2cart
 
 
@@ -48,9 +50,7 @@ def evaluate(net, dataloader, device, amp):
     # iterate over the validation set
     # with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
     # for batch in tqdm(dataloader, total=num_val_batches, desc='Validation round', unit='batch', leave=False):
-    for idx, batch in enumerate(dataloader):
-        if idx % 10 == 0:
-            print(f"{idx+1}/{num_val_batches}")
+    for idx, batch in enumerate(tqdm.tqdm(dataloader, desc="Validation", unit="batch")):
         x, y, z, labels, label_mask = (
             batch["X"],
             batch["Y"],
@@ -193,9 +193,7 @@ def score_segmentation(segments, nuclei):
     percent_common = np.zeros(n_nuclei)
     nuclei_label_counts = np.zeros(n_nuclei)
     label_nuclei_counts = np.zeros(np.unique(nuclei_segments)[-1] + 1)
-    for i in range(n_nuclei):
-        if i % 100 == 0:
-            print(f"{i+1}/{n_nuclei}")
+    for i in tqdm.trange(n_nuclei, desc="Scoring nuclei"):
 
         local_labels = nuclei_segments[inv_map == i]
         local_uniques, local_counts = np.unique(
