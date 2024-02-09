@@ -110,7 +110,7 @@ def main():
     prng = np.random.default_rng(args.seed)
 
     spatial_as_sparse_arrays(
-        nuclei_file=args.nucleus_file,
+        nuclei_file=args.nucei_file,
         transcripts_file=args.transcripts_file,
         outdir=args.output_dir,
         pixel_stride=args.pixel_stride,
