@@ -8,6 +8,8 @@ import numpy as np
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
+logger = logging.getLogger(__name__)
+
 
 def xenium_collate_fn(data):
     outputs = {key: [] for key in data[0].keys()}

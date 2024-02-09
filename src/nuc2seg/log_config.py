@@ -7,7 +7,7 @@ def configure_logging(args):
 
     :param args: Parsed command line arguments.
     """
-    logger = logging.getLogger("batchie")
+    logger = logging.getLogger("nuc2seg")
 
     ch = logging.StreamHandler()
 

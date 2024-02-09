@@ -8,6 +8,9 @@ from autograd_minimize import minimize
 from tqdm import tqdm
 from nuc2seg.utils import grid_graph_edges, calc_plateaus
 from sklearn.cluster import KMeans
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_neighbor_weights(
