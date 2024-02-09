@@ -135,9 +135,11 @@ def estimate_cell_types(
         final_expression_rates,
     ) = ([], [], [], [])
     prev_expression_profiles = np.zeros_like(cur_expression_profiles)
-    for idx, n_components in enumerate(range(min_components, max_components + 1)):
-        # Print a notification of which component we're on
-        print(f"K={n_components}")
+    for idx, n_components in enumerate(
+        tqdm.trange(
+            min_components, max_components + 1, desc="estimate_cell_types", position=0
+        )
+    ):
 
         # Warm start from the previous iteration
         if warm_start and n_components > min_components:
@@ -159,8 +161,8 @@ def estimate_cell_types(
             cur_prior_probs = next_prior_probs
             cur_expression_profiles = next_expression_profiles
 
-            print("priors:", cur_prior_probs)
-            print("expression:", cur_expression_profiles)
+            logger.debug("priors:", cur_prior_probs)
+            logger.debug("expression:", cur_expression_profiles)
         else:
             # Cold start from a random location
             cur_expression_profiles = np.random.dirichlet(
@@ -169,9 +171,12 @@ def estimate_cell_types(
             cur_prior_probs = np.ones(n_components) / n_components
 
         converge = tol + 1
-        for step in range(max_em_steps):
-            # Print a notification of which step we are on
-            print(f"\tStep {step+1}/{max_em_steps}")
+        for step in tqdm.trange(
+            max_em_steps,
+            desc=f"EM for n_components {n_components}",
+            unit="step",
+            position=1,
+        ):
 
             # E-step: estimate cell type assignments (posterior probabilities)
             logits = np.log(cur_prior_probs[None]) + (
@@ -192,16 +197,16 @@ def estimate_cell_types(
             cur_prior_probs = (cur_cell_types.sum(axis=0) + 1) / (
                 cur_cell_types.shape[0] + n_components
             )
-            print(cur_prior_probs)
+            logger.debug(f"cur_prior_probs: {cur_prior_probs}")
 
             # Track convergence of the cell type profiles
             converge = np.linalg.norm(
                 prev_expression_profiles - cur_expression_profiles
             ) / np.linalg.norm(prev_expression_profiles)
 
-            print(f"\t\tConvergence: {converge:.4f}")
+            logger.debug(f"Convergence: {converge:.4f}")
             if converge <= tol:
-                print(f"\t\tStopping early.")
+                logger.debug(f"Stopping early.")
                 break
 
         # Save the results
@@ -214,10 +219,9 @@ def estimate_cell_types(
             gene_counts, cur_expression_profiles, cur_prior_probs
         )
 
-        print(f"K={n_components}")
-        print(f"AIC: {aic_scores[idx]:.4f}")
-        print(f"BIC: {bic_scores[idx]:.4f}")
-        print()
+        logger.debug(f"K={n_components}")
+        logger.debug(f"AIC: {aic_scores[idx]:.4f}")
+        logger.debug(f"BIC: {bic_scores[idx]:.4f}")
 
     return {
         "bic": bic_scores,
@@ -271,9 +275,9 @@ def calculate_pixel_loglikes(
     transcript_counts = np.zeros(
         tx_count_grid.shape + (max_transcript_count,), dtype=int
     )
-    for row_idx, row in tx_geo_df.iterrows():
-        if row_idx % 1000 == 0:
-            print(row_idx)
+    for row_idx, row in tqdm.tqdm(
+        tx_geo_df.iterrows(), desc="calculate_pixel_loglikes"
+    ):
         x, y = int(row["x_location"]), int(row["y_location"])
         tx_mask = transcript_ids[x, y] == row["gene_id"]
         if tx_mask.sum() != 0:
@@ -302,14 +306,16 @@ def calculate_pixel_loglikes(
     # NOTE: yes we could vectorize this, but that leads to memory issues.
     expression_loglikes = np.zeros_like(rate_loglikes)
     log_expression = np.log(expression_profiles)
+    total = expression_loglikes.shape[0] * expression_loglikes.shape[1]
+    pbar = tqdm.tqdm(total=total, desc="calculate_pixel_loglikes")
+
     for i in range(expression_loglikes.shape[0]):
-        if i % 100 == 0:
-            print(i)
         for j in range(expression_loglikes.shape[1]):
             expression_loglikes[i, j] = (
                 transcript_counts[i, j, :, None]
                 * log_expression.T[transcript_ids[i, j]]
             ).sum(axis=0)
+            pbar.update(1)
 
     # Add the two log-likelihoods together to get the pixelwise log-likelihood
     return rate_loglikes, expression_loglikes
@@ -678,7 +684,7 @@ def spatial_as_sparse_arrays(
             # Track how many of each class label this tile has
             temp = np.zeros(n_classes + 2, dtype=int)
             uniques = np.unique(classes_local, return_counts=True)
-            print(uniques)
+            logger.debug(f"uniques: {uniques}")
             temp[uniques[0] + 1] = uniques[1]
             class_local_counts.append(temp)
 
