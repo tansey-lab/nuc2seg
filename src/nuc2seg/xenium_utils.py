@@ -1,8 +1,11 @@
 import argparse
 import logging
+import math
 import os
 import sys
 
+import geopandas
+import shapely
 import tqdm
 from scipy.special import softmax
 import geopandas as gpd
@@ -13,20 +16,25 @@ from shapely import Polygon
 from scipy.special import logsumexp
 from scipy.stats import poisson
 from scipy.spatial import KDTree
+from shapely.geometry import box
 
 logger = logging.getLogger(__name__)
 
 
-def configure_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
-
-
 def create_shapely_rectangle(x1, y1, x2, y2):
-    return Polygon([(x1, y1), (x1, y2), (x2, y2), (x2, y1)])
+    return box(x1, y1, x2, y2)
+
+
+def get_bounding_box(poly: shapely.Polygon):
+    coords = list(poly.exterior.coords)
+
+    # Find the extreme vertices
+    leftmost = min(coords, key=lambda point: point[0])
+    rightmost = max(coords, key=lambda point: point[0])
+    topmost = max(coords, key=lambda point: point[1])
+    bottommost = min(coords, key=lambda point: point[1])
+
+    return leftmost[0], rightmost[0], bottommost[1], topmost[1]
 
 
 def filter_gdf_to_inside_polygon(gdf, polygon):
@@ -334,18 +342,42 @@ def pol2cart(rho, phi):
     return (x, y)
 
 
-def load_nuclei(nuclei_file: str):
+def load_nuclei(nuclei_file: str, sample_area: shapely.Polygon):
     nuclei_geo_df = read_boundaries_into_polygons(nuclei_file)
+
+    original_n_nuclei = nuclei_geo_df.shape[0]
+
+    nuclei_geo_df = filter_gdf_to_inside_polygon(nuclei_geo_df, sample_area)
+
+    logger.info(
+        f"{original_n_nuclei-nuclei_geo_df.shape[0]} nuclei filtered after bounding to {sample_area}"
+    )
+
     nuclei_geo_df["nucleus_label"] = np.arange(1, nuclei_geo_df.shape[0] + 1)
     nuclei_geo_df["nucleus_centroid"] = nuclei_geo_df["geometry"].centroid
     nuclei_geo_df["nucleus_centroid_x"] = nuclei_geo_df["geometry"].centroid.x
     nuclei_geo_df["nucleus_centroid_y"] = nuclei_geo_df["geometry"].centroid.y
+
+    logger.info(f"Loaded {nuclei_geo_df.shape[0]} nuclei.")
+
     return nuclei_geo_df
 
 
-def load_and_filter_transcripts(transcripts_file: str, min_qv=20.0):
-    transcripts_df = pd.read_parquet(transcripts_file)
+def load_and_filter_transcripts(
+    transcripts_file: str, sample_area: shapely.Polygon, min_qv=20.0
+):
+    transcripts_df = read_transcripts_into_points(transcripts_file)
+
+    original_count = len(transcripts_df)
+
+    transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
     transcripts_df.drop(columns=["nucleus_distance"], inplace=True)
+
+    count_after_bbox = len(transcripts_df)
+
+    logger.info(
+        f"{original_count-count_after_bbox} tx filtered after bounding to {sample_area}"
+    )
 
     # Filter out controls and low quality transcripts
     transcripts_df = transcripts_df[
@@ -356,29 +388,33 @@ def load_and_filter_transcripts(transcripts_file: str, min_qv=20.0):
         & (~transcripts_df["feature_name"].str.startswith("BLANK_"))
     ]
 
-    # Convert to a geopandas object
-    tx_geo_df = gpd.GeoDataFrame(
-        transcripts_df,
-        geometry=gpd.points_from_xy(
-            transcripts_df["x_location"], transcripts_df["y_location"]
-        ),
+    count_after_quality_filtering = len(transcripts_df)
+
+    logger.info(
+        f"{count_after_bbox-count_after_quality_filtering} tx filtered after quality filtering"
     )
 
     # Assign a unique integer ID to each gene
-    gene_ids = tx_geo_df["feature_name"].unique()
+    gene_ids = transcripts_df["feature_name"].unique()
     n_genes = len(gene_ids)
     mapping = dict(zip(gene_ids, np.arange(len(gene_ids))))
-    tx_geo_df["gene_id"] = tx_geo_df["feature_name"].apply(lambda x: mapping.get(x, 0))
+    transcripts_df["gene_id"] = transcripts_df["feature_name"].apply(
+        lambda x: mapping.get(x, 0)
+    )
 
-    return tx_geo_df, gene_ids
+    logger.info(
+        f"Loaded {count_after_quality_filtering} transcripts. {n_genes} unique genes."
+    )
+
+    return transcripts_df
 
 
-def create_pixel_geodf(x_max, y_max):
+def create_pixel_geodf(x_min, x_max, y_min, y_max):
     # Create the list of all pixels
     grid_df = pd.DataFrame(
-        np.array(np.meshgrid(np.arange(x_max + 1), np.arange(y_max + 1))).T.reshape(
-            -1, 2
-        ),
+        np.array(
+            np.meshgrid(np.arange(x_min, x_max + 1), np.arange(y_min, y_max + 1))
+        ).T.reshape(-1, 2),
         columns=["X", "Y"],
     )
 
@@ -404,8 +440,9 @@ def plot_distribution_of_cell_types(cell_type_probs):
 
 
 def spatial_as_sparse_arrays(
-    nuclei_file: str,
-    transcripts_file: str,
+    nuclei_geo_df: geopandas.GeoDataFrame,
+    tx_geo_df: geopandas.GeoDataFrame,
+    sample_area: shapely.Polygon,
     outdir: str,
     pixel_stride=1,
     min_qv=20.0,
@@ -419,26 +456,21 @@ def spatial_as_sparse_arrays(
 ):
     """Creates a list of sparse CSC arrays. First array is the nuclei mask.
     All other arrays are the transcripts."""
-    # Load the nuclei boundaries and assign them unique integer IDs
-    logger.info("Loading nuclei boundaries")
-    nuclei_geo_df = load_nuclei(nuclei_file)
 
-    # Load the transcript locations
-    logger.info("Loading transcript locations")
-    tx_geo_df, gene_ids = load_and_filter_transcripts(transcripts_file, min_qv=min_qv)
+    gene_ids = tx_geo_df["gene_id"].unique()
+
     n_genes = tx_geo_df["gene_id"].max() + 1
 
-    # Get the approx bounds of the image
-    x_max, y_max = int(tx_geo_df["x_location"].max() + 1), int(
-        tx_geo_df["y_location"].max() + 1
-    )
-    x_min, y_min = int(tx_geo_df["x_location"].min()), int(
-        tx_geo_df["y_location"].min()
-    )
+    x_min, x_max, y_min, y_max = get_bounding_box(sample_area)
+    x_min, x_max = math.floor(x_min), math.ceil(x_max)
+    y_min, y_max = math.floor(y_min), math.ceil(y_max)
+
+    x_size = (x_max - x_min) + 1
+    y_size = (y_max - y_min) + 1
 
     logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
-    idx_geo_df = create_pixel_geodf(x_max, y_max)
+    idx_geo_df = create_pixel_geodf(x_max=x_max, x_min=x_min, y_min=y_min, y_max=y_max)
 
     logger.info("Find the nearest nucleus to each pixel")
     # Find the nearest nucleus to each pixel
@@ -473,9 +505,7 @@ def spatial_as_sparse_arrays(
     pixel_labels[background_pixels] = 0
 
     # Convert back over to the grid format
-    labels = np.zeros(
-        (labels_geo_df["X"].max() + 1, labels_geo_df["Y"].max() + 1), dtype=int
-    )
+    labels = np.zeros((x_size, y_size), dtype=int)
     labels[labels_geo_df["X"], labels_geo_df["Y"]] = pixel_labels
 
     # Create a nuclei x gene count matrix
@@ -499,12 +529,12 @@ def spatial_as_sparse_arrays(
 
     # Assume for simplicity that it's a homogeneous poisson process for transcripts.
     # Add up all the transcripts in each pixel.
-    tx_count_grid = np.zeros((x_max + 1, y_max + 1), dtype=int)
+    tx_count_grid = np.zeros((x_size, y_size), dtype=int)
     np.add.at(
         tx_count_grid,
         (
-            tx_geo_df["x_location"].values.astype(int),
-            tx_geo_df["y_location"].values.astype(int),
+            tx_geo_df["x_location"].values.astype(int) - x_min,
+            tx_geo_df["y_location"].values.astype(int) - y_min,
         ),
         1,
     )
@@ -517,8 +547,8 @@ def spatial_as_sparse_arrays(
     # Estimate the background rate
     tx_background_mask = (
         labels[
-            tx_geo_df["x_location"].values.astype(int),
-            tx_geo_df["y_location"].values.astype(int),
+            tx_geo_df["x_location"].values.astype(int) - x_min,
+            tx_geo_df["y_location"].values.astype(int) - y_min,
         ]
         == 0
     )

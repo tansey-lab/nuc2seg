@@ -1,9 +1,15 @@
 import argparse
 import logging
 import numpy as np
+import pandas
 
 from nuc2seg import log_config
-from nuc2seg.xenium_utils import spatial_as_sparse_arrays
+from nuc2seg.xenium_utils import (
+    spatial_as_sparse_arrays,
+    load_nuclei,
+    load_and_filter_transcripts,
+    create_shapely_rectangle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +97,12 @@ def get_parser():
         type=int,
         default=48,
     )
+    parser.add_argument(
+        "--sample-area",
+        default=None,
+        type=str,
+        help='Rectangular area to sample in "x1,x2,y1,y2 format.',
+    )
     return parser
 
 
@@ -109,9 +121,33 @@ def main():
 
     prng = np.random.default_rng(args.seed)
 
-    spatial_as_sparse_arrays(
+    if args.sample_area:
+        sample_area = create_shapely_rectangle(
+            *[float(x) for x in args.sample_area.split(",")]
+        )
+
+    else:
+        df = pandas.read_parquet(args.transcripts_file)
+        y_max = df["y_location"].max()
+        x_max = df["x_location"].max()
+
+        sample_area = create_shapely_rectangle(0, 0, x_max, y_max)
+
+    nuclei_geo_df = load_nuclei(
         nuclei_file=args.nuclei_file,
+        sample_area=sample_area,
+    )
+
+    tx_geo_df = load_and_filter_transcripts(
         transcripts_file=args.transcripts_file,
+        sample_area=sample_area,
+        min_qv=args.min_qv,
+    )
+
+    spatial_as_sparse_arrays(
+        nuclei_geo_df=nuclei_geo_df,
+        tx_geo_df=tx_geo_df,
+        sample_area=sample_area,
         outdir=args.output_dir,
         pixel_stride=args.pixel_stride,
         min_qv=args.min_qv,
