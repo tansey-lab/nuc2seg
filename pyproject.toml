@@ -49,6 +49,7 @@ test = ["pytest", "pytest-mock", "tox", "coverage"]
 "Source" = "https://github.com/tansey-lab/nuc2seg"
 
 [project.scripts]
+preprocess = "nuc2seg.cli.preprocess:main"
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]
