@@ -36,7 +36,8 @@ dependencies = [
     "matplotlib",
     "autograd-minimize",
     "scikit-learn",
-    "pyarrow"
+    "pyarrow",
+    "h5py"
 ]
 
 [project.optional-dependencies]

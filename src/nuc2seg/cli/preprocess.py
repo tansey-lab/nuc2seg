@@ -150,7 +150,6 @@ def main():
         sample_area=sample_area,
         outdir=args.output_dir,
         pixel_stride=args.pixel_stride,
-        min_qv=args.min_qv,
         foreground_nucleus_distance=args.foreground_nucleus_distance,
         background_nucleus_distance=args.background_nucleus_distance,
         background_pixel_transcripts=args.background_pixel_transcripts,
