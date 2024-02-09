@@ -18,6 +18,7 @@ from scipy.stats import poisson
 from scipy.spatial import KDTree
 from shapely.geometry import box
 import h5py
+from nuc2seg.data import Nuc2SegDataset
 
 logger = logging.getLogger(__name__)
 
@@ -609,23 +610,25 @@ def spatial_as_sparse_arrays(
         * np.arange(y_min, y_max + 1, tile_stride).shape[0]
     )
 
-    progress_bar = tqdm.tqdm(total=n_tiles_total, desc="Processing tiles")
-
     logger.info("Creating tiles")
+    X = tx_geo_df["x_location"].values.astype(int) - x_min
+    Y = tx_geo_df["y_location"].values.astype(int) - y_min
+    G = tx_geo_df["gene_id"].values.astype(int)
+    ds = Nuc2SegDataset(
+        labels=labels,
+        angles=angles,
+        classes=pixel_types,
+        transcripts=np.array([X, Y, G]).T,
+        bbox=np.array([x_min, x_max, y_min, y_max]),
+        n_classes=n_classes,
+        n_genes=n_genes,
+    )
 
-    with h5py.File(f"{outdir}/data.h5", "w") as f:
-        f.create_dataset("nuclei", data=labels, compression="gzip")
-        f.create_dataset("angles", data=angles, compression="gzip")
-        f.create_dataset("classes", data=pixel_types, compression="gzip")
-        X = tx_geo_df["x_location"].values.astype(int) - x_min
-        Y = tx_geo_df["y_location"].values.astype(int) - y_min
-        G = tx_geo_df["gene_id"].values.astype(int)
-        f.create_dataset("transcripts", data=np.array([X, Y, G]).T, compression="gzip")
-        f.create_dataset("bbox", data=np.array([x_min, x_max, y_min, y_max]))
-        f.attrs["n_classes"] = n_classes
-        f.attrs["n_genes"] = n_genes
+    return ds
 
-    return
+
+def generate_tiles(ds: Nuc2SegDataset, tile_stride: int, tile_width: int):
+    progress_bar = tqdm.tqdm(total=n_tiles_total, desc="Processing tiles")
 
     for x_start in np.arange(y_max, x_max + 1, tile_stride):
         # Handle edge cases
@@ -698,13 +701,3 @@ def spatial_as_sparse_arrays(
             # Update the image filename ID
             image_id += 1
             progress_bar.update(1)
-
-    # Save the tile (x,y) locations
-    logger.info(f"Saving {outdir}/tiles/locations.npy")
-    np.save(f"{outdir}/tiles/locations.npy", np.array(tile_locations))
-    logger.info(f"Saving {outdir}/tiles/class_counts.npy")
-    np.save(f"{outdir}/tiles/class_counts.npy", class_local_counts)
-    logger.info(f"Saving {outdir}/tiles/transcript_counts.npy")
-    np.save(f"{outdir}/tiles/transcript_counts.npy", tx_local_counts)
-    logger.info(f"Saving {outdir}/tiles/class_counts.npy")
-    np.save(f"{outdir}/tiles/gene_ids.npy", np.array(list(enumerate(gene_ids))))
