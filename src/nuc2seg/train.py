@@ -47,6 +47,7 @@ def train(
     momentum: float = 0.999,
     gradient_clipping: float = 1.0,
     max_workers: int = 1,
+    validation_frequency: int = 500,
 ):
     # Create the dataset
     dataset = XeniumDataset(tiles_dir)
@@ -155,7 +156,7 @@ def train(
             epoch_loss += loss.item()
 
             # for Evaluating model performance/ convergence
-            if global_step % 500 == 0:
+            if global_step % validation_frequency == 0:
                 validation_score = evaluate(model, val_loader, device, amp)
                 validation_scores.append(validation_score)
 

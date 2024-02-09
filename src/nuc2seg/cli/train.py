@@ -1,6 +1,7 @@
 import argparse
 import logging
 import numpy as np
+import torch
 
 from nuc2seg import log_config
 from nuc2seg.train import train
@@ -17,6 +18,12 @@ def get_parser():
     parser.add_argument(
         "--preprocessed-tiles-dir",
         help="Directory containing preprocessed tiles.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--model-weights-output",
+        help="File to save model weights to.",
         type=str,
         required=True,
     )
@@ -87,6 +94,12 @@ def get_parser():
         default=1.0,
     )
     parser.add_argument(
+        "--validation-frequency",
+        help="Frequency of validation.",
+        type=int,
+        default=500,
+    )
+    parser.add_argument(
         "--max-workers",
         help="Maximum number of workers to use for data loading.",
         type=int,
@@ -133,4 +146,8 @@ def main():
         momentum=args.momentum,
         gradient_clipping=args.gradient_clipping,
         max_workers=args.max_workers,
+        validation_frequency=args.validation_frequency,
     )
+
+    logger.info(f"Saving model weights to {args.model_weights_output}")
+    torch.save(model.state_dict(), args.model_weights_output)

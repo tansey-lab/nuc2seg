@@ -50,7 +50,9 @@ def evaluate(net, dataloader, device, amp):
     # iterate over the validation set
     # with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
     # for batch in tqdm(dataloader, total=num_val_batches, desc='Validation round', unit='batch', leave=False):
-    for idx, batch in enumerate(tqdm.tqdm(dataloader, desc="Validation", unit="batch")):
+    for idx, batch in enumerate(
+        tqdm.tqdm(dataloader, desc="Validation", unit="batch", position=3)
+    ):
         x, y, z, labels, label_mask = (
             batch["X"],
             batch["Y"],
