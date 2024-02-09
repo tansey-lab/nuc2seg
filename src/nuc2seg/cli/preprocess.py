@@ -97,8 +97,6 @@ def get_parser():
 def get_args():
     parser = get_parser()
 
-    log_config.add_logging_args(parser)
-
     args = parser.parse_args()
 
     return args
