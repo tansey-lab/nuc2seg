@@ -102,6 +102,7 @@ def plot_spatial_join(joined_gdf, polygon_gdf, output_dir, cell_id_column="nucle
     plt.savefig(os.path.join(output_dir, "transcript_and_boundary.pdf"))
 
 
+## TODO: Maybe replace this with a library that does the same thing
 def estimate_cell_types(
     gene_counts,
     min_components=2,
@@ -558,37 +559,6 @@ def spatial_as_sparse_arrays(
     rate_loglikes, expression_loglikes = calculate_pixel_loglikes(
         tx_geo_df, tx_count_grid, all_expression_profiles, all_expression_rates
     )
-
-    # Use the graph-fused lasso to segment the unlabeled pixels
-    # results = fused_lasso_segmentation(pixel_loglikes, pixel_types)
-
-    # local_loglikes, local_types = pixel_loglikes[2000:2400,2000:2400], pixel_types[2000:2400,2000:2400]
-    # results = fused_lasso_segmentation(local_loglikes, local_types)
-
-    # # Plot the distribution of each cell type and background
-    # result_probs = results['probs'][5]
-    # def plot_all_probs(all_probs):
-    #     n_rows = all_probs.shape[-1]//4 + int(all_probs.shape[-1]%4>0)
-    #     n_cols = 4
-    #     arr = np.copy(pixel_types[2000:2400,2000:2400]).astype(float)
-    #     arr[pixel_types[2000:2400,2000:2400] < 0] = np.nan
-    #     arr[pixel_types[2000:2400,2000:2400] > 0] = 1
-    #     fig, axarr = plt.subplots(n_rows, n_cols, sharex=True, sharey=True)
-    #     for idx in range(all_probs.shape[-1]):
-    #         i,j = idx // 4, idx % 4
-    #         im = axarr[i,j].imshow(all_probs[...,idx], vmin=0, vmax=1, cmap='tab20b')
-    #         axarr[i,j].imshow(arr, cmap='Greys')
-    #     fig.subplots_adjust(right=0.8)
-    #     cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    #     fig.colorbar(im, cax=cbar_ax)
-    #     plt.show()
-
-    # Apply a simple gaussian filter to smooth out the probabilities a bit
-    # [because numerical solvers seem to suck here for the GFL?]
-    # from scipy.ndimage import gaussian_filter
-    # smooth_probs = np.array([gaussian_filter(result_probs[...,idx], sigma=1) for idx in range(result_probs.shape[-1])]).transpose(1,2,0)
-    # smooth_probs = smooth_probs / smooth_probs.sum(axis=-1, keepdims=True)
-    # plot_all_probs(smooth_probs)
 
     # # Plot the watershed results)
     # from skimage.segmentation import watershed

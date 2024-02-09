@@ -156,6 +156,7 @@ def train(
             global_step += 1
             epoch_loss += loss.item()
 
+            # for Evaluating model performance/ convergence
             if global_step % 500 == 0:
                 validation_score = evaluate(model, val_loader, device, amp)
                 print("Previous validation scores:")
