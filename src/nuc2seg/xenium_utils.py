@@ -260,80 +260,6 @@ def aic_bic(gene_counts, expression_profiles, prior_probs):
     return aic, bic
 
 
-"""
-nuclei_file = 'data/nucleus_boundaries.parquet'
-transcripts_file = 'data/transcripts.csv'
-out_dir = 'data/'
-pixel_stride=1
-min_qv=20.0
-foreground_nucleus_distance=1
-background_nucleus_distance=10
-background_transcript_distance=4
-background_pixel_transcripts=5
-tile_height=64
-tile_width=64
-"""
-
-
-def calculate_pixel_loglikes(
-    tx_geo_df, tx_count_grid, expression_profiles, expression_rates, x_min, y_min
-):
-    # Create zero-padded arrays of pixels x transcript counts and IDs
-    # NOTE: this is a painfully slow way of doing this. it's just a quick and dirty solution.
-    max_transcript_count = tx_count_grid.max() + 1
-    transcript_ids = np.zeros(tx_count_grid.shape + (max_transcript_count,), dtype=int)
-    transcript_counts = np.zeros(
-        tx_count_grid.shape + (max_transcript_count,), dtype=int
-    )
-    for row_idx, row in tqdm.tqdm(
-        tx_geo_df.iterrows(), desc="calculate_pixel_loglikes"
-    ):
-        x, y = (
-            math.floor(row["x_location"]) - x_min,
-            math.floor(row["y_location"]) - y_min,
-        )
-        tx_mask = transcript_ids[x, y] == row["gene_id"]
-        if tx_mask.sum() != 0:
-            gene_idx = np.argmax(tx_mask)
-            transcript_counts[x, y, gene_idx] += 1
-        else:
-            tx_mask = transcript_counts[x, y] == 0
-            gene_idx = np.argmax(tx_mask)
-            transcript_ids[x, y, gene_idx] += row["gene_id"]
-            transcript_counts[x, y, gene_idx] += 1
-
-    # Track how many transcripts are in each pixel and how much padding we need
-    totals = transcript_counts.sum(axis=-1)
-    max_count = totals.max()
-
-    # Calculate the log-likelihoods for each pixel having that many transcripts.
-    # Be clever about this to avoid recalculating lots of duplicate PMF values.
-    rate_loglike_uniques = poisson.logpmf(
-        np.arange(max_count + 1)[:, None], expression_rates[None]
-    )
-    rate_loglikes = rate_loglike_uniques[totals.reshape(-1)].reshape(
-        totals.shape + (expression_rates.shape[0],)
-    )
-
-    # Calculate the log-likelihoods for each pixel generating a certain set of transcripts.
-    # NOTE: yes we could vectorize this, but that leads to memory issues.
-    expression_loglikes = np.zeros_like(rate_loglikes)
-    log_expression = np.log(expression_profiles)
-    total = expression_loglikes.shape[0] * expression_loglikes.shape[1]
-    pbar = tqdm.tqdm(total=total, desc="calculate_pixel_loglikes")
-
-    for i in range(expression_loglikes.shape[0]):
-        for j in range(expression_loglikes.shape[1]):
-            expression_loglikes[i, j] = (
-                transcript_counts[i, j, :, None]
-                * log_expression.T[transcript_ids[i, j]]
-            ).sum(axis=0)
-            pbar.update(1)
-
-    # Add the two log-likelihoods together to get the pixelwise log-likelihood
-    return rate_loglikes, expression_loglikes
-
-
 def cart2pol(x, y):
     """Convert Cartesian coordinates to polar coordinates"""
     rho = np.sqrt(x**2 + y**2)
@@ -454,15 +380,11 @@ def spatial_as_sparse_arrays(
     nuclei_geo_df: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
     sample_area: shapely.Polygon,
-    outdir: str,
     pixel_stride=1,
     foreground_nucleus_distance=1,
     background_nucleus_distance=10,
     background_transcript_distance=4,
     background_pixel_transcripts=5,
-    tile_height=64,
-    tile_width=64,
-    tile_stride=48,
 ):
     """Creates a list of sparse CSC arrays. First array is the nuclei mask.
     All other arrays are the transcripts."""
@@ -590,25 +512,7 @@ def spatial_as_sparse_arrays(
         labels_geo_df["nucleus_angle"].values
     )
 
-    # Create tiled images and labels from the giant image
-    image_id = 0
-    tile_locations = []
-    tx_local_counts = []
-    class_local_counts = []
     n_classes = cell_type_probs.shape[-1]
-    if not os.path.exists(f"{outdir}/tiles/transcripts/"):
-        os.makedirs(f"{outdir}/tiles/transcripts/")
-    if not os.path.exists(f"{outdir}/tiles/labels/"):
-        os.makedirs(f"{outdir}/tiles/labels/")
-    if not os.path.exists(f"{outdir}/tiles/angles/"):
-        os.makedirs(f"{outdir}/tiles/angles/")
-    if not os.path.exists(f"{outdir}/tiles/classes/"):
-        os.makedirs(f"{outdir}/tiles/classes/")
-
-    n_tiles_total = (
-        np.arange(y_max, x_max + 1, tile_stride).shape[0]
-        * np.arange(y_min, y_max + 1, tile_stride).shape[0]
-    )
 
     logger.info("Creating tiles")
     X = tx_geo_df["x_location"].values.astype(int) - x_min
@@ -622,6 +526,7 @@ def spatial_as_sparse_arrays(
         bbox=np.array([x_min, x_max, y_min, y_max]),
         n_classes=n_classes,
         n_genes=n_genes,
+        resolution=1.0,
     )
 
     return ds
