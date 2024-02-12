@@ -126,8 +126,8 @@ class TiledDataset(Dataset):
         tile_overlap: float = 0.25,
     ):
         self.ds = dataset
-        self.tile_height = tile_height
-        self.tile_width = tile_width
+        self.tile_height = tile_width
+        self.tile_width = tile_height
         self.tile_overlap = tile_overlap
 
         self._tiler = TilingModule(
