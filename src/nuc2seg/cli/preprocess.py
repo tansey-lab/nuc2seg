@@ -4,12 +4,12 @@ import numpy as np
 import pandas
 
 from nuc2seg import log_config
-from nuc2seg.xenium_utils import (
-    spatial_as_sparse_arrays,
+from nuc2seg.xenium import (
     load_nuclei,
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
+from nuc2seg.preprocessing import create_rasterized_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--output-dir",
-        help="Output directory.",
+        "--output",
+        help="Output path.",
         type=str,
         required=True,
     )
@@ -144,17 +144,15 @@ def main():
         min_qv=args.min_qv,
     )
 
-    spatial_as_sparse_arrays(
+    ds = create_rasterized_dataset(
         nuclei_geo_df=nuclei_geo_df,
         tx_geo_df=tx_geo_df,
         sample_area=sample_area,
-        outdir=args.output_dir,
         pixel_stride=args.pixel_stride,
         foreground_nucleus_distance=args.foreground_nucleus_distance,
         background_nucleus_distance=args.background_nucleus_distance,
         background_pixel_transcripts=args.background_pixel_transcripts,
         background_transcript_distance=args.background_transcript_distance,
-        tile_width=args.tile_width,
-        tile_height=args.tile_height,
-        tile_stride=args.tile_stride,
     )
+
+    ds.save_h5(args.output)
