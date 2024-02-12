@@ -1,9 +1,15 @@
 import argparse
 import logging
 import numpy as np
+import pandas
 
 from nuc2seg import log_config
-from nuc2seg.xenium_utils import spatial_as_sparse_arrays
+from nuc2seg.xenium import (
+    load_nuclei,
+    load_and_filter_transcripts,
+    create_shapely_rectangle,
+)
+from nuc2seg.preprocessing import create_rasterized_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +32,8 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--output-dir",
-        help="Output directory.",
+        "--output",
+        help="Output path.",
         type=str,
         required=True,
     )
@@ -38,10 +44,10 @@ def get_parser():
         default=0,
     )
     parser.add_argument(
-        "--pixel-stride",
-        help="Stride for the pixel grid.",
-        type=int,
-        default=1,
+        "--resolution",
+        help="Size of a pixel in microns for rasterization.",
+        type=float,
+        default=1.0,
     )
     parser.add_argument(
         "--min-qv",
@@ -74,22 +80,10 @@ def get_parser():
         default=5,
     )
     parser.add_argument(
-        "--tile-height",
-        help="Height of the tiles.",
-        type=int,
-        default=64,
-    )
-    parser.add_argument(
-        "--tile-width",
-        help="Width of the tiles.",
-        type=int,
-        default=64,
-    )
-    parser.add_argument(
-        "--tile-stride",
-        help="Stride of the tiles.",
-        type=int,
-        default=48,
+        "--sample-area",
+        default=None,
+        type=str,
+        help='Crop the dataset to this rectangle, provided in in "x1,x2,y1,y2" format.',
     )
     return parser
 
@@ -109,17 +103,38 @@ def main():
 
     prng = np.random.default_rng(args.seed)
 
-    spatial_as_sparse_arrays(
+    if args.sample_area:
+        sample_area = create_shapely_rectangle(
+            *[float(x) for x in args.sample_area.split(",")]
+        )
+
+    else:
+        df = pandas.read_parquet(args.transcripts_file)
+        y_max = df["y_location"].max()
+        x_max = df["x_location"].max()
+
+        sample_area = create_shapely_rectangle(0, 0, x_max, y_max)
+
+    nuclei_geo_df = load_nuclei(
         nuclei_file=args.nuclei_file,
+        sample_area=sample_area,
+    )
+
+    tx_geo_df = load_and_filter_transcripts(
         transcripts_file=args.transcripts_file,
-        outdir=args.output_dir,
-        pixel_stride=args.pixel_stride,
+        sample_area=sample_area,
         min_qv=args.min_qv,
+    )
+
+    ds = create_rasterized_dataset(
+        nuclei_geo_df=nuclei_geo_df,
+        tx_geo_df=tx_geo_df,
+        sample_area=sample_area,
+        resolution=args.resolution,
         foreground_nucleus_distance=args.foreground_nucleus_distance,
         background_nucleus_distance=args.background_nucleus_distance,
         background_pixel_transcripts=args.background_pixel_transcripts,
         background_transcript_distance=args.background_transcript_distance,
-        tile_width=args.tile_width,
-        tile_height=args.tile_height,
-        tile_stride=args.tile_stride,
     )
+
+    ds.save_h5(args.output)

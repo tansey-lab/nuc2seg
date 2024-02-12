@@ -6,6 +6,7 @@ import torch
 from nuc2seg import log_config
 from nuc2seg.train import train
 from nuc2seg.unet_model import SparseUNet
+from nuc2seg.data import Nuc2SegDataset, TiledDataset
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,8 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
-        "--preprocessed-tiles-dir",
-        help="Directory containing preprocessed tiles.",
+        "--dataset",
+        help="Path to dataset in h5 format.",
         type=str,
         required=True,
     )
@@ -25,12 +26,6 @@ def get_parser():
         "--model-weights-output",
         help="File to save model weights to.",
         type=str,
-        required=True,
-    )
-    parser.add_argument(
-        "--n-classes",
-        help="Number of classes to segment.",
-        type=int,
         required=True,
     )
     parser.add_argument(
@@ -112,7 +107,30 @@ def get_parser():
         default="cpu",
         choices=["cpu", "cuda"],
     )
-
+    parser.add_argument(
+        "--tile-height",
+        help="Height of the tiles.",
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
+        "--tile-width",
+        help="Width of the tiles.",
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
+        "--overlap-percentage",
+        help="What percent of each tile dimension overlaps with the next tile.",
+        type=float,
+        default=0.25,
+    )
+    parser.add_argument(
+        "--num-dataloader-workers",
+        help="Number of workers to use for the data loader.",
+        type=int,
+        default=0,
+    )
     return parser
 
 
@@ -130,12 +148,24 @@ def main():
     log_config.configure_logging(args)
 
     np.random.seed(args.seed)
-    model = SparseUNet(600, args.n_classes + 2, (64, 64))
+
+    logger.info(f"Loading dataset from {args.dataset}")
+
+    ds = Nuc2SegDataset.load_h5(args.dataset)
+
+    tiled_dataset = TiledDataset(
+        ds,
+        tile_height=args.tile_height,
+        tile_width=args.tile_width,
+        tile_overlap=args.overlap_percentage,
+    )
+
+    model = SparseUNet(600, ds.n_classes + 2, (64, 64))
 
     train(
         model,
         device=args.device,
-        tiles_dir=args.preprocessed_tiles_dir,
+        dataset=tiled_dataset,
         epochs=args.epochs,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
@@ -147,6 +177,7 @@ def main():
         gradient_clipping=args.gradient_clipping,
         max_workers=args.max_workers,
         validation_frequency=args.validation_frequency,
+        num_dataloader_workers=args.num_dataloader_workers,
     )
 
     logger.info(f"Saving model weights to {args.model_weights_output}")
