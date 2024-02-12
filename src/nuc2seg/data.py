@@ -65,31 +65,6 @@ class Nuc2SegDataset:
         )
 
 
-def xenium_collate_fn(data):
-    outputs = {key: [] for key in data[0].keys()}
-    for sample in data:
-        for key, val in sample.items():
-            outputs[key].append(val)
-    outputs["X"] = pad_sequence(outputs["X"], batch_first=True, padding_value=-1)
-    outputs["Y"] = pad_sequence(outputs["Y"], batch_first=True, padding_value=-1)
-    outputs["gene"] = pad_sequence(outputs["gene"], batch_first=True, padding_value=-1)
-    outputs["labels"] = torch.stack(outputs["labels"])
-    outputs["angles"] = torch.stack(outputs["angles"])
-    outputs["classes"] = torch.stack(outputs["classes"])
-    outputs["label_mask"] = torch.stack(outputs["label_mask"]).type(torch.bool)
-    outputs["nucleus_mask"] = torch.stack(outputs["nucleus_mask"]).type(torch.bool)
-    outputs["location"] = torch.tensor(np.stack(outputs["location"])).type(torch.long)
-
-    # Edge case: pad_sequence will squeeze tensors if there are no entries.
-    # In that case, we just need to add the dimension back.
-    if len(outputs["gene"].shape) == 1:
-        outputs["X"] = outputs["X"][:, None]
-        outputs["Y"] = outputs["Y"][:, None]
-        outputs["gene"] = outputs["gene"][:, None]
-
-    return outputs
-
-
 def generate_tiles(
     tiler: TilingModule, x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None
 ):
@@ -115,6 +90,31 @@ def generate_tiles(
             else:
                 yield x, y, x + tile_size[0], y + tile_size[1]
             tile_id += 1
+
+
+def collate_tiles(data):
+    outputs = {key: [] for key in data[0].keys()}
+    for sample in data:
+        for key, val in sample.items():
+            outputs[key].append(val)
+    outputs["X"] = pad_sequence(outputs["X"], batch_first=True, padding_value=-1)
+    outputs["Y"] = pad_sequence(outputs["Y"], batch_first=True, padding_value=-1)
+    outputs["gene"] = pad_sequence(outputs["gene"], batch_first=True, padding_value=-1)
+    outputs["labels"] = torch.stack(outputs["labels"])
+    outputs["angles"] = torch.stack(outputs["angles"])
+    outputs["classes"] = torch.stack(outputs["classes"])
+    outputs["label_mask"] = torch.stack(outputs["label_mask"]).type(torch.bool)
+    outputs["nucleus_mask"] = torch.stack(outputs["nucleus_mask"]).type(torch.bool)
+    outputs["location"] = torch.tensor(np.stack(outputs["location"])).type(torch.long)
+
+    # Edge case: pad_sequence will squeeze tensors if there are no entries.
+    # In that case, we just need to add the dimension back.
+    if len(outputs["gene"].shape) == 1:
+        outputs["X"] = outputs["X"][:, None]
+        outputs["Y"] = outputs["Y"][:, None]
+        outputs["gene"] = outputs["gene"][:, None]
+
+    return outputs
 
 
 class TiledDataset(Dataset):
@@ -155,9 +155,12 @@ class TiledDataset(Dataset):
         angles = self.ds.angles
         classes = self.ds.classes
 
-        selection_criteria = transcripts[:, 0].between(x1, x2) & transcripts[
-            :, 1
-        ].between(y1, y2)
+        selection_criteria = (
+            (transcripts[:, 0] < x2)
+            & (transcripts[:, 0] > x1)
+            & (transcripts[:, 1] < y2)
+            & (transcripts[:, 1] > y1)
+        )
         tile_transcripts = transcripts[selection_criteria]
         tile_labels = labels[y1:y2, x1:x2]
 
@@ -180,7 +183,7 @@ class TiledDataset(Dataset):
             "Y": torch.as_tensor(tile_transcripts[:, 1]).long().contiguous(),
             "gene": torch.as_tensor(tile_transcripts[:, 2]).long().contiguous(),
             "labels": torch.as_tensor(tile_angles).long().contiguous(),
-            "angles": torch.as_tensor(angles).float().contiguous(),
+            "angles": torch.as_tensor(tile_angles).float().contiguous(),
             "classes": torch.as_tensor(tile_classes).long().contiguous(),
             "label_mask": torch.as_tensor(labels_mask).bool().contiguous(),
             "nucleus_mask": torch.as_tensor(nucleus_mask).bool().contiguous(),

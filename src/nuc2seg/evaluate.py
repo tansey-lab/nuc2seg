@@ -5,7 +5,7 @@ from torch import Tensor
 from matplotlib import pyplot as plt
 import tqdm
 
-from nuc2seg.xenium_utils import pol2cart
+from nuc2seg.preprocessing import pol2cart
 
 
 def dice_coeff(
@@ -54,18 +54,14 @@ def evaluate(net, dataloader, device, amp):
         tqdm.tqdm(dataloader, desc="Validation", unit="batch", position=2)
     ):
         x, y, z, labels, label_mask = (
-            batch["X"],
-            batch["Y"],
-            batch["gene"],
-            batch["labels"],
-            batch["label_mask"],
+            batch["X"].to(device),
+            batch["Y"].to(device),
+            batch["gene"].to(device),
+            batch["labels"].to(device),
+            batch["label_mask"].to(device),
         )
         label_mask = label_mask.type(torch.bool)
         mask_true = (labels > 0).type(torch.float)
-
-        # move images and labels to correct device and type
-        # image = image.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
-        # mask_true = mask_true.to(device=device, dtype=torch.long)
 
         # predict the mask
         mask_pred = net(x, y, z)
@@ -73,11 +69,7 @@ def evaluate(net, dataloader, device, amp):
         if mask_pred.dim() == 3:
             mask_pred = mask_pred[None]
 
-        # mask_pred = mask_pred.detach().numpy().copy()
-
         foreground_pred = torch.sigmoid(mask_pred[..., 0])
-        angles_pred = torch.sigmoid(mask_pred[..., 1]) * 2 * np.pi - np.pi
-        # class_pred = softmax(mask_pred[...,2:], axis=-1)
 
         for im_pred, im_true, im_label_mask in zip(
             foreground_pred, mask_true, label_mask
@@ -90,13 +82,6 @@ def evaluate(net, dataloader, device, amp):
                 dice_coeff(im_pred, im_true, reduce_batch_first=False)
                 / mask_true.shape[0]
             )
-
-            # assert im_true.min() >= 0 and im_true.max() < net.n_classes, 'True mask indices should be in [0, n_classes['
-            # # convert to one-hot format
-            # im_true = F.one_hot(im_true, net.n_classes).permute(0, 3, 1, 2).float()
-            # im_pred = F.one_hot(im_pred.argmax(dim=1), net.n_classes).permute(0, 3, 1, 2).float()
-            # # compute the Dice score, ignoring background
-            # dice_score += multiclass_dice_coeff(im_pred[:, 1:], mask_true[:, 1:], reduce_batch_first=True)
 
     net.train()
     return dice_score / max(num_val_batches, 1)

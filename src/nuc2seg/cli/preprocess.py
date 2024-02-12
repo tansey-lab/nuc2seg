@@ -44,10 +44,10 @@ def get_parser():
         default=0,
     )
     parser.add_argument(
-        "--pixel-stride",
-        help="Stride for the pixel grid.",
-        type=int,
-        default=1,
+        "--resolution",
+        help="Size of a pixel in microns for rasterization.",
+        type=float,
+        default=1.0,
     )
     parser.add_argument(
         "--min-qv",
@@ -80,28 +80,10 @@ def get_parser():
         default=5,
     )
     parser.add_argument(
-        "--tile-height",
-        help="Height of the tiles.",
-        type=int,
-        default=64,
-    )
-    parser.add_argument(
-        "--tile-width",
-        help="Width of the tiles.",
-        type=int,
-        default=64,
-    )
-    parser.add_argument(
-        "--tile-stride",
-        help="Stride of the tiles.",
-        type=int,
-        default=48,
-    )
-    parser.add_argument(
         "--sample-area",
         default=None,
         type=str,
-        help='Rectangular area to sample in "x1,x2,y1,y2 format.',
+        help='Crop the dataset to this rectangle, provided in in "x1,x2,y1,y2" format.',
     )
     return parser
 
@@ -148,7 +130,7 @@ def main():
         nuclei_geo_df=nuclei_geo_df,
         tx_geo_df=tx_geo_df,
         sample_area=sample_area,
-        pixel_stride=args.pixel_stride,
+        resolution=args.resolution,
         foreground_nucleus_distance=args.foreground_nucleus_distance,
         background_nucleus_distance=args.background_nucleus_distance,
         background_pixel_transcripts=args.background_pixel_transcripts,

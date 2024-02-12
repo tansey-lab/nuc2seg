@@ -47,7 +47,7 @@ def create_rasterized_dataset(
     nuclei_geo_df: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
     sample_area: shapely.Polygon,
-    pixel_stride=1,
+    resolution=1,
     foreground_nucleus_distance=1,
     background_nucleus_distance=10,
     background_transcript_distance=4,

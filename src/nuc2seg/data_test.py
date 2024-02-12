@@ -80,4 +80,10 @@ def test_tiled_dataset(test_dataset):
 
     assert len(td) == 9
 
-    assert td[0] == {}
+    first_tile = td[0]
+
+    assert first_tile["angles"].shape == (5, 10)
+    assert first_tile["labels"].shape == (5, 10)
+    assert first_tile["classes"].shape == (5, 10)
+    assert first_tile["location"].size == 2
+    assert first_tile["nucleus_mask"].shape == (5, 10)

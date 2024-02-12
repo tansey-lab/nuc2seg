@@ -158,7 +158,7 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
         sample_area=shapely.Polygon([(1, 1), (30, 1), (30, 20), (1, 20), (1, 1)]),
-        pixel_stride=1,
+        resolution=1,
         foreground_nucleus_distance=1,
         background_nucleus_distance=5,
         background_transcript_distance=3,
