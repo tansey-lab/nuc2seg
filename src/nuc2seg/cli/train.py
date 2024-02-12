@@ -29,12 +29,6 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--n-classes",
-        help="Number of classes to segment.",
-        type=int,
-        required=True,
-    )
-    parser.add_argument(
         "--seed",
         help="Seed to use for PRNG.",
         type=int,
@@ -131,6 +125,12 @@ def get_parser():
         type=float,
         default=0.25,
     )
+    parser.add_argument(
+        "--num-dataloader-workers",
+        help="Number of workers to use for the data loader.",
+        type=int,
+        default=0,
+    )
     return parser
 
 
@@ -160,7 +160,7 @@ def main():
         tile_overlap=args.overlap_percentage,
     )
 
-    model = SparseUNet(600, args.n_classes + 2, (64, 64))
+    model = SparseUNet(600, ds.n_classes + 2, (64, 64))
 
     train(
         model,
@@ -177,6 +177,7 @@ def main():
         gradient_clipping=args.gradient_clipping,
         max_workers=args.max_workers,
         validation_frequency=args.validation_frequency,
+        num_dataloader_workers=args.num_dataloader_workers,
     )
 
     logger.info(f"Saving model weights to {args.model_weights_output}")

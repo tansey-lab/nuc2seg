@@ -84,9 +84,9 @@ def generate_tiles(
     tile_id = 0
     for x in tiler._calc_tile_coords(x_extent, tile_size[0], overlap_fraction)[0]:
         for y in tiler._calc_tile_coords(y_extent, tile_size[1], overlap_fraction)[0]:
-
-            if tile_ids is not None and tile_id not in tile_ids:
-                continue
+            if tile_ids is not None:
+                if tile_id in tile_ids:
+                    yield x, y, x + tile_size[0], y + tile_size[1]
             else:
                 yield x, y, x + tile_size[0], y + tile_size[1]
             tile_id += 1
@@ -139,6 +139,24 @@ class TiledDataset(Dataset):
     def __len__(self):
         return self._tiler.num_tiles()
 
+    @property
+    def per_tile_class_histograms(self):
+        class_tiles = (
+            self._tiler.split_into_tiles(torch.tensor(self.ds.classes[None, None, ...]))
+            .squeeze()
+            .detach()
+            .numpy()
+            .astype(int)
+        )
+
+        class_tiles_flattened = class_tiles.reshape(
+            (self._tiler.num_tiles(), class_tiles.shape[1] * class_tiles.shape[2])
+        )
+
+        return np.apply_along_axis(
+            np.bincount, 1, class_tiles_flattened + 1, minlength=self.ds.n_classes + 2
+        )
+
     def __getitem__(self, idx):
         x1, y1, x2, y2 = next(
             generate_tiles(
@@ -162,18 +180,22 @@ class TiledDataset(Dataset):
             & (transcripts[:, 1] > y1)
         )
         tile_transcripts = transcripts[selection_criteria]
-        tile_labels = labels[y1:y2, x1:x2]
+
+        tile_transcripts[:, 0] = tile_transcripts[:, 0] - x1
+        tile_transcripts[:, 1] = tile_transcripts[:, 1] - y1
+
+        tile_labels = labels[x1:x2, y1:y2]
 
         local_ids = np.unique(tile_labels)
         local_ids = local_ids[local_ids > 0]
         for i, c in enumerate(local_ids):
             tile_labels[tile_labels == c] = i + 1
 
-        tile_angles = angles[y1:y2, x1:x2]
+        tile_angles = angles[x1:x2, y1:y2]
 
         tile_angles[tile_labels == -1] = -1
 
-        tile_classes = classes[y1:y2, x1:x2]
+        tile_classes = classes[x1:x2, y1:y2]
 
         labels_mask = tile_labels > -1
         nucleus_mask = tile_labels > 0
@@ -182,7 +204,7 @@ class TiledDataset(Dataset):
             "X": torch.as_tensor(tile_transcripts[:, 0]).long().contiguous(),
             "Y": torch.as_tensor(tile_transcripts[:, 1]).long().contiguous(),
             "gene": torch.as_tensor(tile_transcripts[:, 2]).long().contiguous(),
-            "labels": torch.as_tensor(tile_angles).long().contiguous(),
+            "labels": torch.as_tensor(tile_labels).long().contiguous(),
             "angles": torch.as_tensor(tile_angles).float().contiguous(),
             "classes": torch.as_tensor(tile_classes).long().contiguous(),
             "label_mask": torch.as_tensor(labels_mask).bool().contiguous(),

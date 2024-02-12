@@ -66,8 +66,8 @@ def train(
     celltype_criterion = nn.CrossEntropyLoss(
         reduction="mean",
         weight=torch.Tensor(
-            dataset.class_counts[:, 2:].mean()
-            / dataset.class_counts[:, 2:].mean(axis=0)
+            dataset.per_tile_class_histograms[:, 2:].mean()
+            / dataset.per_tile_class_histograms[:, 2:].mean(axis=0)
         ),
     )  # Class imbalance reweighting
 
@@ -75,10 +75,10 @@ def train(
     validation_scores = []
 
     # 5. Begin training
-    for epoch in tqdm.trange(1, epochs + 1, position=0, desc="Epoch"):
+    for epoch in tqdm.trange(0, epochs, position=0, desc="Epoch"):
         model.train()
         epoch_loss = 0
-        for batch in tqdm.tqdm(train_loader, position=1, desc="Batch"):
+        for batch in tqdm.tqdm(train_loader, position=1, desc="Batch", leave=False):
             x, y, z, labels, angles, classes, label_mask, nucleus_mask = (
                 batch["X"].to(device),
                 batch["Y"].to(device),
