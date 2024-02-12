@@ -1,12 +1,10 @@
 import logging
-import os
 import torch
-from os.path import join
-from pathlib import Path
 
 import numpy as np
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from nuc2seg.data import Nuc2SegDataset
 
 logger = logging.getLogger(__name__)
 
@@ -36,53 +34,106 @@ def xenium_collate_fn(data):
     return outputs
 
 
+def generate_tiles(x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None):
+    """
+    A generator function to yield overlapping tiles from a 2D NumPy array (image).
+
+    Parameters:
+    - image: 2D NumPy array representing the image.
+    - tile_size: Tuple of (tile_height, tile_width), the size of each tile.
+    - overlap_fraction: Fraction of overlap between tiles (0 to 1).
+    - tile_ids: List of tile IDs to generate. If None, all tiles are generated.
+
+    Yields:
+    - BBox extent in pixels for each tile (non inclusive end) x1, y1, x2, y2
+    """
+    # Calculate stride for moving the window based on overlap
+    stride_y = int(tile_size[0] * (1 - overlap_fraction))
+    stride_x = int(tile_size[1] * (1 - overlap_fraction))
+
+    # Ensure stride is at least 1 to avoid infinite loops
+    stride_y = max(1, stride_y)
+    stride_x = max(1, stride_x)
+
+    # Generate tiles
+    tile_id = 0
+    for y in range(0, y_extent - tile_size[0] + 1, stride_y):
+        for x in range(0, x_extent - tile_size[1] + 1, stride_x):
+            if tile_ids is not None and tile_id not in tile_ids:
+                continue
+            else:
+                yield x, y, x + tile_size[1], y + tile_size[0]
+            tile_id += 1
+
+
 class XeniumDataset(Dataset):
-    def __init__(self, tiles_dir: str):
-        self.transcripts_dir = Path(join(tiles_dir, "transcripts/"))
-        self.labels_dir = Path(join(tiles_dir, "labels/"))
-        self.angles_dir = Path(join(tiles_dir, "angles/"))
-        self.classes_dir = Path(join(tiles_dir, "classes/"))
-
-        self.locations = np.load(join(tiles_dir, "locations.npy"))
-
-        self.ids = np.arange(self.locations.shape[0])
-
-        logging.info(f"Creating dataset with {len(self.ids)} examples")
-        self.class_counts = np.load(join(tiles_dir, "class_counts.npy"))
-        self.transcript_counts = np.load(join(tiles_dir, "transcript_counts.npy"))
-        self.max_length = self.transcript_counts.max()
-        self.label_values = np.arange(self.class_counts.shape[1]) - 1
-        self.n_classes = self.class_counts.shape[1] - 2
-        self.gene_ids = {int(i): j for i, j in np.load(join(tiles_dir, "gene_ids.npy"))}
-        self.n_genes = max(self.gene_ids) + 1
-
-        # Note: class IDs are 1-based since ID=0 is background
-        logging.info(f"Unique label values: {self.label_values}")
+    def __init__(
+        self,
+        dataset: Nuc2SegDataset,
+        tile_height: int,
+        tile_width: int,
+        tile_overlap: float = 0.25,
+    ):
+        self.ds = dataset
+        self.tile_height = tile_height
+        self.tile_width = tile_width
+        self.tile_overlap = tile_overlap
+        self.n_tiles = sum(
+            1
+            for _ in generate_tiles(
+                x_extent=dataset.x_extent_pixels,
+                y_extent=dataset.y_extent_pixels,
+                tile_size=(tile_height, tile_width),
+                overlap_fraction=tile_overlap,
+            )
+        )
 
     def __len__(self):
-        return len(self.ids)
+        return self.n_tiles
 
     def __getitem__(self, idx):
-        transcripts_file = os.path.join(self.transcripts_dir, f"{idx}.npz")
-        labels_file = os.path.join(self.labels_dir, f"{idx}.npz")
-        angles_file = os.path.join(self.angles_dir, f"{idx}.npz")
-        classes_file = os.path.join(self.classes_dir, f"{idx}.npz")
+        x1, y1, x2, y2 = next(
+            generate_tiles(
+                x_extent=self.ds.x_extent_pixels,
+                y_extent=self.ds.y_extent_pixels,
+                tile_size=(self.tile_height, self.tile_width),
+                overlap_fraction=self.tile_overlap,
+                tile_ids=[idx],
+            )
+        )
+        transcripts = self.ds.transcripts
+        labels = self.ds.labels
+        angles = self.ds.angles
+        classes = self.ds.classes
 
-        xyg = np.load(transcripts_file)["arr_0"]
-        labels = np.load(labels_file)["arr_0"]
-        angles = np.load(angles_file)["arr_0"]
-        classes = np.load(classes_file)["arr_0"]
-        labels_mask = labels > -1
-        nucleus_mask = labels > 0
+        selection_criteria = transcripts[:, 0].between(x1, x2) & transcripts[
+            :, 1
+        ].between(y1, y2)
+        tile_transcripts = transcripts[selection_criteria]
+        tile_labels = labels[y1:y2, x1:x2]
+
+        local_ids = np.unique(tile_labels)
+        local_ids = local_ids[local_ids > 0]
+        for i, c in enumerate(local_ids):
+            tile_labels[tile_labels == c] = i + 1
+
+        tile_angles = angles[y1:y2, x1:x2]
+
+        tile_angles[tile_labels == -1] = -1
+
+        tile_classes = classes[y1:y2, x1:x2]
+
+        labels_mask = tile_labels > -1
+        nucleus_mask = tile_labels > 0
 
         return {
-            "X": torch.as_tensor(np.array(xyg[:, 0])).long().contiguous(),
-            "Y": torch.as_tensor(np.array(xyg[:, 1])).long().contiguous(),
-            "gene": torch.as_tensor(np.array(xyg[:, 2])).long().contiguous(),
-            "labels": torch.as_tensor(labels).long().contiguous(),
+            "X": torch.as_tensor(tile_transcripts[:, 0]).long().contiguous(),
+            "Y": torch.as_tensor(tile_transcripts[:, 1]).long().contiguous(),
+            "gene": torch.as_tensor(tile_transcripts[:, 2]).long().contiguous(),
+            "labels": torch.as_tensor(tile_angles).long().contiguous(),
             "angles": torch.as_tensor(angles).float().contiguous(),
-            "classes": torch.as_tensor(classes).long().contiguous(),
+            "classes": torch.as_tensor(tile_classes).long().contiguous(),
             "label_mask": torch.as_tensor(labels_mask).bool().contiguous(),
             "nucleus_mask": torch.as_tensor(nucleus_mask).bool().contiguous(),
-            "location": self.locations[idx],
+            "location": np.array([x1, y1]),
         }

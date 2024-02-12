@@ -2,7 +2,9 @@ import h5py
 
 
 class Nuc2SegDataset:
-    def __init__(self, labels, angles, classes, transcripts, bbox, n_classes, n_genes):
+    def __init__(
+        self, labels, angles, classes, transcripts, bbox, n_classes, n_genes, resolution
+    ):
         self.labels = labels
         self.angles = angles
         self.classes = classes
@@ -10,6 +12,7 @@ class Nuc2SegDataset:
         self.bbox = bbox
         self.n_classes = n_classes
         self.n_genes = n_genes
+        self.resolution = resolution
 
     def save_h5(self, path):
         with h5py.File(path, "w") as f:
@@ -20,6 +23,15 @@ class Nuc2SegDataset:
             f.create_dataset("bbox", data=self.bbox)
             f.attrs["n_classes"] = self.n_classes
             f.attrs["n_genes"] = self.n_genes
+            f.attrs["resolution"] = self.resolution
+
+    @property
+    def x_extent_pixels(self):
+        return self.labels.shape[1]
+
+    @property
+    def y_extent_pixels(self):
+        return self.labels.shape[0]
 
     @staticmethod
     def load_h5(path):
@@ -31,6 +43,7 @@ class Nuc2SegDataset:
             bbox = f["bbox"][:]
             n_classes = f.attrs["n_classes"]
             n_genes = f.attrs["n_genes"]
+            resolution = f.attrs["resolution"]
         return Nuc2SegDataset(
             labels=labels,
             angles=angles,
@@ -39,4 +52,5 @@ class Nuc2SegDataset:
             bbox=bbox,
             n_classes=n_classes,
             n_genes=n_genes,
+            resolution=resolution,
         )
