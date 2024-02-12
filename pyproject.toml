@@ -37,7 +37,8 @@ dependencies = [
     "autograd-minimize",
     "scikit-learn",
     "pyarrow",
-    "h5py"
+    "h5py",
+    "blended-tiling"
 ]
 
 [project.optional-dependencies]

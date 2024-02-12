@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from blended_tiling import TilingModule
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,9 @@ def xenium_collate_fn(data):
     return outputs
 
 
-def generate_tiles(x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None):
+def generate_tiles(
+    tiler: TilingModule, x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None
+):
     """
     A generator function to yield overlapping tiles from a 2D NumPy array (image).
 
@@ -102,26 +105,19 @@ def generate_tiles(x_extent, y_extent, tile_size, overlap_fraction, tile_ids=Non
     Yields:
     - BBox extent in pixels for each tile (non inclusive end) x1, y1, x2, y2
     """
-    # Calculate stride for moving the window based on overlap
-    stride_y = int(tile_size[0] * (1 - overlap_fraction))
-    stride_x = int(tile_size[1] * (1 - overlap_fraction))
-
-    # Ensure stride is at least 1 to avoid infinite loops
-    stride_y = max(1, stride_y)
-    stride_x = max(1, stride_x)
-
     # Generate tiles
     tile_id = 0
-    for y in range(0, y_extent - tile_size[0] + 1, stride_y):
-        for x in range(0, x_extent - tile_size[1] + 1, stride_x):
+    for x in tiler._calc_tile_coords(x_extent, tile_size[0], overlap_fraction)[0]:
+        for y in tiler._calc_tile_coords(y_extent, tile_size[1], overlap_fraction)[0]:
+
             if tile_ids is not None and tile_id not in tile_ids:
                 continue
             else:
-                yield x, y, x + tile_size[1], y + tile_size[0]
+                yield x, y, x + tile_size[0], y + tile_size[1]
             tile_id += 1
 
 
-class XeniumDataset(Dataset):
+class TiledDataset(Dataset):
     def __init__(
         self,
         dataset: Nuc2SegDataset,
@@ -133,22 +129,20 @@ class XeniumDataset(Dataset):
         self.tile_height = tile_height
         self.tile_width = tile_width
         self.tile_overlap = tile_overlap
-        self.n_tiles = sum(
-            1
-            for _ in generate_tiles(
-                x_extent=dataset.x_extent_pixels,
-                y_extent=dataset.y_extent_pixels,
-                tile_size=(tile_height, tile_width),
-                overlap_fraction=tile_overlap,
-            )
+
+        self._tiler = TilingModule(
+            tile_size=(tile_width, tile_height),
+            tile_overlap=(tile_overlap, tile_overlap),
+            base_size=(dataset.x_extent_pixels, dataset.y_extent_pixels),
         )
 
     def __len__(self):
-        return self.n_tiles
+        return self._tiler.num_tiles()
 
     def __getitem__(self, idx):
         x1, y1, x2, y2 = next(
             generate_tiles(
+                tiler=self._tiler,
                 x_extent=self.ds.x_extent_pixels,
                 y_extent=self.ds.y_extent_pixels,
                 tile_size=(self.tile_height, self.tile_width),
