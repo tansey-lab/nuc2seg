@@ -52,7 +52,8 @@ test = ["pytest", "pytest-mock", "tox", "coverage"]
 
 [project.scripts]
 preprocess = "nuc2seg.cli.preprocess:main"
-train_nuc2seg = "nuc2seg.cli.train:main"
+train = "nuc2seg.cli.train:main"
+predict = "nuc2seg.cli.predict:main"
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]

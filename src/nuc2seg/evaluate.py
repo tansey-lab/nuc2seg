@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import tqdm
 
 from nuc2seg.preprocessing import pol2cart
+from nuc2seg.data import collate_tiles
 
 
 def dice_coeff(
@@ -88,20 +89,18 @@ def evaluate(net, dataloader, device, amp):
 
 
 def plot_predictions(net, dataloader, idx=0, threshold=0.5):
-    for i, batch in enumerate(dataloader):
-        if i < idx:
-            continue
-        x, y, z, labels, angles, classes, label_mask, nucleus_mask = (
-            batch["X"],
-            batch["Y"],
-            batch["gene"],
-            batch["labels"].numpy().copy().astype(int),
-            batch["angles"].numpy().copy().astype(float),
-            batch["classes"].numpy().copy().astype(int),
-            batch["label_mask"].numpy().copy().astype(bool),
-            batch["nucleus_mask"].numpy().copy().astype(bool),
-        )
-        break
+
+    batch = collate_tiles([dataloader[idx]])
+    x, y, z, labels, angles, classes, label_mask, nucleus_mask = (
+        batch["X"],
+        batch["Y"],
+        batch["gene"],
+        batch["labels"].numpy().copy().astype(int),
+        batch["angles"].numpy().copy().astype(float),
+        batch["classes"].numpy().copy().astype(int),
+        batch["label_mask"].numpy().copy().astype(bool),
+        batch["nucleus_mask"].numpy().copy().astype(bool),
+    )
 
     net.eval()
     mask_pred = net(x, y, z).detach().numpy().copy()
@@ -134,8 +133,15 @@ def plot_predictions(net, dataloader, idx=0, threshold=0.5):
         pred_plot[pred_plot == c] = (i % 16) + 4
 
     fig, axarr = plt.subplots(
-        3, x.shape[0], figsize=(5 * x.shape[0], 10), sharex=True, sharey=True
+        nrows=3,
+        ncols=x.shape[0],
+        figsize=(5 * x.shape[0], 10),
+        sharex=True,
+        sharey=True,
     )
+    if len(axarr.shape) == 1:
+        axarr = axarr[:, None]
+
     for i in range(x.shape[0]):
         axarr[0, i].set_title("Labels and transcripts")
         axarr[0, i].imshow(label_plot[i], cmap="tab20b", interpolation="none")

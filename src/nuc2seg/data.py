@@ -12,7 +12,18 @@ logger = logging.getLogger(__name__)
 
 class Nuc2SegDataset:
     def __init__(
-        self, labels, angles, classes, transcripts, bbox, n_classes, n_genes, resolution
+        self,
+        labels,
+        angles,
+        classes,
+        transcripts,
+        bbox,
+        n_classes,
+        n_genes,
+        resolution,
+        tile_width: int,
+        tile_height: int,
+        tile_overlap: float,
     ):
         self.labels = labels
         self.angles = angles
@@ -22,6 +33,9 @@ class Nuc2SegDataset:
         self.n_classes = n_classes
         self.n_genes = n_genes
         self.resolution = resolution
+        self.tile_width = tile_width
+        self.tile_height = tile_height
+        self.tile_overlap = tile_overlap
 
     def save_h5(self, path):
         with h5py.File(path, "w") as f:
@@ -33,6 +47,9 @@ class Nuc2SegDataset:
             f.attrs["n_classes"] = self.n_classes
             f.attrs["n_genes"] = self.n_genes
             f.attrs["resolution"] = self.resolution
+            f.attrs["tile_width"] = self.tile_width
+            f.attrs["tile_height"] = self.tile_height
+            f.attrs["tile_overlap"] = self.tile_overlap
 
     @property
     def x_extent_pixels(self):
@@ -140,6 +157,10 @@ class TiledDataset(Dataset):
         return self._tiler.num_tiles()
 
     @property
+    def tiler(self):
+        return self._tiler
+
+    @property
     def per_tile_class_histograms(self):
         class_tiles = (
             self._tiler.split_into_tiles(torch.tensor(self.ds.classes[None, None, ...]))
@@ -160,7 +181,7 @@ class TiledDataset(Dataset):
     def __getitem__(self, idx):
         x1, y1, x2, y2 = next(
             generate_tiles(
-                tiler=self._tiler,
+                tiler=self.tiler,
                 x_extent=self.ds.x_extent_pixels,
                 y_extent=self.ds.y_extent_pixels,
                 tile_size=(self.tile_height, self.tile_width),
@@ -211,3 +232,25 @@ class TiledDataset(Dataset):
             "nucleus_mask": torch.as_tensor(nucleus_mask).bool().contiguous(),
             "location": np.array([x1, y1]),
         }
+
+
+class ModelPredictions:
+    def __init__(self, angles, classes, foreground):
+
+        self.angles = angles
+        self.classes = classes
+        self.foreground = foreground
+
+    def save_h5(self, path):
+        with h5py.File(path, "w") as f:
+            f.create_dataset("angles", data=self.angles, compression="gzip")
+            f.create_dataset("classes", data=self.classes, compression="gzip")
+            f.create_dataset("foreground", data=self.foreground, compression="gzip")
+
+    @staticmethod
+    def load_h5(path):
+        with h5py.File(path, "r") as f:
+            angles = f["angles"][:]
+            classes = f["classes"][:]
+            foreground = f["foreground"][:]
+        return ModelPredictions(angles=angles, classes=classes, foreground=foreground)
