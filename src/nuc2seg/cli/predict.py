@@ -74,8 +74,6 @@ def main():
 
     log_config.configure_logging(args)
 
-    np.random.seed(args.seed)
-
     logger.info(f"Loading dataset from {args.dataset}")
 
     ds = Nuc2SegDataset.load_h5(args.dataset)

@@ -12,18 +12,7 @@ logger = logging.getLogger(__name__)
 
 class Nuc2SegDataset:
     def __init__(
-        self,
-        labels,
-        angles,
-        classes,
-        transcripts,
-        bbox,
-        n_classes,
-        n_genes,
-        resolution,
-        tile_width: int,
-        tile_height: int,
-        tile_overlap: float,
+        self, labels, angles, classes, transcripts, bbox, n_classes, n_genes, resolution
     ):
         self.labels = labels
         self.angles = angles
@@ -33,9 +22,6 @@ class Nuc2SegDataset:
         self.n_classes = n_classes
         self.n_genes = n_genes
         self.resolution = resolution
-        self.tile_width = tile_width
-        self.tile_height = tile_height
-        self.tile_overlap = tile_overlap
 
     def save_h5(self, path):
         with h5py.File(path, "w") as f:
@@ -47,9 +33,6 @@ class Nuc2SegDataset:
             f.attrs["n_classes"] = self.n_classes
             f.attrs["n_genes"] = self.n_genes
             f.attrs["resolution"] = self.resolution
-            f.attrs["tile_width"] = self.tile_width
-            f.attrs["tile_height"] = self.tile_height
-            f.attrs["tile_overlap"] = self.tile_overlap
 
     @property
     def x_extent_pixels(self):
