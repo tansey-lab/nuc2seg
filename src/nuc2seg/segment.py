@@ -7,40 +7,21 @@ import logging
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.special import expit, softmax
-
-from xenium_utils import pol2cart, create_pixel_geodf, load_nuclei
+from nuc2seg.preprocessing import pol2cart
+from nuc2seg.data import collate_tiles, ModelPredictions
 
 logger = logging.getLogger(__name__)
 
 
-def temp_forward(model, x, y, z):
-    mask = z > -1
-    b = torch.as_tensor(
-        np.tile(np.arange(z.shape[0]), (z.shape[1], 1)).T[mask.numpy().astype(bool)]
-    )
-    W = model.filters(z[mask])
-    t_input = torch.Tensor(np.zeros((z.shape[0],) + model.img_shape))
-    t_input.index_put_(
-        (b, torch.LongTensor(x[mask]), torch.LongTensor(y[mask])), W, accumulate=True
-    )
-    t_input = torch.Tensor.permute(
-        t_input, (0, 3, 1, 2)
-    )  # Needs to be Batch x Channels x ImageX x ImageY
-    return torch.Tensor.permute(
-        model.unet(t_input), (0, 2, 3, 1)
-    )  # Map back to Batch x ImageX x Image Y x Classes
-
-
-def stitch_tile_predictions(model, dataset, tile_buffer=8):
-    """TODO: all of the metadata info should be available in dataset."""
+def stitch_predictions(model, dataloader):
     model.eval()
+    foreground_list = []
+    class_list = []
 
-    x_max, y_max = dataset.locations.max(axis=0)
-    tile_width, tile_height = dataset[0]["labels"].numpy().shape
-
-    results = np.zeros((x_max + tile_width, y_max + tile_height, dataset.n_classes + 2))
-    for idx in tqdm.trange(len(dataset), desc="Stitching tiles"):
-        tile = dataset[idx]
+    vector_x_list = []
+    vector_y_list = []
+    for batch in tqdm.tqdm(dataloader, desc="Stitching predictions", unit="batch"):
+        tile = collate_tiles([batch])
 
         x, y, z, labels, angles, classes, label_mask, nucleus_mask, location = (
             tile["X"],
@@ -53,53 +34,50 @@ def stitch_tile_predictions(model, dataset, tile_buffer=8):
             tile["nucleus_mask"].numpy().copy().astype(bool),
             tile["location"],
         )
-
-        # mask_pred = model(x,y,z).detach().numpy().copy()
-        mask_pred = (
-            temp_forward(model, x[None], y[None], z[None])
-            .squeeze(0)
-            .detach()
-            .numpy()
-            .copy()
-        )  # TEMP: code is fixed but i am currently using a pretrained model
+        mask_pred = model(x, y, z).detach().numpy().copy()
         foreground_pred = expit(mask_pred[..., 0])
         angles_pred = expit(mask_pred[..., 1]) * 2 * np.pi - np.pi
         class_pred = softmax(mask_pred[..., 2:], axis=-1)
+        vector_x_list.append(0.5 * np.cos(angles_pred.squeeze()))
+        vector_y_list.append(0.5 * np.sin(angles_pred.squeeze()))
+        foreground_list.append(foreground_pred.squeeze())
+        class_list.append(class_pred.squeeze())
 
-        # Get the location of this tile in the whole slide
-        x_start, y_start = location
+    all_vector_x = torch.tensor(np.stack(vector_x_list, axis=0))
+    all_vector_y = torch.tensor(np.stack(vector_y_list, axis=0))
 
-        # Figure out which parts of the tile to use since the tiles overlap
-        x_end_offset, y_end_offset = foreground_pred.shape[:2]
-        x_start_offset, y_start_offset = 0, 0
-        if x_start > 0:
-            x_start_offset += tile_buffer
-        if y_start > 0:
-            y_start_offset += tile_buffer
-        if x_start < x_max:
-            x_end_offset -= tile_buffer
-        if y_start < y_max:
-            y_end_offset -= tile_buffer
+    all_foreground = torch.tensor(np.stack(foreground_list, axis=0))
+    all_classes = torch.tensor(np.stack(class_list, axis=0))
 
-        results[
-            x_start + x_start_offset : x_start + x_end_offset,
-            y_start + y_start_offset : y_start + y_end_offset,
-            0,
-        ] = foreground_pred[x_start_offset:x_end_offset, y_start_offset:y_end_offset]
-        results[
-            x_start + x_start_offset : x_start + x_end_offset,
-            y_start + y_start_offset : y_start + y_end_offset,
-            1,
-        ] = angles_pred[x_start_offset:x_end_offset, y_start_offset:y_end_offset]
-        results[
-            x_start + x_start_offset : x_start + x_end_offset,
-            y_start + y_start_offset : y_start + y_end_offset,
-            2:,
-        ] = class_pred[x_start_offset:x_end_offset, y_start_offset:y_end_offset]
+    tile_mask = dataloader.tiler.get_tile_masks()[:, 0, :, :]
 
-        idx += 1
+    vector_x_tiles = all_vector_x * tile_mask
+    vector_x_stitched = dataloader.tiler.rebuild(
+        vector_x_tiles[:, None, :, :]
+    ).squeeze()
 
-    return results
+    vector_y_tiles = all_vector_y * tile_mask
+    vector_y_stitched = dataloader.tiler.rebuild(
+        vector_y_tiles[:, None, :, :]
+    ).squeeze()
+
+    angles_stitched = torch.atan2(vector_y_stitched, vector_x_stitched)
+
+    foreground_tiles = all_foreground * tile_mask
+    foreground_stitched = dataloader.tiler.rebuild(
+        foreground_tiles[:, None, :, :]
+    ).squeeze()
+
+    class_tiles = all_classes * tile_mask[..., None]
+    class_stitched = dataloader.tiler.rebuild(
+        class_tiles.permute((0, 3, 1, 2))
+    ).squeeze()
+
+    return ModelPredictions(
+        angles=angles_stitched.detach().numpy(),
+        foreground=foreground_stitched.detach().numpy(),
+        classes=class_stitched.detach().numpy(),
+    )
 
 
 def greedy_expansion(

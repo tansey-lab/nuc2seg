@@ -140,6 +140,10 @@ class TiledDataset(Dataset):
         return self._tiler.num_tiles()
 
     @property
+    def tiler(self):
+        return self._tiler
+
+    @property
     def per_tile_class_histograms(self):
         class_tiles = (
             self._tiler.split_into_tiles(torch.tensor(self.ds.classes[None, None, ...]))
@@ -160,7 +164,7 @@ class TiledDataset(Dataset):
     def __getitem__(self, idx):
         x1, y1, x2, y2 = next(
             generate_tiles(
-                tiler=self._tiler,
+                tiler=self.tiler,
                 x_extent=self.ds.x_extent_pixels,
                 y_extent=self.ds.y_extent_pixels,
                 tile_size=(self.tile_height, self.tile_width),
@@ -211,3 +215,25 @@ class TiledDataset(Dataset):
             "nucleus_mask": torch.as_tensor(nucleus_mask).bool().contiguous(),
             "location": np.array([x1, y1]),
         }
+
+
+class ModelPredictions:
+    def __init__(self, angles, classes, foreground):
+
+        self.angles = angles
+        self.classes = classes
+        self.foreground = foreground
+
+    def save_h5(self, path):
+        with h5py.File(path, "w") as f:
+            f.create_dataset("angles", data=self.angles, compression="gzip")
+            f.create_dataset("classes", data=self.classes, compression="gzip")
+            f.create_dataset("foreground", data=self.foreground, compression="gzip")
+
+    @staticmethod
+    def load_h5(path):
+        with h5py.File(path, "r") as f:
+            angles = f["angles"][:]
+            classes = f["classes"][:]
+            foreground = f["foreground"][:]
+        return ModelPredictions(angles=angles, classes=classes, foreground=foreground)
