@@ -83,7 +83,7 @@ def get_parser():
         "--sample-area",
         default=None,
         type=str,
-        help='Crop the dataset to this rectangle, provided in in "x1,x2,y1,y2" format.',
+        help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
     )
     return parser
 
