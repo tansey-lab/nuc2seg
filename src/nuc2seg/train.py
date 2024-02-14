@@ -1,12 +1,18 @@
+import os.path
+
 import torch
 import torch.nn as nn
 import tqdm
+import logging
 
 from nuc2seg.data import TiledDataset, collate_tiles
 from torch import optim
 from torch.utils.data import DataLoader, random_split
+from pytorch_lightning.core import LightningModule
 
 from nuc2seg.evaluate import evaluate
+
+logger = logging.getLogger(__name__)
 
 
 def angle_loss(predictions, targets):
@@ -22,11 +28,11 @@ def train(
     model,
     device,
     dataset: TiledDataset,
+    checkpoint_path: str = None,
     epochs: int = 50,
     batch_size: int = 1,
     learning_rate: float = 1e-5,
     val_percent: float = 0.1,
-    save_checkpoint: bool = True,
     amp: bool = False,
     weight_decay: float = 1e-8,
     momentum: float = 0.999,
@@ -60,7 +66,6 @@ def train(
         weight_decay=weight_decay,
         momentum=momentum,
     )
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=5)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     foreground_criterion = nn.BCEWithLogitsLoss(reduction="mean")
     celltype_criterion = nn.CrossEntropyLoss(
@@ -74,8 +79,21 @@ def train(
     global_step = 0
     validation_scores = []
 
+    if checkpoint_path and os.path.exists(checkpoint_path):
+        logger.info(f"Loaded model from checkpoint at epoch {global_step}")
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        current_epoch = checkpoint["epoch"]
+        remaining_epochs = epochs - current_epoch
+        logger.info(
+            f"{current_epoch} epochs already trained. {remaining_epochs} epochs remaining."
+        )
+    else:
+        current_epoch = 0
+
     # 5. Begin training
-    for epoch in tqdm.trange(0, epochs, position=0, desc="Epoch"):
+    for epoch in tqdm.trange(current_epoch, epochs, position=0, desc="epoch"):
         model.train()
         epoch_loss = 0
         for batch in tqdm.tqdm(train_loader, position=1, desc="Batch", leave=False):
@@ -130,3 +148,15 @@ def train(
             if global_step % validation_frequency == 0:
                 validation_score = evaluate(model, val_loader, device, amp)
                 validation_scores.append(validation_score)
+        if checkpoint_path:
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "loss": epoch_loss,
+                },
+                checkpoint_path,
+            )
+
+    return validation_scores
