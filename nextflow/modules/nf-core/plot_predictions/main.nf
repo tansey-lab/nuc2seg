@@ -6,7 +6,7 @@ process PLOT_PREDICTIONS {
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
 
     input:
-    tuple val(meta), path(dataset), path(model_evaluation)
+    tuple val(meta), path(dataset), path(predictions)
 
     output:
     tuple val(meta), path("${prefix}/plots"), emit: results

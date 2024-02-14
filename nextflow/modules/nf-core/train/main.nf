@@ -24,7 +24,6 @@ process TRAIN {
     train \
         --dataset ${dataset} \
         --model-weights-output ${prefix}/model_weights.pth \
-        --device ${params.device} \
         --tile-height ${params.tile_height} \
         --tile-width ${params.tile_width} \
         --overlap-percentage ${params.overlap_percentage} \
