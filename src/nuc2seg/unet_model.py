@@ -168,9 +168,12 @@ class SparseUNet(LightningModule):
             )
             self.log("celltype_loss", celltype_loss)
 
-            return foreground_loss + angle_loss_val + celltype_loss
+            train_loss = foreground_loss + angle_loss_val + celltype_loss
         else:
-            return foreground_loss
+            train_loss = foreground_loss
+
+        self.log("train_loss", train_loss)
+        return train_loss
 
     def validation_step(self, batch, batch_idx):
         dice_score = 0
@@ -205,9 +208,9 @@ class SparseUNet(LightningModule):
 
         self.validation_step_outputs.append(dice_score)
 
-    def on_validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
         dice_score = torch.stack(self.validation_step_outputs).mean()
-        self.log("val_dice_score", dice_score)
+        self.log("val_accuracy", dice_score)
         self.validation_step_outputs.clear()
 
 

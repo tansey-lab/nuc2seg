@@ -9,7 +9,7 @@ process TRAIN {
     tuple val(meta), path(dataset)
 
     output:
-    tuple val(meta), path("${prefix}/lightning_logs/*/checkpoints/*.ckpt"), emit: weights
+    tuple val(meta), path("${prefix}/${workflow.runName}/checkpoints/*.ckpt"), emit: weights
     path  "versions.yml"                , emit: versions
 
 
@@ -26,7 +26,7 @@ process TRAIN {
     export WANDB_DOCKER='jeffquinnmsk/nuc2seg:latest'
     mkdir -p "${prefix}"
     mkdir -p "${prefix}/wandb"
-    export WANDB_DIR="$(realpath ${prefix}/wandb)"
+    export WANDB_DIR="\$(realpath ${prefix}/wandb)"
     export WANDB_DISABLE_GIT=1
     export WANDB_DISABLE_CODE=1
     export WANDB_API_KEY="${wandb_key}"
