@@ -74,7 +74,6 @@ def create_rasterized_dataset(
     labels_geo_df.rename(columns={"index_right": "nucleus_id_xenium"}, inplace=True)
 
     # Calculate the nearest transcript neighbors
-
     logger.info("Calculating the nearest transcript neighbors")
     transcript_xy = np.array(
         [tx_geo_df["x_location"].values, tx_geo_df["y_location"].values]

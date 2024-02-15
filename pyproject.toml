@@ -3,7 +3,7 @@ name = "nuc2seg"
 version = "0.0.1"
 description = ""
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = {file = "LICENSE.txt"}
 keywords = ["spatial", "expression", "rna"]
 authors = [
