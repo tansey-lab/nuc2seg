@@ -3,10 +3,11 @@
 from torch.nn import Embedding
 import numpy as np
 from nuc2seg.unet_parts import *
-from pytorch_lightning.core import LightningModule
+from pytorch_lightning.core import LightningModule, LightningDataModule
 from nuc2seg.data import TiledDataset, Nuc2SegDataset
 from torch import optim
 from nuc2seg.evaluate import dice_coeff
+from torch.utils.data import DataLoader, random_split
 
 
 class UNet(nn.Module):
@@ -66,8 +67,9 @@ def angle_loss(predictions, targets):
 class SparseUNet(LightningModule):
     def __init__(
         self,
-        dataset: Nuc2SegDataset,
         n_channels,
+        n_classes,
+        celltype_criterion_weights,
         tile_height=64,
         tile_width=64,
         tile_overlap=0.25,
@@ -85,25 +87,15 @@ class SparseUNet(LightningModule):
             n_filters,
         )
         self.filters = Embedding(n_channels, n_filters)
-        self.n_classes = dataset.n_classes + 2
+        self.n_classes = n_classes + 2
         self.unet = UNet(
             self.hparams.n_filters, self.n_classes, bilinear=self.hparams.bilinear
         )
         self.foreground_criterion = nn.BCEWithLogitsLoss(reduction="mean")
-        self.dataset = dataset
-        self.tiled_dataset = TiledDataset(
-            dataset,
-            tile_height=tile_height,
-            tile_width=tile_width,
-            tile_overlap=tile_overlap,
-        )
         # Class imbalance reweighting
         self.celltype_criterion = nn.CrossEntropyLoss(
             reduction="mean",
-            weight=torch.Tensor(
-                self.tiled_dataset.per_tile_class_histograms[:, 2:].mean()
-                / self.tiled_dataset.per_tile_class_histograms[:, 2:].mean(axis=0)
-            ),
+            weight=celltype_criterion_weights,
         )
 
     def forward(self, x, y, z):
@@ -203,3 +195,57 @@ class SparseUNet(LightningModule):
             )
 
         return dice_score / batch_size
+
+
+class Nuc2SegDataModule(LightningDataModule):
+    def __init__(
+        self,
+        preprocessed_data_path: str,
+        val_percent: float = 0.1,
+        train_batch_size: int = 1,
+        val_batch_size: int = 1,
+        tile_height: int = 64,
+        tile_width: int = 64,
+        tile_overlap: float = 0.25,
+    ):
+        super().__init__()
+        self.preprocessed_data_path = preprocessed_data_path
+        self.val_percent = val_percent
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.dataset = None
+        self.train_set = None
+        self.val_set = None
+        self.tile_height = tile_height
+        self.tile_width = tile_width
+        self.tile_overlap = tile_overlap
+
+    def prepare_data(self):
+        # download
+        pass
+
+    def setup(self, stage=None):
+
+        self.dataset = Nuc2SegDataset.load_h5(self.preprocessed_data_path)
+
+        dataset = TiledDataset(
+            self.dataset,
+            tile_height=self.tile_height,
+            tile_width=self.tile_width,
+            tile_overlap=self.tile_overlap,
+        )
+        n_val = int(len(dataset) * self.val_percent)
+        n_train = len(dataset) - n_val
+        self.train_set, self.val_set = random_split(dataset, [n_train, n_val])
+
+    def train_dataloader(self):
+        if self.dataset is None:
+            raise ValueError("You must call setup() before train_dataloader()")
+
+        return DataLoader(self.train_set, batch_size=self.train_batch_size)
+
+    def val_dataloader(self):
+        if self.dataset is None:
+            raise ValueError("You must call setup() before train_dataloader()")
+
+        return DataLoader(self.val_set, batch_size=self.val_batch_size)
