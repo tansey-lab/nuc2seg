@@ -2,6 +2,7 @@ include { PREPROCESS } from '../../../modules/nf-core/preprocess/main'
 include { TRAIN } from '../../../modules/nf-core/train/main'
 include { PREDICT } from '../../../modules/nf-core/predict/main'
 include { PLOT_PREDICTIONS } from '../../../modules/nf-core/plot_predictions/main'
+include { SEGMENT } from '../../../modules/nf-core/segment/main'
 
 workflow NUC2SEG {
     def name = params.name == null ? "nuc2seg" : params.name
@@ -25,4 +26,10 @@ workflow NUC2SEG {
         .tap { plot_input }
 
     PLOT_PREDICTIONS( plot_input )
+
+    PREPROCESS.out.dataset
+        .join(PREDICT.out.predictions)
+        .tap { segment_input }
+
+    SEGMENT( segment_input )
 }

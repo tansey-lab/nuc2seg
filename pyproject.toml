@@ -3,7 +3,7 @@ name = "nuc2seg"
 version = "0.0.1"
 description = ""
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = {file = "LICENSE.txt"}
 keywords = ["spatial", "expression", "rna"]
 authors = [
@@ -57,6 +57,7 @@ preprocess = "nuc2seg.cli.preprocess:main"
 train = "nuc2seg.cli.train:main"
 predict = "nuc2seg.cli.predict:main"
 plot_predictions = "nuc2seg.cli.plot_predictions:main"
+segment = "nuc2seg.cli.segment:main"
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]

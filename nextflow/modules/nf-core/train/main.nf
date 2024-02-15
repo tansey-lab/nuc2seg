@@ -9,7 +9,7 @@ process TRAIN {
     tuple val(meta), path(dataset)
 
     output:
-    tuple val(meta), path("${prefix}/${workflow.runName}/checkpoints/*.ckpt"), emit: weights
+    tuple val(meta), path("${prefix}/*/checkpoints/*.ckpt"), emit: weights
     path  "versions.yml"                , emit: versions
 
 
