@@ -80,7 +80,7 @@ class SparseUNet(LightningModule):
         momentum: float = 0.999,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=["dataset"])
+        self.save_hyperparameters()
         self.img_shape = (
             tile_width,
             tile_height,
