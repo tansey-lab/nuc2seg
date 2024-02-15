@@ -54,7 +54,7 @@ def main():
     result = greedy_cell_segmentation(
         dataset=dataset,
         predictions=predictions,
-        max_expansion_steps=args.n_iterations,
+        max_expansion_steps=args.max_steps,
         foreground_threshold=args.foreground_prob_threshold,
     )
 
