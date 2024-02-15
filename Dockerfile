@@ -1,4 +1,4 @@
-FROM bitnami/pytorch:2.2.0-debian-11-r1
+FROM pytorch/pytorch:latest
 
 USER root
 
