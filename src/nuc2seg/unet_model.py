@@ -80,7 +80,7 @@ class SparseUNet(LightningModule):
         momentum: float = 0.999,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=["dataset"])
+        self.save_hyperparameters()
         self.img_shape = (
             tile_width,
             tile_height,
@@ -97,6 +97,7 @@ class SparseUNet(LightningModule):
             reduction="mean",
             weight=celltype_criterion_weights,
         )
+        self.validation_step_outputs = []
 
     def forward(self, x, y, z):
         mask = z > -1
@@ -146,21 +147,33 @@ class SparseUNet(LightningModule):
         class_pred = mask_pred[..., 2:]
 
         # Add the cross-entropy loss on just foreground vs background
-        loss = self.foreground_criterion(
+        foreground_loss = self.foreground_criterion(
             foreground_pred[label_mask], (labels[label_mask] > 0).type(torch.float)
         )
+
+        self.log("foreground_loss", foreground_loss)
 
         # If there are any cells in this tile
         if nucleus_mask.sum() > 0:
             # Add the squared error loss on the correct angles for known class pixels
-            loss += angle_loss(angles_pred[nucleus_mask], angles[nucleus_mask]).mean()
+            angle_loss_val = angle_loss(
+                angles_pred[nucleus_mask], angles[nucleus_mask]
+            ).mean()
+
+            self.log("angle_loss", angle_loss_val)
 
             # Add the cross-entropy loss on the cell type prediction for nucleus pixels
-            loss += self.celltype_criterion(
+            celltype_loss = self.celltype_criterion(
                 class_pred[nucleus_mask], classes[nucleus_mask] - 1
             )
+            self.log("celltype_loss", celltype_loss)
 
-        return loss
+            train_loss = foreground_loss + angle_loss_val + celltype_loss
+        else:
+            train_loss = foreground_loss
+
+        self.log("train_loss", train_loss)
+        return train_loss
 
     def validation_step(self, batch, batch_idx):
         dice_score = 0
@@ -172,7 +185,6 @@ class SparseUNet(LightningModule):
             batch["labels"],
             batch["label_mask"],
         )
-        batch_size = x.shape[0]
 
         label_mask = label_mask.type(torch.bool)
         mask_true = (labels > 0).type(torch.float)
@@ -194,7 +206,12 @@ class SparseUNet(LightningModule):
                 / mask_true.shape[0]
             )
 
-        return dice_score / batch_size
+        self.validation_step_outputs.append(dice_score)
+
+    def on_validation_epoch_end(self):
+        dice_score = torch.stack(self.validation_step_outputs).mean()
+        self.log("val_accuracy", dice_score)
+        self.validation_step_outputs.clear()
 
 
 class Nuc2SegDataModule(LightningDataModule):

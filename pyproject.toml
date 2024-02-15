@@ -39,7 +39,8 @@ dependencies = [
     "pyarrow",
     "h5py",
     "blended-tiling==0.0.1.dev6",
-    "lightning"
+    "lightning",
+    "wandb"
 ]
 
 [project.optional-dependencies]
