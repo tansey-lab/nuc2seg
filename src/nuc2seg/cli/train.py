@@ -1,7 +1,7 @@
 import argparse
 import logging
 import numpy as np
-
+from multiprocessing import cpu_count
 from nuc2seg import log_config
 from nuc2seg.data import Nuc2SegDataset, TiledDataset
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
@@ -23,8 +23,8 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--model-weights-output",
-        help="File to save model weights to.",
+        "--output-dir",
+        help="Directory to save model checkpoints to.",
         type=str,
         required=True,
     )
@@ -141,7 +141,7 @@ def get_parser():
         "--num-dataloader-workers",
         help="Number of workers to use for the data loader.",
         type=int,
-        default=0,
+        default=cpu_count(),
     )
     return parser
 
@@ -179,6 +179,7 @@ def main():
         tile_height=args.tile_height,
         tile_width=args.tile_width,
         tile_overlap=args.overlap_percentage,
+        num_workers=args.num_dataloader_workers,
     )
 
     # Init model from datamodule's attributes
@@ -202,6 +203,7 @@ def main():
         devices=args.n_devices,
         gradient_clip_val=args.gradient_clipping,
         gradient_clip_algorithm="norm",
+        default_root_dir=args.output_dir,
     )
 
     # Fit model

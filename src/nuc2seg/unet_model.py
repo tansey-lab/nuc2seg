@@ -207,6 +207,7 @@ class Nuc2SegDataModule(LightningDataModule):
         tile_height: int = 64,
         tile_width: int = 64,
         tile_overlap: float = 0.25,
+        num_workers: int = 0,
     ):
         super().__init__()
         self.preprocessed_data_path = preprocessed_data_path
@@ -219,6 +220,7 @@ class Nuc2SegDataModule(LightningDataModule):
         self.tile_height = tile_height
         self.tile_width = tile_width
         self.tile_overlap = tile_overlap
+        self.num_workers = num_workers
 
     def prepare_data(self):
         # download
@@ -242,10 +244,16 @@ class Nuc2SegDataModule(LightningDataModule):
         if self.dataset is None:
             raise ValueError("You must call setup() before train_dataloader()")
 
-        return DataLoader(self.train_set, batch_size=self.train_batch_size)
+        return DataLoader(
+            self.train_set,
+            batch_size=self.train_batch_size,
+            num_workers=self.num_workers,
+        )
 
     def val_dataloader(self):
         if self.dataset is None:
             raise ValueError("You must call setup() before train_dataloader()")
 
-        return DataLoader(self.val_set, batch_size=self.val_batch_size)
+        return DataLoader(
+            self.val_set, batch_size=self.val_batch_size, num_workers=self.num_workers
+        )
