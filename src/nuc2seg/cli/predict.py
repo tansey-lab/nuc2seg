@@ -85,9 +85,7 @@ def main():
         tile_overlap=args.overlap_percentage,
     )
 
-    model = SparseUNet(600, ds.n_classes + 2, (args.tile_height, args.tile_width))
-
-    model.load_state_dict(torch.load(args.model_weights))
+    model = SparseUNet.load_from_checkpoint(args.model_weights)
 
     model_predictions = stitch_predictions(model=model, dataloader=tiled_dataset)
 

@@ -161,6 +161,13 @@ class TiledDataset(Dataset):
             np.bincount, 1, class_tiles_flattened + 1, minlength=self.ds.n_classes + 2
         )
 
+    @property
+    def celltype_criterion_weights(self):
+        torch.Tensor(
+            self.per_tile_class_histograms[:, 2:].mean()
+            / self.per_tile_class_histograms[:, 2:].mean(axis=0)
+        )
+
     def __getitem__(self, idx):
         x1, y1, x2, y2 = next(
             generate_tiles(

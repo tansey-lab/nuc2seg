@@ -9,7 +9,7 @@ process TRAIN {
     tuple val(meta), path(dataset)
 
     output:
-    tuple val(meta), path("${prefix}/model_weights.pth"), emit: weights
+    tuple val(meta), path("${prefix}/lightning_logs/version_*/checkpoints/*.ckpt"), emit: weights
     path  "versions.yml"                , emit: versions
 
 
@@ -23,7 +23,7 @@ process TRAIN {
     mkdir -p "${prefix}"
     train \
         --dataset ${dataset} \
-        --model-weights-output ${prefix}/model_weights.pth \
+        --output-dir ${prefix} \
         --tile-height ${params.tile_height} \
         --tile-width ${params.tile_width} \
         --overlap-percentage ${params.overlap_percentage} \

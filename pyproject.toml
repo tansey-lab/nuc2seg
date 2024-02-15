@@ -38,7 +38,8 @@ dependencies = [
     "scikit-learn",
     "pyarrow",
     "h5py",
-    "blended-tiling"
+    "blended-tiling==0.0.1.dev6",
+    "lightning"
 ]
 
 [project.optional-dependencies]

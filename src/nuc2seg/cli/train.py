@@ -1,12 +1,12 @@
 import argparse
 import logging
 import numpy as np
-import torch
-
+from multiprocessing import cpu_count
 from nuc2seg import log_config
-from nuc2seg.train import train
-from nuc2seg.unet_model import SparseUNet
 from nuc2seg.data import Nuc2SegDataset, TiledDataset
+from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
+from pytorch_lightning import Trainer
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--model-weights-output",
-        help="File to save model weights to.",
+        "--output-dir",
+        help="Directory to save model checkpoints to.",
         type=str,
         required=True,
     )
@@ -108,6 +108,12 @@ def get_parser():
         choices=["cpu", "cuda"],
     )
     parser.add_argument(
+        "--n-devices",
+        help="Number of devices to use for training.",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
         "--tile-height",
         help="Height of the tiles.",
         type=int,
@@ -126,10 +132,16 @@ def get_parser():
         default=0.25,
     )
     parser.add_argument(
+        "--n-filters",
+        help="UNet hyperparameter.",
+        type=int,
+        default=10,
+    )
+    parser.add_argument(
         "--num-dataloader-workers",
         help="Number of workers to use for the data loader.",
         type=int,
-        default=0,
+        default=cpu_count(),
     )
     return parser
 
@@ -149,36 +161,50 @@ def main():
 
     np.random.seed(args.seed)
 
-    logger.info(f"Loading dataset from {args.dataset}")
-
     ds = Nuc2SegDataset.load_h5(args.dataset)
 
-    tiled_dataset = TiledDataset(
+    tiled_ds = TiledDataset(
         ds,
         tile_height=args.tile_height,
         tile_width=args.tile_width,
         tile_overlap=args.overlap_percentage,
     )
 
-    model = SparseUNet(600, ds.n_classes + 2, (64, 64))
-
-    train(
-        model,
-        device=args.device,
-        dataset=tiled_dataset,
-        epochs=args.epochs,
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
+    # Init DataModule
+    dm = Nuc2SegDataModule(
+        preprocessed_data_path=args.dataset,
         val_percent=args.val_percent,
-        save_checkpoint=args.save_checkpoint,
-        amp=args.amp,
-        weight_decay=args.weight_decay,
-        momentum=args.momentum,
-        gradient_clipping=args.gradient_clipping,
-        max_workers=args.max_workers,
-        validation_frequency=args.validation_frequency,
-        num_dataloader_workers=args.num_dataloader_workers,
+        train_batch_size=args.batch_size,
+        val_batch_size=args.batch_size,
+        tile_height=args.tile_height,
+        tile_width=args.tile_width,
+        tile_overlap=args.overlap_percentage,
+        num_workers=args.num_dataloader_workers,
     )
 
-    logger.info(f"Saving model weights to {args.model_weights_output}")
-    torch.save(model.state_dict(), args.model_weights_output)
+    # Init model from datamodule's attributes
+    model = SparseUNet(
+        n_channels=600,
+        n_classes=ds.n_classes,
+        celltype_criterion_weights=tiled_ds.celltype_criterion_weights,
+        tile_height=args.tile_height,
+        tile_width=args.tile_width,
+        tile_overlap=args.overlap_percentage,
+        n_filters=args.n_filters,
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
+        momentum=args.momentum,
+    )
+
+    # Init trainer
+    trainer = Trainer(
+        max_epochs=args.epochs,
+        accelerator=args.device,
+        devices=args.n_devices,
+        gradient_clip_val=args.gradient_clipping,
+        gradient_clip_algorithm="norm",
+        default_root_dir=args.output_dir,
+    )
+
+    # Fit model
+    trainer.fit(model, dm)

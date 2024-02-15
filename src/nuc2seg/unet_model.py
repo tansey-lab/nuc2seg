@@ -3,6 +3,11 @@
 from torch.nn import Embedding
 import numpy as np
 from nuc2seg.unet_parts import *
+from pytorch_lightning.core import LightningModule, LightningDataModule
+from nuc2seg.data import TiledDataset, Nuc2SegDataset
+from torch import optim
+from nuc2seg.evaluate import dice_coeff
+from torch.utils.data import DataLoader, random_split
 
 
 class UNet(nn.Module):
@@ -50,13 +55,48 @@ class UNet(nn.Module):
         self.outc = torch.utils.checkpoint(self.outc)
 
 
-class SparseUNet(nn.Module):
-    def __init__(self, n_channels, n_classes, img_shape, n_filters=10, bilinear=False):
-        super(SparseUNet, self).__init__()
-        self.img_shape = tuple(img_shape) + (n_filters,)
+def angle_loss(predictions, targets):
+    """Angles are expressed in [0,1] but we want 0.01 and 0.99 to be close.
+    So we take the minimum of the losses between the original prediction,
+    adding 1, and subtracting 1 such that we consider 0.01, 1.01, and -1.01.
+    That way 0.01 and 0.99 are only 0.02 apart."""
+    delta = torch.sigmoid(predictions) - targets
+    return torch.minimum(torch.minimum(delta**2, (delta - 1) ** 2), (delta + 1) ** 2)
+
+
+class SparseUNet(LightningModule):
+    def __init__(
+        self,
+        n_channels,
+        n_classes,
+        celltype_criterion_weights,
+        tile_height=64,
+        tile_width=64,
+        tile_overlap=0.25,
+        n_filters=10,
+        bilinear=False,
+        lr: float = 1e-5,
+        weight_decay: float = 1e-8,
+        momentum: float = 0.999,
+    ):
+        super().__init__()
+        self.save_hyperparameters(ignore=["dataset"])
+        self.img_shape = (
+            tile_width,
+            tile_height,
+            n_filters,
+        )
         self.filters = Embedding(n_channels, n_filters)
-        self.unet = UNet(n_filters, n_classes, bilinear=bilinear)
-        self.n_classes = n_classes
+        self.n_classes = n_classes + 2
+        self.unet = UNet(
+            self.hparams.n_filters, self.n_classes, bilinear=self.hparams.bilinear
+        )
+        self.foreground_criterion = nn.BCEWithLogitsLoss(reduction="mean")
+        # Class imbalance reweighting
+        self.celltype_criterion = nn.CrossEntropyLoss(
+            reduction="mean",
+            weight=celltype_criterion_weights,
+        )
 
     def forward(self, x, y, z):
         mask = z > -1
@@ -76,3 +116,144 @@ class SparseUNet(nn.Module):
         return torch.Tensor.permute(
             self.unet(t_input), (0, 2, 3, 1)
         )  # Map back to Batch x ImageX x Image Y x Classes
+
+    def configure_optimizers(self):
+        return optim.RMSprop(
+            self.parameters(),
+            lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            momentum=self.hparams.momentum,
+        )
+
+    def training_step(self, batch, batch_idx):
+        x, y, z, labels, angles, classes, label_mask, nucleus_mask = (
+            batch["X"],
+            batch["Y"],
+            batch["gene"],
+            batch["labels"],
+            batch["angles"],
+            batch["classes"],
+            batch["label_mask"],
+            batch["nucleus_mask"],
+        )
+
+        label_mask = label_mask.type(torch.bool)
+
+        mask_pred = self.forward(x, y, z)
+
+        foreground_pred = mask_pred[..., 0]
+        angles_pred = mask_pred[..., 1]
+        class_pred = mask_pred[..., 2:]
+
+        # Add the cross-entropy loss on just foreground vs background
+        loss = self.foreground_criterion(
+            foreground_pred[label_mask], (labels[label_mask] > 0).type(torch.float)
+        )
+
+        # If there are any cells in this tile
+        if nucleus_mask.sum() > 0:
+            # Add the squared error loss on the correct angles for known class pixels
+            loss += angle_loss(angles_pred[nucleus_mask], angles[nucleus_mask]).mean()
+
+            # Add the cross-entropy loss on the cell type prediction for nucleus pixels
+            loss += self.celltype_criterion(
+                class_pred[nucleus_mask], classes[nucleus_mask] - 1
+            )
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        dice_score = 0
+
+        x, y, z, labels, label_mask = (
+            batch["X"],
+            batch["Y"],
+            batch["gene"],
+            batch["labels"],
+            batch["label_mask"],
+        )
+        batch_size = x.shape[0]
+
+        label_mask = label_mask.type(torch.bool)
+        mask_true = (labels > 0).type(torch.float)
+
+        # predict the mask
+        mask_pred = self.forward(x, y, z)
+
+        foreground_pred = torch.sigmoid(mask_pred[..., 0])
+
+        for im_pred, im_true, im_label_mask in zip(
+            foreground_pred, mask_true, label_mask
+        ):
+            im_pred, im_true = im_pred[im_label_mask], im_true[im_label_mask]
+
+            im_pred = (im_pred > 0.5).float()
+            # compute the Dice score
+            dice_score += (
+                dice_coeff(im_pred, im_true, reduce_batch_first=False)
+                / mask_true.shape[0]
+            )
+
+        return dice_score / batch_size
+
+
+class Nuc2SegDataModule(LightningDataModule):
+    def __init__(
+        self,
+        preprocessed_data_path: str,
+        val_percent: float = 0.1,
+        train_batch_size: int = 1,
+        val_batch_size: int = 1,
+        tile_height: int = 64,
+        tile_width: int = 64,
+        tile_overlap: float = 0.25,
+        num_workers: int = 0,
+    ):
+        super().__init__()
+        self.preprocessed_data_path = preprocessed_data_path
+        self.val_percent = val_percent
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.dataset = None
+        self.train_set = None
+        self.val_set = None
+        self.tile_height = tile_height
+        self.tile_width = tile_width
+        self.tile_overlap = tile_overlap
+        self.num_workers = num_workers
+
+    def prepare_data(self):
+        # download
+        pass
+
+    def setup(self, stage=None):
+
+        self.dataset = Nuc2SegDataset.load_h5(self.preprocessed_data_path)
+
+        dataset = TiledDataset(
+            self.dataset,
+            tile_height=self.tile_height,
+            tile_width=self.tile_width,
+            tile_overlap=self.tile_overlap,
+        )
+        n_val = int(len(dataset) * self.val_percent)
+        n_train = len(dataset) - n_val
+        self.train_set, self.val_set = random_split(dataset, [n_train, n_val])
+
+    def train_dataloader(self):
+        if self.dataset is None:
+            raise ValueError("You must call setup() before train_dataloader()")
+
+        return DataLoader(
+            self.train_set,
+            batch_size=self.train_batch_size,
+            num_workers=self.num_workers,
+        )
+
+    def val_dataloader(self):
+        if self.dataset is None:
+            raise ValueError("You must call setup() before train_dataloader()")
+
+        return DataLoader(
+            self.val_set, batch_size=self.val_batch_size, num_workers=self.num_workers
+        )
