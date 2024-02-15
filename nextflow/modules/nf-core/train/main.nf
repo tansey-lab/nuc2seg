@@ -9,7 +9,7 @@ process TRAIN {
     tuple val(meta), path(dataset)
 
     output:
-    tuple val(meta), path("${prefix}/lightning_logs/version_*/checkpoints/*.ckpt"), emit: weights
+    tuple val(meta), path("${prefix}/lightning_logs/*/checkpoints/*.ckpt"), emit: weights
     path  "versions.yml"                , emit: versions
 
 
@@ -19,8 +19,20 @@ process TRAIN {
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
+    def wandb_key = params.wandb_api_key == null ? "" : "${params.wandb_api_key}"
+    def wandb_mode = params.wandb_api_key == null ? "disabled" : "online"
+    def runid = workflow.runName
     """
+    export WANDB_DOCKER='jeffquinnmsk/nuc2seg:latest'
     mkdir -p "${prefix}"
+    mkdir -p "${prefix}/wandb"
+    export WANDB_DIR="$(realpath ${prefix}/wandb)"
+    export WANDB_DISABLE_GIT=1
+    export WANDB_DISABLE_CODE=1
+    export WANDB_API_KEY="${wandb_key}"
+    export WANDB_MODE="${wandb_mode}"
+    export WANDB_PROJECT="nuc2seg"
+    export WANDB_RUN_ID="${runid}"
     train \
         --dataset ${dataset} \
         --output-dir ${prefix} \

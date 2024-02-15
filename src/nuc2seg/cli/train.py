@@ -6,6 +6,7 @@ from nuc2seg import log_config
 from nuc2seg.data import Nuc2SegDataset, TiledDataset
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
 from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import WandbLogger
 
 
 logger = logging.getLogger(__name__)
@@ -197,6 +198,7 @@ def main():
     )
 
     # Init trainer
+    wandb_logger = WandbLogger(log_model="all")
     trainer = Trainer(
         max_epochs=args.epochs,
         accelerator=args.device,
@@ -204,6 +206,7 @@ def main():
         gradient_clip_val=args.gradient_clipping,
         gradient_clip_algorithm="norm",
         default_root_dir=args.output_dir,
+        logger=wandb_logger,
     )
 
     # Fit model
