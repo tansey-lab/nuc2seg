@@ -4,7 +4,15 @@ import tqdm
 import logging
 from scipy.special import expit, softmax
 from nuc2seg.preprocessing import pol2cart
-from nuc2seg.data import collate_tiles, ModelPredictions, Nuc2SegDataset
+from nuc2seg.data import (
+    collate_tiles,
+    ModelPredictions,
+    Nuc2SegDataset,
+    SegmentationResults,
+)
+import cv2
+from shapely import Polygon
+import geopandas
 
 logger = logging.getLogger(__name__)
 
@@ -262,7 +270,7 @@ def greedy_cell_segmentation(
     ]
 
     # Greedily expand the cell one pixel at a time
-    return greedy_expansion(
+    result = greedy_expansion(
         start_xy,
         pixel_labels_arr,
         flow_labels,
@@ -272,3 +280,68 @@ def greedy_cell_segmentation(
         foreground_mask,
         max_expansion_steps=max_expansion_steps,
     )
+    return SegmentationResults(result)
+
+
+def raster_to_polygon(raster):
+    # Find contours in the binary image
+    contours, hierarchy = cv2.findContours(
+        raster.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    # Initialize lists to hold outer contours and holes
+    outer_contours = []
+    holes = []
+
+    for i, contour in enumerate(contours):
+        # The contour points are in (row, column) format, so we flip them to (x, y)
+        coords = contour.squeeze(axis=1)
+        xy = [(p[1], p[0]) for p in coords]
+
+        # Check if this contour has a parent
+        if hierarchy[0][i][3] == -1:
+            # No parent, so it's an external contour
+            outer_contours.append(xy)
+        else:
+            # Has a parent, so it's a hole
+            holes.append(xy)
+
+    # Assuming single polygon, we take the first outer contour
+    # You can loop over outer_contours to create multiple polygons if needed
+    if outer_contours:
+        exterior = outer_contours[0]
+        interior = holes
+        return Polygon(exterior, holes=interior)
+
+
+def convert_segmentation_to_shapefile(
+    segmentation: SegmentationResults,
+    dataset: Nuc2SegDataset,
+):
+    x1, y1, x2, y2 = dataset.bbox
+
+    nuclei_id = np.setdiff1d(np.unique(segmentation.segmentation), [-1, 0])
+
+    gdf = geopandas.GeoDataFrame(
+        index=nuclei_id,
+    )
+
+    for value in np.unique(segmentation.segmentation):
+        if value in [-1, 0]:
+            continue
+        mask = segmentation.segmentation == value
+        try:
+            poly = raster_to_polygon(mask)
+        except ValueError:
+            logger.exception(
+                "Failed to convert segmentation to poly (probably too small)"
+            )
+            continue
+
+        translated_poly = affinity.translate(poly, xoff=x1, yoff=y1)
+
+        gdf.loc[value, "geometry"] = poly
+
+    gdf.set_geometry("geometry", inplace=True)
+
+    return gdf

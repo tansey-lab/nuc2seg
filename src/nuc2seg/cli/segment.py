@@ -1,7 +1,7 @@
 import argparse
 import logging
 from nuc2seg import log_config
-from nuc2seg.segment import greedy_cell_segmentation
+from nuc2seg.segment import greedy_cell_segmentation, convert_segmentation_to_shapefile
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
 import h5py
 
@@ -14,6 +14,12 @@ def get_parser():
     parser.add_argument(
         "--output",
         help="Cell segmentation output in h5 format.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--shapefile-output",
+        help="Cell segmentation shapefile in parquet format.",
         type=str,
         required=True,
     )
@@ -59,5 +65,8 @@ def main():
     )
 
     logger.info(f"Saving segmentation to {args.output}")
-    with h5py.File(args.output, "w") as f:
-        f.create_dataset("segmentation", data=result)
+    result.save_h5(args.output)
+
+    gdf = convert_segmentation_to_shapefile(segmentation=result, dataset=dataset)
+
+    gdf.to_parquet(args.shapefile_output)

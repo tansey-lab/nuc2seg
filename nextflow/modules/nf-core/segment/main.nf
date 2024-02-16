@@ -10,6 +10,7 @@ process SEGMENT {
 
     output:
     tuple val(meta), path("${prefix}/segmentation.h5"), emit: segmentation
+    tuple val(meta), path("${prefix}/shapes.parquet"), emit: shapefile
     path  "versions.yml"                , emit: versions
 
 
@@ -23,6 +24,7 @@ process SEGMENT {
     mkdir -p "${prefix}"
     segment \
         --output ${prefix}/segmentation.h5 \
+        --shapefile-output ${prefix}/shapes.parquet \
         --dataset ${dataset} \
         --predictions ${predictions} \
         ${args}
