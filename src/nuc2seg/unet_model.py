@@ -101,20 +101,22 @@ class SparseUNet(LightningModule):
 
     def forward(self, x, y, z):
         mask = z > -1
-        b = torch.as_tensor(
-            np.tile(np.arange(z.shape[0]), (z.shape[1], 1)).T[mask.numpy().astype(bool)]
+        b = (
+            torch.tile(torch.arange(z.shape[0]), (z.shape[1], 1))
+            .to(self.device)
+            .T[mask]
         )
         W = self.filters(z[mask])
-        t_input = torch.Tensor(np.zeros((z.shape[0],) + self.img_shape))
+        t_input = torch.zeros((z.shape[0],) + self.img_shape, device=self.device)
         t_input.index_put_(
-            (b, torch.LongTensor(x[mask]), torch.LongTensor(y[mask])),
+            (b, x[mask], y[mask]),
             W,
             accumulate=True,
         )
-        t_input = torch.Tensor.permute(
+        t_input = torch.permute(
             t_input, (0, 3, 1, 2)
         )  # Needs to be Batch x Channels x ImageX x ImageY
-        return torch.Tensor.permute(
+        return torch.permute(
             self.unet(t_input), (0, 2, 3, 1)
         )  # Map back to Batch x ImageX x Image Y x Classes
 
