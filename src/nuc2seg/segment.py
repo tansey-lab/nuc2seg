@@ -110,7 +110,7 @@ def greedy_expansion(
 
         # Immediate neighbor flows
         flow1_mask = update_mask & (flow_labels_flat != -1)
-        flow1_targets = np.array(flow_labels_flat[flow1_mask])
+        flow1_targets = flow_labels_flat[flow1_mask]
         flow1_connected = (
             (
                 pixel_labels_arr[
@@ -152,25 +152,29 @@ def greedy_expansion(
         flow2_connected = (
             (
                 pixel_labels_arr[
-                    start_xy[flow2_mask, 0] - 1, start_xy[flow2_mask, 1] - 1
+                    (start_xy[flow2_mask, 0] - 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] - 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
             | (
                 pixel_labels_arr[
-                    start_xy[flow2_mask, 0] + 1, start_xy[flow2_mask, 1] - 1
+                    (start_xy[flow2_mask, 0] + 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] - 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
             | (
                 pixel_labels_arr[
-                    start_xy[flow2_mask, 0] - 1, start_xy[flow2_mask, 1] + 1
+                    (start_xy[flow2_mask, 0] - 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] + 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
             | (
                 pixel_labels_arr[
-                    start_xy[flow2_mask, 0] + 1, start_xy[flow2_mask, 1] + 1
+                    (start_xy[flow2_mask, 0] + 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] + 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
