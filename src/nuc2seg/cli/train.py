@@ -105,8 +105,8 @@ def get_parser():
         "--device",
         help="Device to use for training.",
         type=str,
-        default="cpu",
-        choices=["cpu", "cuda"],
+        default="auto",
+        choices=["cpu", "gpu", "tpu", "ipu", "mps", "auto"],
     )
     parser.add_argument(
         "--n-devices",
