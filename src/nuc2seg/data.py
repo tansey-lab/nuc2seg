@@ -244,3 +244,18 @@ class ModelPredictions:
             classes = f["classes"][:]
             foreground = f["foreground"][:]
         return ModelPredictions(angles=angles, classes=classes, foreground=foreground)
+
+
+class SegmentationResults:
+    def __init__(self, segmentation):
+        self.segmentation = segmentation
+
+    def save_h5(self, path):
+        with h5py.File(path, "w") as f:
+            f.create_dataset("segmentation", data=self.segmentation, compression="gzip")
+
+    @staticmethod
+    def load_h5(path):
+        with h5py.File(path, "r") as f:
+            segmentation = f["segmentation"][:]
+        return SegmentationResults(segmentation=segmentation)

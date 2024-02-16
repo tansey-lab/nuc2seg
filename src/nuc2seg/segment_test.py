@@ -1,4 +1,9 @@
-from nuc2seg.segment import greedy_expansion, flow_destination, greedy_cell_segmentation
+from nuc2seg.segment import (
+    greedy_expansion,
+    flow_destination,
+    greedy_cell_segmentation,
+    raster_to_polygon,
+)
 import numpy as np
 import pytest
 
@@ -192,3 +197,17 @@ def test_greedy_cell_segmentation(mocker):
             ]
         ),
     )
+
+
+def test_raster_to_polygon():
+    arr = np.array(
+        [
+            [0, 0, 0, 0],
+            [0, 1, 1, 1],
+            [0, 1, 1, 1],
+        ]
+    )
+
+    result = raster_to_polygon(arr)
+
+    assert result
