@@ -1,9 +1,33 @@
+def getGpuClusterOptions (executor) {
+    if (executor == 'slurm') {
+        return '--gpus=1'
+    } else if (executor == 'lsf') {
+        return '-gpu "num=1:gmem=8"'
+    } else {
+        return ''
+    }
+}
+
+def getGpuQueue (executor) {
+    if (executor == 'slurm') {
+        return 'gpu'
+    } else if (executor == 'lsf') {
+        return 'gpuqueue'
+    } else {
+        return ''
+    }
+}
+
+
 process TRAIN {
     tag "$meta.id"
     label 'process_high'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/nuc2seg:latest' :
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
+    containerOptions { workflow.containerEngine == 'singularity' ? '--nv' : '' }
+    clusterOptions { getGpuClusterOptions(task.executor) }
+    queue { getGpuQueue(task.executor) }
 
     input:
     tuple val(meta), path(dataset)
