@@ -34,6 +34,7 @@ process TRAIN {
     export WANDB_MODE="${wandb_mode}"
     export WANDB_PROJECT="nuc2seg"
     export WANDB_RUN_ID="${runid}"
+    export WANDB_CACHE_DIR="\$(realpath ${prefix}/wandb/.cache)"
     train \
         --dataset ${dataset} \
         --output-dir ${prefix} \
