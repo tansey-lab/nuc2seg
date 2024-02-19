@@ -7,7 +7,7 @@ from nuc2seg.data import Nuc2SegDataset, TiledDataset
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 
 logger = logging.getLogger(__name__)
@@ -216,6 +216,7 @@ def main():
         default_root_dir=args.output_dir,
         logger=wandb_logger,
         callbacks=[checkpoint_callback],
+        log_every_n_steps=min(50, len(tiled_ds) - 1),
     )
 
     # Fit model

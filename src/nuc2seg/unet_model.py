@@ -243,7 +243,6 @@ class Nuc2SegDataModule(LightningDataModule):
         pass
 
     def setup(self, stage=None):
-
         self.dataset = Nuc2SegDataset.load_h5(self.preprocessed_data_path)
 
         dataset = TiledDataset(
@@ -252,8 +251,12 @@ class Nuc2SegDataModule(LightningDataModule):
             tile_width=self.tile_width,
             tile_overlap=self.tile_overlap,
         )
-        n_val = int(len(dataset) * self.val_percent)
+        n_val = max(int(len(dataset) * self.val_percent), 1)
         n_train = len(dataset) - n_val
+
+        if n_val <= 0 or n_train <= 0:
+            raise ValueError("Not enough data to split into train and validation sets")
+
         self.train_set, self.val_set = random_split(dataset, [n_train, n_val])
 
     def train_dataloader(self):

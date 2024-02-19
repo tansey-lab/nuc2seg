@@ -11,7 +11,7 @@ from nuc2seg.data import (
     SegmentationResults,
 )
 import cv2
-from shapely import Polygon
+from shapely import Polygon, affinity
 import geopandas
 
 logger = logging.getLogger(__name__)
@@ -340,7 +340,7 @@ def convert_segmentation_to_shapefile(
 
         translated_poly = affinity.translate(poly, xoff=x1, yoff=y1)
 
-        gdf.loc[value, "geometry"] = poly
+        gdf.loc[value, "geometry"] = translated_poly
 
     gdf.set_geometry("geometry", inplace=True)
 
