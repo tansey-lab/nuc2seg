@@ -188,7 +188,7 @@ def test_greedy_cell_segmentation(mocker):
     )
 
     np.testing.assert_equal(
-        result,
+        result.segmentation,
         np.array(
             [
                 [-1, -1, -1],
