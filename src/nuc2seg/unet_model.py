@@ -8,7 +8,7 @@ from torch import optim
 from nuc2seg.evaluate import (
     dice_coeff,
     foreground_accuracy,
-    angle_difference,
+    squared_angle_difference,
     angle_accuracy,
 )
 from torch.utils.data import DataLoader, random_split
@@ -60,7 +60,7 @@ class UNet(nn.Module):
 
 
 def angle_loss(predictions, targets):
-    return angle_difference(torch.sigmoid(predictions), targets)
+    return squared_angle_difference(torch.sigmoid(predictions), targets)
 
 
 class SparseUNet(LightningModule):

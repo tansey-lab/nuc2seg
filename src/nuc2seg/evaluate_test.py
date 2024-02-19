@@ -2,7 +2,7 @@ from nuc2seg.evaluate import (
     dice_coeff,
     multiclass_dice_coeff,
     foreground_accuracy,
-    angle_difference,
+    squared_angle_difference,
     angle_accuracy,
 )
 import torch
@@ -85,17 +85,17 @@ def test_foreground_accuracy_multi_batch():
 
 
 def test_angle_difference():
-    result = angle_difference(torch.tensor([0.0]), torch.tensor([0.0]))
+    result = squared_angle_difference(torch.tensor([0.0]), torch.tensor([0.0]))
 
     assert result.item() == 0.0
 
-    result = angle_difference(torch.tensor([0.0]), torch.tensor([0.01]))
+    result = squared_angle_difference(torch.tensor([0.0]), torch.tensor([0.01]))
 
-    assert torch.allclose(result, torch.tensor([0.01]))
+    assert torch.allclose(result, torch.tensor([0.01**2]))
 
-    result = angle_difference(torch.tensor([0.99]), torch.tensor([0.01]))
+    result = squared_angle_difference(torch.tensor([0.99]), torch.tensor([0.01]))
 
-    assert torch.allclose(result, torch.tensor([0.02]))
+    assert torch.allclose(result, torch.tensor([0.02**2]))
 
 
 def test_angle_accuracy():

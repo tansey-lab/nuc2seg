@@ -182,15 +182,13 @@ def foreground_accuracy(prediction, labels):
     return dice_coeff(foreground_pred, target)
 
 
-def angle_difference(predictions, targets):
+def squared_angle_difference(predictions, targets):
     """Angles are expressed in [0,1] but we want 0.01 and 0.99 to be close.
     So we take the minimum of the losses between the original prediction,
     adding 1, and subtracting 1 such that we consider 0.01, 1.01, and -1.01.
     That way 0.01 and 0.99 are only 0.02 apart."""
     delta = predictions - targets
-    return torch.sqrt(
-        torch.minimum(torch.minimum(delta**2, (delta - 1) ** 2), (delta + 1) ** 2)
-    )
+    return torch.minimum(torch.minimum(delta**2, (delta - 1) ** 2), (delta + 1) ** 2)
 
 
 def angle_accuracy(predictions, labels, target):
@@ -200,4 +198,7 @@ def angle_accuracy(predictions, labels, target):
     angle_pred = angle_pred[mask]
     target = target[mask]
 
-    return torch.tensor(1.0) - angle_difference(angle_pred, target).mean()
+    return (
+        torch.tensor(1.0)
+        - torch.sqrt(squared_angle_difference(angle_pred, target)).mean()
+    )
