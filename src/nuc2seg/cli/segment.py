@@ -69,7 +69,9 @@ def main():
     logger.info(f"Saving segmentation to {args.output}")
     result.save_h5(args.output)
 
-    gdf = convert_segmentation_to_shapefile(segmentation=result, dataset=dataset)
+    gdf = convert_segmentation_to_shapefile(
+        segmentation=result.segmentation, dataset=dataset
+    )
 
     nuclei_gdf = convert_segmentation_to_shapefile(
         segmentation=dataset.labels, dataset=dataset

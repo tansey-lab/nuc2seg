@@ -315,21 +315,21 @@ def raster_to_polygon(raster):
 
 
 def convert_segmentation_to_shapefile(
-    segmentation: SegmentationResults,
+    segmentation,
     dataset: Nuc2SegDataset,
 ):
     x1, y1, x2, y2 = dataset.bbox
 
-    nuclei_id = np.setdiff1d(np.unique(segmentation.segmentation), [-1, 0])
+    nuclei_id = np.setdiff1d(np.unique(segmentation), [-1, 0])
 
     gdf = geopandas.GeoDataFrame(
         index=nuclei_id,
     )
 
-    for value in np.unique(segmentation.segmentation):
+    for value in np.unique(segmentation):
         if value in [-1, 0]:
             continue
-        mask = segmentation.segmentation == value
+        mask = segmentation == value
         try:
             poly = raster_to_polygon(mask)
         except ValueError:
