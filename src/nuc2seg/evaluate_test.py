@@ -111,4 +111,4 @@ def test_angle_accuracy():
 
     result = angle_accuracy(prediction, labels, target)
 
-    assert torch.allclose(result, torch.tensor(0.02))
+    assert torch.allclose(result, torch.tensor(0.98))

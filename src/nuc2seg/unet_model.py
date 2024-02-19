@@ -188,8 +188,8 @@ class SparseUNet(LightningModule):
         prediction = self.forward(x, y, z)
         foreground_accuracy_value = foreground_accuracy(prediction, labels)
         angle_accuracy_value = angle_accuracy(
-            prediction=prediction,
-            angles=angles,
+            predictions=prediction,
+            target=angles,
             labels=labels,
         )
 
@@ -201,15 +201,15 @@ class SparseUNet(LightningModule):
         )
 
     def on_validation_epoch_end(self):
-        foreground_accuracy = torch.stack(
+        foreground_accuracy_value = torch.stack(
             [x["foreground_accuracy"] for x in self.validation_step_outputs]
         ).mean()
-        angle_accuracy = torch.stack(
+        angle_accuracy_value = torch.stack(
             [x["angle_accuracy"] for x in self.validation_step_outputs]
         ).mean()
-        self.log("foreground_accuracy", foreground_accuracy)
-        self.log("angle_accuracy", angle_accuracy)
-        self.log("val_accuracy", (foreground_accuracy + angle_accuracy) / 2)
+        self.log("foreground_accuracy", foreground_accuracy_value)
+        self.log("angle_accuracy", angle_accuracy_value)
+        self.log("val_accuracy", (foreground_accuracy_value + angle_accuracy_value) / 2)
         self.validation_step_outputs.clear()
 
 

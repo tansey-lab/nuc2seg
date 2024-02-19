@@ -34,16 +34,21 @@ def test_model():
         tile_height=64,
         tile_width=64,
         tile_overlap=0.0,
-        celltype_criterion_weights=torch.tensor([1, 1, 1]),
+        celltype_criterion_weights=torch.tensor([1, 1, 1]).float(),
     )
 
     trainer = Trainer(fast_dev_run=True, accelerator="cpu")
 
+    labels = np.zeros((100, 100))
+
+    labels[25:75, 25:75] = -1
+    labels[40:60, 40:60] = 1
+
     ds = Nuc2SegDataset(
-        labels=np.ones((100, 100)),
+        labels=labels,
         angles=np.zeros((100, 100)),
-        classes=np.ones((100, 100), dtype=int),
-        transcripts=np.array([[0, 0, 0], [5, 5, 1], [10, 10, 2]]),
+        classes=labels.copy(),
+        transcripts=np.array([[49, 49, 0], [50, 50, 1], [50, 50, 2]]),
         bbox=np.array([100, 100, 200, 200]),
         n_classes=3,
         n_genes=3,

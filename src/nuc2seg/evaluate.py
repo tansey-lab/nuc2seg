@@ -200,4 +200,4 @@ def angle_accuracy(predictions, labels, target):
     angle_pred = angle_pred[mask]
     target = target[mask]
 
-    return torch.tensor(0.0) - angle_difference(angle_pred, target).mean()
+    return torch.tensor(1.0) - angle_difference(angle_pred, target).mean()
