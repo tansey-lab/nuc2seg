@@ -202,7 +202,7 @@ def main():
     checkpoint_callback = ModelCheckpoint(
         save_top_k=1,
         monitor="val_accuracy",
-        mode="min",
+        mode="max",
     )
 
     # Init trainer
