@@ -1,5 +1,7 @@
 import argparse
 import logging
+import os.path
+
 import numpy as np
 import torch
 
@@ -59,6 +61,13 @@ def get_parser():
         type=int,
         default=0,
     )
+    parser.add_argument(
+        "--device",
+        help="Device to use for prediction.",
+        type=str,
+        default="auto",
+        choices=["cpu", "gpu", "tpu", "ipu", "mps", "auto"],
+    )
     return parser
 
 
@@ -98,8 +107,7 @@ def main():
 
     trainer = Trainer(
         accelerator=args.device,
-        devices=args.n_devices,
-        default_root_dir=args.output_dir,
+        default_root_dir=os.path.dirname(args.model_weights),
     )
     results = torch.stack(trainer.predict(model, dm)).squeeze()
 
