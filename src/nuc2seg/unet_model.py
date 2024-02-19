@@ -1,12 +1,16 @@
 """ Full assembly of the parts to form the complete network """
 
 from torch.nn import Embedding
-import numpy as np
 from nuc2seg.unet_parts import *
 from pytorch_lightning.core import LightningModule, LightningDataModule
 from nuc2seg.data import TiledDataset, Nuc2SegDataset
 from torch import optim
-from nuc2seg.evaluate import dice_coeff
+from nuc2seg.evaluate import (
+    dice_coeff,
+    foreground_accuracy,
+    squared_angle_difference,
+    angle_accuracy,
+)
 from torch.utils.data import DataLoader, random_split
 
 
@@ -56,12 +60,7 @@ class UNet(nn.Module):
 
 
 def angle_loss(predictions, targets):
-    """Angles are expressed in [0,1] but we want 0.01 and 0.99 to be close.
-    So we take the minimum of the losses between the original prediction,
-    adding 1, and subtracting 1 such that we consider 0.01, 1.01, and -1.01.
-    That way 0.01 and 0.99 are only 0.02 apart."""
-    delta = torch.sigmoid(predictions) - targets
-    return torch.minimum(torch.minimum(delta**2, (delta - 1) ** 2), (delta + 1) ** 2)
+    return squared_angle_difference(torch.sigmoid(predictions), targets)
 
 
 class SparseUNet(LightningModule):
@@ -178,41 +177,39 @@ class SparseUNet(LightningModule):
         return train_loss
 
     def validation_step(self, batch, batch_idx):
-        dice_score = 0
-
-        x, y, z, labels, label_mask = (
+        x, y, z, labels, angles = (
             batch["X"],
             batch["Y"],
             batch["gene"],
             batch["labels"],
-            batch["label_mask"],
+            batch["angles"],
+        )
+        # predict the mask
+        prediction = self.forward(x, y, z)
+        foreground_accuracy_value = foreground_accuracy(prediction, labels)
+        angle_accuracy_value = angle_accuracy(
+            predictions=prediction,
+            target=angles,
+            labels=labels,
         )
 
-        label_mask = label_mask.type(torch.bool)
-        mask_true = (labels > 0).type(torch.float)
-
-        # predict the mask
-        mask_pred = self.forward(x, y, z)
-
-        foreground_pred = torch.sigmoid(mask_pred[..., 0])
-
-        for im_pred, im_true, im_label_mask in zip(
-            foreground_pred, mask_true, label_mask
-        ):
-            im_pred, im_true = im_pred[im_label_mask], im_true[im_label_mask]
-
-            im_pred = (im_pred > 0.5).float()
-            # compute the Dice score
-            dice_score += (
-                dice_coeff(im_pred, im_true, reduce_batch_first=False)
-                / mask_true.shape[0]
-            )
-
-        self.validation_step_outputs.append(dice_score)
+        self.validation_step_outputs.append(
+            {
+                "foreground_accuracy": foreground_accuracy_value,
+                "angle_accuracy": angle_accuracy_value,
+            }
+        )
 
     def on_validation_epoch_end(self):
-        dice_score = torch.stack(self.validation_step_outputs).mean()
-        self.log("val_accuracy", dice_score)
+        foreground_accuracy_value = torch.stack(
+            [x["foreground_accuracy"] for x in self.validation_step_outputs]
+        ).mean()
+        angle_accuracy_value = torch.stack(
+            [x["angle_accuracy"] for x in self.validation_step_outputs]
+        ).mean()
+        self.log("foreground_accuracy", foreground_accuracy_value)
+        self.log("angle_accuracy", angle_accuracy_value)
+        self.log("val_accuracy", (foreground_accuracy_value + angle_accuracy_value) / 2)
         self.validation_step_outputs.clear()
 
 

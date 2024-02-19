@@ -16,9 +16,14 @@ def dice_coeff(
     epsilon: float = 1e-6,
 ):
     # Average of Dice coefficient for all batches, or for a single mask
-    inter = 2 * (input * target).sum()
-    sets_sum = input.sum() + target.sum()
-    # sets_sum = torch.where(sets_sum == 0, inter, sets_sum) # what is this doing???
+    assert input.size() == target.size()
+    assert input.dim() == 3 or not reduce_batch_first
+
+    sum_dim = (-1, -2) if input.dim() == 2 or not reduce_batch_first else (-1, -2, -3)
+
+    inter = 2 * (input * target).sum(dim=sum_dim)
+    sets_sum = input.sum(dim=sum_dim) + target.sum(dim=sum_dim)
+    sets_sum = torch.where(sets_sum == 0, inter, sets_sum)
 
     dice = (inter + epsilon) / (sets_sum + epsilon)
     return dice.mean()
@@ -42,54 +47,7 @@ def dice_loss(input: Tensor, target: Tensor, multiclass: bool = False):
     return 1 - fn(input, target, reduce_batch_first=True)
 
 
-# @torch.inference_mode()
-def evaluate(net, dataloader, device, amp):
-    net.eval()
-    num_val_batches = len(dataloader)  # TODO: multiply by batch_size right????
-    dice_score = 0
-
-    # iterate over the validation set
-    # with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
-    # for batch in tqdm(dataloader, total=num_val_batches, desc='Validation round', unit='batch', leave=False):
-    for idx, batch in enumerate(
-        tqdm.tqdm(dataloader, desc="Validation", unit="batch", position=2, leave=False)
-    ):
-        x, y, z, labels, label_mask = (
-            batch["X"].to(device),
-            batch["Y"].to(device),
-            batch["gene"].to(device),
-            batch["labels"].to(device),
-            batch["label_mask"].to(device),
-        )
-        label_mask = label_mask.type(torch.bool)
-        mask_true = (labels > 0).type(torch.float)
-
-        # predict the mask
-        mask_pred = net(x, y, z)
-
-        if mask_pred.dim() == 3:
-            mask_pred = mask_pred[None]
-
-        foreground_pred = torch.sigmoid(mask_pred[..., 0])
-
-        for im_pred, im_true, im_label_mask in zip(
-            foreground_pred, mask_true, label_mask
-        ):
-            im_pred, im_true = im_pred[im_label_mask], im_true[im_label_mask]
-
-            im_pred = (im_pred > 0.5).float()
-            # compute the Dice score
-            dice_score += (
-                dice_coeff(im_pred, im_true, reduce_batch_first=False)
-                / mask_true.shape[0]
-            )
-
-    net.train()
-    return dice_score / max(num_val_batches, 1)
-
-
 def plot_predictions(net, dataloader, idx=0, threshold=0.5):
-
     batch = collate_tiles([dataloader[idx]])
     x, y, z, labels, angles, classes, label_mask, nucleus_mask = (
         batch["X"],
@@ -212,3 +170,35 @@ def score_segmentation(segments, nuclei):
         "nuclei_label_counts": nuclei_label_counts,
         "label_nuclei_counts": label_nuclei_counts,
     }
+
+
+def foreground_accuracy(prediction, labels):
+    mask = labels > 0
+    target = (labels > 0).float()
+
+    foreground_pred = torch.sigmoid(prediction[..., 0])
+    foreground_pred = torch.where(mask, foreground_pred, 0)
+
+    return dice_coeff(foreground_pred, target)
+
+
+def squared_angle_difference(predictions, targets):
+    """Angles are expressed in [0,1] but we want 0.01 and 0.99 to be close.
+    So we take the minimum of the losses between the original prediction,
+    adding 1, and subtracting 1 such that we consider 0.01, 1.01, and -1.01.
+    That way 0.01 and 0.99 are only 0.02 apart."""
+    delta = predictions - targets
+    return torch.minimum(torch.minimum(delta**2, (delta - 1) ** 2), (delta + 1) ** 2)
+
+
+def angle_accuracy(predictions, labels, target):
+    mask = labels == -1
+    angle_pred = torch.sigmoid(predictions[..., 1])
+
+    angle_pred = angle_pred[mask]
+    target = target[mask]
+
+    return (
+        torch.tensor(1.0)
+        - torch.sqrt(squared_angle_difference(angle_pred, target)).mean()
+    )
