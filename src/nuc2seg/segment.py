@@ -1,86 +1,50 @@
 import torch
-import numpy as np
 import tqdm
 import logging
-from scipy.special import expit, softmax
+import cv2
+import geopandas
+import numpy as np
+
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import (
-    collate_tiles,
     ModelPredictions,
     Nuc2SegDataset,
     SegmentationResults,
 )
-import cv2
+
 from shapely import Polygon, affinity
-import geopandas
+from blended_tiling import TilingModule
 
 logger = logging.getLogger(__name__)
 
 
-def stitch_predictions(model, dataloader):
-    model.eval()
-    foreground_list = []
-    class_list = []
+def stitch_predictions(results, tiler: TilingModule):
+    foreground = torch.sigmoid(results[..., 0])
+    angles = torch.sigmoid(results[..., 1]) * 2 * torch.pi - torch.pi
+    classes = torch.softmax(results[..., 2:], dim=-1)
+    vector_x = 0.5 * torch.cos(angles)
+    vector_y = 0.5 * torch.sin(angles)
 
-    vector_x_list = []
-    vector_y_list = []
-    for batch in tqdm.tqdm(dataloader, desc="Stitching predictions", unit="batch"):
-        tile = collate_tiles([batch])
+    tile_mask = tiler.get_tile_masks()[:, 0, :, :]
 
-        x, y, z, labels, angles, classes, label_mask, nucleus_mask, location = (
-            tile["X"],
-            tile["Y"],
-            tile["gene"],
-            tile["labels"].numpy().copy().astype(int),
-            tile["angles"].numpy().copy().astype(float),
-            tile["classes"].numpy().copy().astype(int),
-            tile["label_mask"].numpy().copy().astype(bool),
-            tile["nucleus_mask"].numpy().copy().astype(bool),
-            tile["location"],
-        )
-        mask_pred = model(x, y, z).detach().numpy().copy()
-        foreground_pred = expit(mask_pred[..., 0])
-        angles_pred = expit(mask_pred[..., 1]) * 2 * np.pi - np.pi
-        class_pred = softmax(mask_pred[..., 2:], axis=-1)
-        vector_x_list.append(0.5 * np.cos(angles_pred.squeeze()))
-        vector_y_list.append(0.5 * np.sin(angles_pred.squeeze()))
-        foreground_list.append(foreground_pred.squeeze())
-        class_list.append(class_pred.squeeze())
+    vector_x_tiles = vector_x * tile_mask
+    vector_x_stitched = tiler.rebuild(vector_x_tiles[:, None, :, :]).squeeze()
 
-    all_vector_x = torch.tensor(np.stack(vector_x_list, axis=0))
-    all_vector_y = torch.tensor(np.stack(vector_y_list, axis=0))
-
-    all_foreground = torch.tensor(np.stack(foreground_list, axis=0))
-    all_classes = torch.tensor(np.stack(class_list, axis=0))
-
-    tile_mask = dataloader.tiler.get_tile_masks()[:, 0, :, :]
-
-    vector_x_tiles = all_vector_x * tile_mask
-    vector_x_stitched = dataloader.tiler.rebuild(
-        vector_x_tiles[:, None, :, :]
-    ).squeeze()
-
-    vector_y_tiles = all_vector_y * tile_mask
-    vector_y_stitched = dataloader.tiler.rebuild(
-        vector_y_tiles[:, None, :, :]
-    ).squeeze()
+    vector_y_tiles = vector_y * tile_mask
+    vector_y_stitched = tiler.rebuild(vector_y_tiles[:, None, :, :]).squeeze()
 
     angles_stitched = torch.atan2(vector_y_stitched, vector_x_stitched)
 
-    foreground_tiles = all_foreground * tile_mask
-    foreground_stitched = dataloader.tiler.rebuild(
-        foreground_tiles[:, None, :, :]
-    ).squeeze()
+    foreground_tiles = foreground * tile_mask
+    foreground_stitched = tiler.rebuild(foreground_tiles[:, None, :, :]).squeeze()
 
-    class_tiles = all_classes * tile_mask[..., None]
-    class_stitched = dataloader.tiler.rebuild(
-        class_tiles.permute((0, 3, 1, 2))
-    ).squeeze()
+    class_tiles = classes * tile_mask[..., None]
+    class_stitched = tiler.rebuild(class_tiles.permute((0, 3, 1, 2))).squeeze()
 
     return ModelPredictions(
-        angles=angles_stitched.detach().numpy(),
-        foreground=foreground_stitched.detach().numpy(),
-        classes=class_stitched.detach().numpy(),
+        angles=angles_stitched.detach().cpu().numpy(),
+        foreground=foreground_stitched.detach().cpu().numpy(),
+        classes=class_stitched.detach().cpu().numpy(),
     )
 
 

@@ -1,5 +1,6 @@
 """ Full assembly of the parts to form the complete network """
 
+from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 from torch.nn import Embedding
 from nuc2seg.unet_parts import *
 from pytorch_lightning.core import LightningModule, LightningDataModule
@@ -200,6 +201,10 @@ class SparseUNet(LightningModule):
             }
         )
 
+    def predict_step(self, batch, batch_idx):
+        x, y, z = batch["X"], batch["Y"], batch["gene"]
+        return self.forward(x, y, z)
+
     def on_validation_epoch_end(self):
         foreground_accuracy_value = torch.stack(
             [x["foreground_accuracy"] for x in self.validation_step_outputs]
@@ -220,6 +225,7 @@ class Nuc2SegDataModule(LightningDataModule):
         val_percent: float = 0.1,
         train_batch_size: int = 1,
         val_batch_size: int = 1,
+        predict_batch_size: int = 1,
         tile_height: int = 64,
         tile_width: int = 64,
         tile_overlap: float = 0.25,
@@ -230,9 +236,11 @@ class Nuc2SegDataModule(LightningDataModule):
         self.val_percent = val_percent
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
+        self.predict_batch_size = predict_batch_size
         self.dataset = None
         self.train_set = None
         self.val_set = None
+        self.predict_set = None
         self.tile_height = tile_height
         self.tile_width = tile_width
         self.tile_overlap = tile_overlap
@@ -257,6 +265,8 @@ class Nuc2SegDataModule(LightningDataModule):
         if n_val <= 0 or n_train <= 0:
             raise ValueError("Not enough data to split into train and validation sets")
 
+        self.predict_set = dataset
+
         self.train_set, self.val_set = random_split(dataset, [n_train, n_val])
 
     def train_dataloader(self):
@@ -275,4 +285,11 @@ class Nuc2SegDataModule(LightningDataModule):
 
         return DataLoader(
             self.val_set, batch_size=self.val_batch_size, num_workers=self.num_workers
+        )
+
+    def predict_dataloader(self):
+        return DataLoader(
+            self.predict_set,
+            batch_size=self.predict_batch_size,
+            num_workers=self.num_workers,
         )
