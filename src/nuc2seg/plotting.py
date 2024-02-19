@@ -121,3 +121,11 @@ def plot_model_predictions(
 
     fig.tight_layout()
     fig.savefig(output_path)
+
+
+def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
+    fig, ax = plt.subplots(figsize=(15, 15))
+    segmentation_gdf.plot(ax=ax, color="blue")
+    nuclei_gdf.plot(ax=ax, color="red")
+
+    fig.savefig(output_path)

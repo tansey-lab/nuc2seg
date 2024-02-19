@@ -1,9 +1,11 @@
 import argparse
 import logging
+import os.path
+
 from nuc2seg import log_config
 from nuc2seg.segment import greedy_cell_segmentation, convert_segmentation_to_shapefile
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
-import h5py
+from nuc2seg.plotting import plot_final_segmentation
 
 logger = logging.getLogger(__name__)
 
@@ -69,4 +71,13 @@ def main():
 
     gdf = convert_segmentation_to_shapefile(segmentation=result, dataset=dataset)
 
+    nuclei_gdf = convert_segmentation_to_shapefile(
+        segmentation=dataset.labels, dataset=dataset
+    )
+
+    plot_final_segmentation(
+        nuclei_gdf=nuclei_gdf,
+        segmentation_gdf=gdf,
+        output_path=os.path.join(os.path.dirname(args.output), "segmentation.png"),
+    )
     gdf.to_parquet(args.shapefile_output)

@@ -184,7 +184,7 @@ def create_rasterized_dataset(
         angles=angles,
         classes=pixel_types,
         transcripts=np.array([X, Y, G]).T,
-        bbox=np.array([x_min, x_max, y_min, y_max]),
+        bbox=np.array([x_min, y_min, x_max, y_max]),
         n_classes=n_classes,
         n_genes=n_genes,
         resolution=1.0,
