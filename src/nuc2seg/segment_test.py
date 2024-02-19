@@ -3,9 +3,12 @@ from nuc2seg.segment import (
     flow_destination,
     greedy_cell_segmentation,
     raster_to_polygon,
+    stitch_predictions,
 )
 import numpy as np
 import pytest
+import torch
+from blended_tiling import TilingModule
 
 
 def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
@@ -211,3 +214,18 @@ def test_raster_to_polygon():
     result = raster_to_polygon(arr)
 
     assert result
+
+
+def test_stitch_predictions():
+    pred_result = torch.ones((9, 64, 64, 5))
+    tiling_module = TilingModule(
+        base_size=(128, 128),
+        tile_size=(64, 64),
+        tile_overlap=(0.25, 0.25),
+    )
+
+    output = stitch_predictions(results=pred_result, tiler=tiling_module)
+
+    assert output.classes.shape == (3, 128, 128)
+    assert output.angles.shape == (128, 128)
+    assert output.foreground.shape == (128, 128)

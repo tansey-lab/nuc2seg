@@ -5,8 +5,9 @@ import torch
 
 from nuc2seg import log_config
 from nuc2seg.segment import stitch_predictions
-from nuc2seg.unet_model import SparseUNet
+from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
 from nuc2seg.data import Nuc2SegDataset, TiledDataset
+from pytorch_lightning import Trainer
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,21 @@ def main():
 
     model = SparseUNet.load_from_checkpoint(args.model_weights)
 
-    model_predictions = stitch_predictions(model=model, dataloader=tiled_dataset)
+    dm = Nuc2SegDataModule(
+        preprocessed_data_path=args.dataset,
+        tile_height=args.tile_height,
+        tile_width=args.tile_width,
+        tile_overlap=args.overlap_percentage,
+        num_workers=args.num_dataloader_workers,
+    )
+
+    trainer = Trainer(
+        accelerator=args.device,
+        devices=args.n_devices,
+        default_root_dir=args.output_dir,
+    )
+    results = torch.stack(trainer.predict(model, dm)).squeeze()
+
+    model_predictions = stitch_predictions(results=results, tiler=tiled_dataset.tiler)
 
     model_predictions.save_h5(args.output)
