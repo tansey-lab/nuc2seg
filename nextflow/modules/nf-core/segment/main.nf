@@ -10,8 +10,9 @@ process SEGMENT {
 
     output:
     tuple val(meta), path("${prefix}/segmentation.h5"), emit: segmentation
-    tuple val(meta), path("${prefix}/shapes.parquet"), emit: shapefile
-    path  "versions.yml"                , emit: versions
+    tuple val(meta), path("${prefix}/shapes.parquet") , emit: shapefile
+    tuple val(meta), path("${prefix}/*.png")          , emit: plot
+    path  "versions.yml"                              , emit: versions
 
 
     when:
