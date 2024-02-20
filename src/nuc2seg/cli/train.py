@@ -145,6 +145,12 @@ def get_parser():
         type=int,
         default=cpu_count(),
     )
+    parser.add_argument(
+        "--val-check-interval",
+        help="Check validation set after this many fractional epochs.",
+        type=float,
+        default=0.25,
+    )
     return parser
 
 
@@ -215,6 +221,7 @@ def main():
         gradient_clip_algorithm="norm",
         default_root_dir=args.output_dir,
         logger=wandb_logger,
+        val_check_interval=args.val_check_interval,
         callbacks=[checkpoint_callback],
         log_every_n_steps=min(50, len(tiled_ds) - 1),
     )

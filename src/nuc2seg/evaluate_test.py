@@ -4,6 +4,7 @@ from nuc2seg.evaluate import (
     foreground_accuracy,
     squared_angle_difference,
     angle_accuracy,
+    celltype_accuracy,
 )
 import torch
 
@@ -112,3 +113,54 @@ def test_angle_accuracy():
     result = angle_accuracy(prediction, labels, target)
 
     assert torch.allclose(result, torch.tensor(0.98))
+
+
+def test_angle_accuracy_nan():
+    prediction = torch.zeros(1, 2, 2, 3)  # batch  # X  # Y  # channels
+
+    prediction[0, 0, 0, 1] = torch.logit(torch.tensor(0.99))
+    prediction[0, 0, 1, 1] = torch.logit(torch.tensor(0.99))
+    prediction[0, 1, 0, 1] = torch.logit(torch.tensor(0.01))
+    prediction[0, 1, 1, 1] = torch.logit(torch.tensor(0.5))
+
+    labels = torch.tensor([[[0, 0], [0, 0]]])
+    target = torch.tensor([[[0.01, 0.01], [0.99, 0.99]]])
+
+    result = angle_accuracy(prediction, labels, target)
+
+    assert torch.all(torch.isnan(result)).item()
+
+
+def test_celltype_accuracy():
+    prediction = torch.zeros(1, 2, 2, 5)  # batch  # X  # Y  # channels
+
+    prediction[0, 0, 0, 2] = torch.logit(torch.tensor(0.99))
+    prediction[0, 0, 1, 2] = torch.logit(torch.tensor(0.99))
+    prediction[0, 1, 0, 2] = torch.logit(torch.tensor(0.01))
+    prediction[0, 1, 1, 2] = torch.logit(torch.tensor(0.01))
+
+    prediction[0, 0, 0, 3] = torch.logit(torch.tensor(0.01))
+    prediction[0, 0, 1, 3] = torch.logit(torch.tensor(0.01))
+    prediction[0, 1, 0, 3] = torch.logit(torch.tensor(0.99))
+    prediction[0, 1, 1, 3] = torch.logit(torch.tensor(0.01))
+
+    prediction[0, 0, 0, 4] = torch.logit(torch.tensor(0.01))
+    prediction[0, 0, 1, 4] = torch.logit(torch.tensor(0.01))
+    prediction[0, 1, 0, 4] = torch.logit(torch.tensor(0.01))
+    prediction[0, 1, 1, 4] = torch.logit(torch.tensor(0.99))
+
+    labels = torch.tensor([[[1, 1], [2, 3]]])
+
+    result = celltype_accuracy(prediction, labels)
+
+    assert torch.allclose(result, torch.tensor(1.0))
+
+    labels = torch.tensor([[[1, 1], [2, 1]]])
+
+    result = celltype_accuracy(prediction, labels)
+    assert result.item() < 1.0
+
+    labels = torch.tensor([[[0, 0], [0, 0]]])
+
+    result = celltype_accuracy(prediction, labels)
+    assert torch.allclose(result, torch.tensor(1.0))

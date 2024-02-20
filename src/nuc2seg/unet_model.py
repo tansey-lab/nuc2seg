@@ -7,10 +7,10 @@ from pytorch_lightning.core import LightningModule, LightningDataModule
 from nuc2seg.data import TiledDataset, Nuc2SegDataset
 from torch import optim
 from nuc2seg.evaluate import (
-    dice_coeff,
     foreground_accuracy,
     squared_angle_difference,
     angle_accuracy,
+    celltype_accuracy,
 )
 from torch.utils.data import DataLoader, random_split
 
@@ -156,7 +156,7 @@ class SparseUNet(LightningModule):
         self.log("foreground_loss", foreground_loss)
 
         # If there are any cells in this tile
-        if nucleus_mask.sum() > 0:
+        if nucleus_mask.count_nonzero() > 0:
             # Add the squared error loss on the correct angles for known class pixels
             angle_loss_val = angle_loss(
                 angles_pred[nucleus_mask], angles[nucleus_mask]
@@ -178,13 +178,20 @@ class SparseUNet(LightningModule):
         return train_loss
 
     def validation_step(self, batch, batch_idx):
-        x, y, z, labels, angles = (
+        x, y, z, labels, angles, nucleus_mask = (
             batch["X"],
             batch["Y"],
             batch["gene"],
             batch["labels"],
             batch["angles"],
+            batch["nucleus_mask"],
         )
+
+        if nucleus_mask.count_nonzero() == 0:
+            # We can't validate anything if
+            # there's no nucleus in this tile
+            return
+
         # predict the mask
         prediction = self.forward(x, y, z)
         foreground_accuracy_value = foreground_accuracy(prediction, labels)
@@ -194,10 +201,13 @@ class SparseUNet(LightningModule):
             labels=labels,
         )
 
+        celltype_accuracy_value = celltype_accuracy(prediction, labels)
+
         self.validation_step_outputs.append(
             {
                 "foreground_accuracy": foreground_accuracy_value,
                 "angle_accuracy": angle_accuracy_value,
+                "celltype_accuracy": celltype_accuracy_value,
             }
         )
 
@@ -208,13 +218,21 @@ class SparseUNet(LightningModule):
     def on_validation_epoch_end(self):
         foreground_accuracy_value = torch.stack(
             [x["foreground_accuracy"] for x in self.validation_step_outputs]
-        ).mean()
+        ).nanmean()
         angle_accuracy_value = torch.stack(
             [x["angle_accuracy"] for x in self.validation_step_outputs]
-        ).mean()
+        ).nanmean()
+        celltype_accuracy_value = torch.stack(
+            [x["celltype_accuracy"] for x in self.validation_step_outputs]
+        ).nanmean()
         self.log("foreground_accuracy", foreground_accuracy_value)
         self.log("angle_accuracy", angle_accuracy_value)
-        self.log("val_accuracy", (foreground_accuracy_value + angle_accuracy_value) / 2)
+        self.log("celltype_accuracy", celltype_accuracy_value)
+        self.log(
+            "val_accuracy",
+            (foreground_accuracy_value + angle_accuracy_value + celltype_accuracy_value)
+            / 3.0,
+        )
         self.validation_step_outputs.clear()
 
 
