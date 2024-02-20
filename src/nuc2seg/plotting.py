@@ -4,7 +4,9 @@ from matplotlib import pyplot as plt
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
 import numpy as np
 import math
+from matplotlib import cm
 from matplotlib.colors import Normalize
+from matplotlib.colors import ListedColormap
 
 
 def plot_tiling(bboxes, output_path):
@@ -21,8 +23,8 @@ def plot_tiling(bboxes, output_path):
 def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
     label_plot = dataset.labels.copy()
     transcripts = dataset.transcripts.copy()
-    label_plot[label_plot >= 1] = 5
-    label_plot[label_plot == -1] = 2
+    label_plot[label_plot >= 1] = 2
+    label_plot[label_plot == -1] = 1
 
     if bbox is not None:
         label_plot = label_plot[bbox[0] : bbox[2], bbox[1] : bbox[3]]
@@ -34,11 +36,57 @@ def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
         transcripts[:, 0] = transcripts[:, 0] - bbox[0]
         transcripts[:, 1] = transcripts[:, 1] - bbox[1]
 
+    # Created fixed colormap for labels where 0 is background, 1 is border and 2 is nucleus
+    colormap = ListedColormap([(0.0, 0.0, 0.0, 1.0), cm.copper(128), cm.copper(200)])
+    nucleus_color = colormap.colors[2]  # Color for 'Nucleus'
+    border_color = colormap.colors[1]  # Color for 'Border'
+    background_color = colormap.colors[0]  # Color for 'Background'
+
     ax.set_title("Labels and transcripts")
-    ax.imshow(label_plot, cmap="copper", interpolation="none")
+    ax.imshow(label_plot.T, cmap=colormap)
+
+    # Add legend with square patches of color to the right of the plot area
+    ax.legend(
+        handles=[
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=nucleus_color,
+                markersize=10,
+                label="Nucleus",
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=border_color,
+                markersize=10,
+                label="Border",
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=background_color,
+                markersize=10,
+                label="Background",
+            ),
+        ],
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+    )
 
     ax.scatter(
-        transcripts[:, 1], transcripts[:, 0], color="red", zorder=100, s=0.1, alpha=0.3
+        x=transcripts[:, 0],
+        y=transcripts[:, 1],
+        color="red",
+        zorder=100,
+        s=1,
+        alpha=0.4,
     )
 
 
@@ -49,7 +97,7 @@ def plot_angles(ax, predictions: ModelPredictions, bbox=None):
     if bbox is not None:
         angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
 
-    ax.imshow(angles, vmin=-np.pi, vmax=np.pi, cmap="hsv")
+    ax.imshow(angles.T, vmin=-np.pi, vmax=np.pi, cmap="hsv")
     ax.set_title("Predicted angles")
 
 
@@ -68,7 +116,7 @@ def plot_angle_legend(ax):
     im = ax.pcolormesh(
         t, r, c.T, norm=norm, cmap="hsv"
     )  # plot the colormesh on axis with colormap
-
+    ax.set_theta_direction(-1)
     # remove tick labels
     ax.set_xticklabels([])
     ax.set_yticklabels([])
@@ -84,7 +132,7 @@ def plot_foreground(ax, predictions: ModelPredictions, bbox=None):
     if bbox is not None:
         foreground = foreground[bbox[0] : bbox[2], bbox[1] : bbox[3]]
 
-    ax.imshow(foreground, vmin=0, vmax=1, cmap="coolwarm", interpolation="none")
+    ax.imshow(foreground.T, vmin=0, vmax=1, cmap="coolwarm", interpolation="none")
     ax.set_title("Predicted foreground")
 
 
