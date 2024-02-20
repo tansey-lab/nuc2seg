@@ -7,6 +7,7 @@ import tqdm
 
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import collate_tiles
+import torch.nn.functional as F
 
 
 def dice_coeff(
@@ -202,3 +203,13 @@ def angle_accuracy(predictions, labels, target):
         torch.tensor(1.0)
         - torch.sqrt(squared_angle_difference(angle_pred, target)).mean()
     )
+
+
+def celltype_accuracy(predictions, labels):
+    mask = labels > 0
+    class_pred = torch.softmax(predictions[..., 2:], dim=-1).argmax(dim=-1)
+    n_classes = predictions.shape[-1] - 2
+
+    mask_true = F.one_hot(labels[mask] - 1, n_classes)
+    mask_pred = F.one_hot(class_pred[mask], n_classes)
+    return multiclass_dice_coeff(mask_pred[..., None], mask_true[..., None])
