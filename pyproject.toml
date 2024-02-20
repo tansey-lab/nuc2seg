@@ -41,7 +41,7 @@ dependencies = [
     "blended-tiling==0.0.1.dev6",
     "lightning",
     "wandb",
-    "opencv-contrib-python"
+    "opencv-contrib-python-headless"
 ]
 
 [project.optional-dependencies]
