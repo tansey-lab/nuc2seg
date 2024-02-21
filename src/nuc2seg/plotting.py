@@ -206,6 +206,7 @@ def plot_model_predictions(
 
     fig.tight_layout()
     fig.savefig(output_path)
+    plt.close()
 
 
 def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
@@ -214,3 +215,4 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
     nuclei_gdf.plot(ax=ax, color="red")
 
     fig.savefig(output_path)
+    plt.close()
