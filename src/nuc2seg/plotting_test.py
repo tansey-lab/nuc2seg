@@ -45,5 +45,8 @@ def test_plot_model_predictions():
 
     try:
         plot_model_predictions(ds, predictions, os.path.join(tmpdir, output_path))
+        plot_model_predictions(
+            ds, predictions, os.path.join(tmpdir, "quiver.png"), use_quiver=True
+        )
     finally:
         shutil.rmtree(tmpdir)

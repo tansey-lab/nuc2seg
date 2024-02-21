@@ -51,6 +51,12 @@ def get_parser():
         type=str,
         required=True,
     )
+    parser.add_argument(
+        "--max-plots",
+        help="Number of plots to make",
+        type=int,
+        default=100,
+    )
     return parser
 
 
@@ -90,6 +96,9 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     for bbox in tqdm.tqdm(tile_generator, total=len(tiled_dataset), unit="plot"):
+        if ds.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].count_nonzero() == 0:
+            continue
+
         plot_model_predictions(
             dataset=ds,
             model_predictions=predictions,

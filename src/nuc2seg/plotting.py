@@ -7,6 +7,7 @@ import math
 from matplotlib import cm
 from matplotlib.colors import Normalize
 from matplotlib.colors import ListedColormap
+from nuc2seg.preprocessing import pol2cart
 
 
 def plot_tiling(bboxes, output_path):
@@ -101,6 +102,30 @@ def plot_angles(ax, predictions: ModelPredictions, bbox=None):
     ax.set_title("Predicted angles")
 
 
+def plot_angles_quiver(
+    ax, dataset: Nuc2SegDataset, predictions: ModelPredictions, bbox=None
+):
+    angles = predictions.angles
+    labels = dataset.labels
+
+    if bbox is not None:
+        angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+        labels = labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+        nuclei = labels > 0
+        mask = labels == -1
+    else:
+        nuclei = labels > 0
+        mask = labels == -1
+
+    ax.imshow(nuclei.T, vmin=0, vmax=1, cmap="binary", interpolation="none")
+
+    for xi in range(nuclei.shape[0]):
+        for yi in range(nuclei.shape[1]):
+            if mask[xi, yi]:
+                dx, dy = pol2cart(0.5, angles[xi, yi])
+                ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07, alpha=0.5)
+
+
 def plot_angle_legend(ax):
     # Define colormap normalization for 0 to 2*pi
     norm = Normalize(-np.pi, np.pi)
@@ -149,23 +174,35 @@ def plot_model_predictions(
     model_predictions: ModelPredictions,
     output_path=None,
     bbox=None,
+    use_quiver=True,
 ):
 
-    layout = """
-    A.
-    BD
-    C.
-    """
+    if use_quiver:
+        layout = """
+        A
+        B
+        C
+        """
+    else:
+        layout = """
+        A.
+        BD
+        C.
+        """
 
-    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 10), width_ratios=[9, 1])
+    if use_quiver:
+        fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 10))
+        plot_angles_quiver(ax["B"], dataset, model_predictions, bbox=bbox)
+    else:
+        fig, ax = plt.subplot_mosaic(
+            mosaic=layout, figsize=(10, 10), width_ratios=[9, 1]
+        )
+        plot_angles(ax["B"], model_predictions, bbox=bbox)
+        update_projection(ax, "D", projection="polar", fig=fig)
+        plot_angle_legend(ax["D"])
 
     plot_labels(ax["A"], dataset, bbox=bbox)
-    plot_angles(ax["B"], model_predictions, bbox=bbox)
     plot_foreground(ax["C"], model_predictions, bbox=bbox)
-
-    update_projection(ax, "D", projection="polar", fig=fig)
-
-    plot_angle_legend(ax["D"])
 
     fig.tight_layout()
     fig.savefig(output_path)

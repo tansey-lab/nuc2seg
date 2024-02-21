@@ -232,7 +232,6 @@ class TiledDataset(Dataset):
 
 class ModelPredictions:
     def __init__(self, angles, classes, foreground):
-
         self.angles = angles
         self.classes = classes
         self.foreground = foreground
