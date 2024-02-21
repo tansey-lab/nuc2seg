@@ -2,6 +2,7 @@ import argparse
 import logging
 import os.path
 import tqdm
+import numpy as np
 
 from nuc2seg import log_config
 from nuc2seg.data import Nuc2SegDataset, TiledDataset, ModelPredictions, generate_tiles
@@ -96,7 +97,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     for bbox in tqdm.tqdm(tile_generator, total=len(tiled_dataset), unit="plot"):
-        if ds.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].count_nonzero() == 0:
+        if np.count_nonzero(ds.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]) == 0:
             continue
 
         plot_model_predictions(
