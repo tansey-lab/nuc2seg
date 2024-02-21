@@ -210,6 +210,9 @@ def celltype_accuracy(predictions, labels):
     class_pred = torch.softmax(predictions[..., 2:], dim=-1).argmax(dim=-1)
     n_classes = predictions.shape[-1] - 2
 
-    mask_true = F.one_hot(labels[mask] - 1, n_classes)
-    mask_pred = F.one_hot(class_pred[mask], n_classes)
+    labels = labels[mask] - 1
+    class_pred = class_pred[mask]
+
+    mask_true = F.one_hot(labels, n_classes)
+    mask_pred = F.one_hot(class_pred, n_classes)
     return multiclass_dice_coeff(mask_pred[..., None], mask_true[..., None])

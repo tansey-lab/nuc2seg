@@ -163,10 +163,16 @@ class TiledDataset(Dataset):
 
     @property
     def celltype_criterion_weights(self):
-        torch.Tensor(
+        weights = torch.Tensor(
             self.per_tile_class_histograms[:, 2:].mean()
             / self.per_tile_class_histograms[:, 2:].mean(axis=0)
         )
+
+        if not torch.all(torch.isfinite(weights)):
+            logger.warning("Non-finite weights found. Replacing with epsilon")
+            weights[~torch.isfinite(weights)] = 1e-6
+
+        return weights
 
     def __getitem__(self, idx):
         x1, y1, x2, y2 = next(
