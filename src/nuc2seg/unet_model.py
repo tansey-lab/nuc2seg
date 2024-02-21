@@ -178,12 +178,13 @@ class SparseUNet(LightningModule):
         return train_loss
 
     def validation_step(self, batch, batch_idx):
-        x, y, z, labels, angles, nucleus_mask = (
+        x, y, z, labels, angles, classes, nucleus_mask = (
             batch["X"],
             batch["Y"],
             batch["gene"],
             batch["labels"],
             batch["angles"],
+            batch["classes"],
             batch["nucleus_mask"],
         )
 
@@ -201,7 +202,7 @@ class SparseUNet(LightningModule):
             labels=labels,
         )
 
-        celltype_accuracy_value = celltype_accuracy(prediction, labels)
+        celltype_accuracy_value = celltype_accuracy(prediction, classes)
 
         self.validation_step_outputs.append(
             {
