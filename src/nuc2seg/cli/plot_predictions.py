@@ -96,7 +96,12 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
 
+    plots = 0
+
     for bbox in tqdm.tqdm(tile_generator, total=len(tiled_dataset), unit="plot"):
+        if plots >= args.max_plots:
+            break
+
         if np.count_nonzero(ds.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]) == 0:
             continue
 
@@ -109,3 +114,5 @@ def main():
             ),
             use_quiver=True,
         )
+
+        plots += 1
