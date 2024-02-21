@@ -107,4 +107,5 @@ def main():
             output_path=os.path.join(
                 args.output_dir, "_".join([str(x) for x in bbox]) + ".pdf"
             ),
+            use_quiver=True,
         )
