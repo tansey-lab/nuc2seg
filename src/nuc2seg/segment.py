@@ -4,6 +4,9 @@ import logging
 import cv2
 import geopandas
 import numpy as np
+import anndata
+import tqdm
+
 
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import (
@@ -289,7 +292,7 @@ def convert_segmentation_to_shapefile(
         index=nuclei_id,
     )
 
-    for value in np.unique(segmentation):
+    for value in tqdm.tqdm(np.unique(segmentation)):
         if value in [-1, 0]:
             continue
         mask = segmentation == value
@@ -316,3 +319,47 @@ def convert_segmentation_to_shapefile(
     gdf.set_geometry("geometry", inplace=True)
 
     return gdf
+
+
+def spatial_join_polygons_and_transcripts(
+    boundaries: geopandas.GeoDataFrame, transcripts: geopandas.GeoDataFrame
+):
+    joined_gdf = geopandas.sjoin(boundaries, transcripts, how="inner")
+
+    return joined_gdf
+
+
+def convert_transcripts_to_anndata(transcript_gdf, segmentation_gdf):
+    sjoined_gdf = spatial_join_polygons_and_transcripts(
+        boundaries=segmentation_gdf, transcripts=transcript_gdf
+    )
+
+    transcripts_pivoted = sjoined_gdf[["index_right", "feature_name"]].pivot_table(
+        index="index_right", columns=["feature_name"], aggfunc=len, fill_value=0
+    )
+
+    segmentation_with_transcripts = sjoined_gdf.merge(
+        transcripts_pivoted, left_on="index_right", right_index=True, how="left"
+    )
+
+    feature_columns = transcripts_pivoted.columns
+
+    segmentation_with_transcripts["x"] = (
+        segmentation_with_transcripts.geometry.centroid.x
+    )
+    segmentation_with_transcripts["y"] = (
+        segmentation_with_transcripts.geometry.centroid.y
+    )
+    segmentation_with_transcripts["area"] = segmentation_with_transcripts.geometry.area
+
+    del segmentation_with_transcripts["index_right"]
+
+    adata = anndata.AnnData(
+        X=segmentation_with_transcripts[feature_columns],
+        obsm={"spatial": segmentation_with_transcripts[["x", "y"]].values},
+        obs=segmentation_with_transcripts[["area"]],
+    )
+
+    adata.obs_names.name = "cell_id"
+
+    return adata

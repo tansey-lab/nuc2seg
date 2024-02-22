@@ -1,15 +1,15 @@
-process PREPROCESS {
+process CREATE_SPATIALDATA {
     tag "$meta.id"
-    label 'process_high'
+    label 'process_medium'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://jeffquinnmsk/nuc2seg:latest' :
-        'docker.io/jeffquinnmsk/nuc2seg:latest' }"
+        'docker://jeffquinnmsk/spatialdata:latest' :
+        'docker.io/jeffquinnmsk/spatialdata:latest' }"
 
     input:
-    tuple val(meta), path(xenium_dir)
+    tuple val(meta), path(segmentation), path(anndata), path(xenium_dir)
 
     output:
-    tuple val(meta), path("${prefix}/preprocessed.h5"), emit: dataset
+    tuple val(meta), path("${prefix}/spatialdata.zarr"), emit: zarr
     path  "versions.yml"                , emit: versions
 
 
@@ -21,11 +21,15 @@ process PREPROCESS {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    preprocess \
-        --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
-        --transcripts-file ${xenium_dir}/transcripts.parquet \
-        --output ${prefix}/preprocessed.h5 \
+    create_sd.py \
+        --segmentation ${segmentation} \
+        --xenium-dir ${xenium_dir} \
+        --anndata ${anndata} \
+        --output-dir ${prefix}/tmpdir \
         ${args}
+
+    zip -r -0 spatialdata.zarr ${prefix}/tmpdir
+    rm -rf ${prefix}/tmpdir
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
