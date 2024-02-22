@@ -244,6 +244,9 @@ class SparseUNet(LightningModule):
         return self.forward(x, y, z)
 
     def on_validation_epoch_end(self):
+        if len(self.validation_step_outputs) == 0:
+            return
+
         foreground_accuracy_value = torch.stack(
             [x["foreground_accuracy"] for x in self.validation_step_outputs]
         ).nanmean()
