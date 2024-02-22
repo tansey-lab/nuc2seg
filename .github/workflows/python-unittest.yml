@@ -17,9 +17,3 @@ jobs:
           python-version: '3.11'
       - name: Run tests
         run: make python-unittest
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage.json
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
