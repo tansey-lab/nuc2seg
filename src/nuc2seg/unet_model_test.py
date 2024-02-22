@@ -1,11 +1,13 @@
-from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
+from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule, training_step
 import torch
 import shutil
 import numpy as np
 from pytorch_lightning import Trainer
 from nuc2seg.data import Nuc2SegDataset
+from nuc2seg.preprocessing import cart2pol
 import tempfile
 import os
+from torch import nn
 
 
 def test_model_predict():
@@ -67,3 +69,123 @@ def test_model():
         trainer.fit(model, dm)
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_training_step():
+    foreground_criterion = nn.BCEWithLogitsLoss(reduction="mean")
+    # Class imbalance reweighting
+    celltype_criterion = nn.CrossEntropyLoss(
+        reduction="mean",
+        weight=torch.tensor([1.0, 1.0, 1.0]),
+    )
+
+    labels = torch.zeros((10, 10))
+    labels[3:8, 3:8] = -1
+    labels[4:7, 4:7] = 1
+
+    classes = torch.zeros((10, 10))
+    classes[4:7, 4:7] = 3
+
+    labels_mask = (labels > -1).bool()
+    nucleus_mask = (labels > 0).bool()
+
+    predictions = torch.zeros((10, 10, 5)).float()
+    predictions[:, :, 0] = torch.logit(torch.tensor(1e-5))
+    predictions[3:8, 3:8, 0] = torch.logit(torch.tensor(0.9999))
+
+    angles = torch.zeros((10, 10))
+
+    for x in range(10):
+        for y in range(10):
+            x_component = 5 - x
+            y_component = 5 - y
+            angle = cart2pol(x=x_component, y=y_component)
+            angles[x, y] = angle[1]
+
+    angles = (angles + np.pi) / (2 * np.pi)
+
+    predictions[:, :, 1] = torch.logit(angles)
+
+    predictions[:, :, 2:] = torch.logit(torch.tensor([0.01, 0.01, 0.99]))
+    classes = classes.long()
+
+    (
+        perfect_train_loss,
+        perfect_foreground_loss,
+        perfect_angle_loss,
+        perfect_celltype_loss,
+    ) = training_step(
+        prediction=predictions,
+        foreground_criterion=foreground_criterion,
+        celltype_criterion=celltype_criterion,
+        labels=labels,
+        classes=classes,
+        label_mask=labels_mask,
+        nucleus_mask=nucleus_mask,
+        angles=angles,
+    )
+
+    assert torch.isclose(perfect_train_loss, torch.tensor(0.0), atol=1e-3)
+    assert torch.isclose(perfect_foreground_loss, torch.tensor(0.0), atol=1e-3)
+    assert torch.isclose(perfect_angle_loss, torch.tensor(0.0), atol=1e-3)
+    assert torch.isclose(perfect_celltype_loss, torch.tensor(0.0), atol=1e-3)
+
+    for x in range(10):
+        for y in range(10):
+            x_component = 1 - x
+            y_component = 1 - y
+            angle = cart2pol(x=x_component, y=y_component)
+            angles[x, y] = angle[1]
+
+    angles = (angles + np.pi) / (2 * np.pi)
+
+    train_loss_worse_1, _, bad_angle_loss, _ = training_step(
+        prediction=predictions,
+        foreground_criterion=foreground_criterion,
+        celltype_criterion=celltype_criterion,
+        labels=labels,
+        classes=classes,
+        label_mask=labels_mask,
+        nucleus_mask=nucleus_mask,
+        angles=angles,
+    )
+
+    assert bad_angle_loss > perfect_angle_loss
+    assert train_loss_worse_1 > perfect_train_loss
+
+    predictions[:, :, 2:] = torch.logit(torch.tensor([0.33, 0.33, 0.33]))
+
+    train_loss_worse_2, _, _, bad_celltype_loss = training_step(
+        prediction=predictions,
+        foreground_criterion=foreground_criterion,
+        celltype_criterion=celltype_criterion,
+        labels=labels,
+        classes=classes,
+        label_mask=labels_mask,
+        nucleus_mask=nucleus_mask,
+        angles=angles,
+    )
+
+    assert bad_celltype_loss > perfect_celltype_loss
+    assert train_loss_worse_2 > train_loss_worse_1 > perfect_train_loss
+
+    predictions[3:8, 3:8, 0] = torch.logit(torch.tensor(0.5))
+
+    train_loss_worse_3, bad_foreground_loss, _, _ = training_step(
+        prediction=predictions,
+        foreground_criterion=foreground_criterion,
+        celltype_criterion=celltype_criterion,
+        labels=labels,
+        classes=classes,
+        label_mask=labels_mask,
+        nucleus_mask=nucleus_mask,
+        angles=angles,
+    )
+
+    assert bad_foreground_loss > perfect_foreground_loss
+    assert (
+        train_loss_worse_3
+        > train_loss_worse_2
+        > train_loss_worse_1
+        > perfect_train_loss
+    )

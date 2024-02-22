@@ -1,7 +1,6 @@
 python-unittest:
 	pip install -e .[test]
-	coverage run -m pytest ./src
-	coverage json
+	pytest ./src
 
 .git/hooks/pre-commit:
 	pip install pre-commit

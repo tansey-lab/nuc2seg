@@ -64,6 +64,46 @@ def angle_loss(predictions, targets):
     return squared_angle_difference(torch.sigmoid(predictions), targets)
 
 
+def training_step(
+    labels,
+    angles,
+    classes,
+    label_mask,
+    nucleus_mask,
+    prediction,
+    foreground_criterion,
+    celltype_criterion,
+):
+    label_mask = label_mask.type(torch.bool)
+
+    foreground_pred = prediction[..., 0]
+    angles_pred = prediction[..., 1]
+    class_pred = prediction[..., 2:]
+
+    # Add the cross-entropy loss on just foreground vs background
+    foreground_loss = foreground_criterion(
+        foreground_pred[label_mask], (labels[label_mask] > 0).type(torch.float)
+    )
+
+    # If there are any cells in this tile
+    if nucleus_mask.count_nonzero() > 0:
+        # Add the squared error loss on the correct angles for known class pixels
+        angle_loss_val = angle_loss(
+            angles_pred[nucleus_mask], angles[nucleus_mask]
+        ).mean()
+
+        # Add the cross-entropy loss on the cell type prediction for nucleus pixels
+        celltype_loss = celltype_criterion(
+            class_pred[nucleus_mask], classes[nucleus_mask] - 1
+        )
+
+        train_loss = foreground_loss + angle_loss_val + celltype_loss
+        return train_loss, foreground_loss, angle_loss_val, celltype_loss
+    else:
+        train_loss = foreground_loss
+        return train_loss, foreground_loss, None, None
+
+
 class SparseUNet(LightningModule):
     def __init__(
         self,
@@ -140,41 +180,28 @@ class SparseUNet(LightningModule):
             batch["nucleus_mask"],
         )
 
-        label_mask = label_mask.type(torch.bool)
+        prediction = self.forward(x, y, z)
 
-        mask_pred = self.forward(x, y, z)
-
-        foreground_pred = mask_pred[..., 0]
-        angles_pred = mask_pred[..., 1]
-        class_pred = mask_pred[..., 2:]
-
-        # Add the cross-entropy loss on just foreground vs background
-        foreground_loss = self.foreground_criterion(
-            foreground_pred[label_mask], (labels[label_mask] > 0).type(torch.float)
+        train_loss, foreground_loss, angle_loss_val, celltype_loss = training_step(
+            labels=labels,
+            angles=angles,
+            classes=classes,
+            label_mask=label_mask,
+            nucleus_mask=nucleus_mask,
+            prediction=prediction,
+            foreground_criterion=self.foreground_criterion,
+            celltype_criterion=self.celltype_criterion,
         )
 
         self.log("foreground_loss", foreground_loss)
 
-        # If there are any cells in this tile
-        if nucleus_mask.count_nonzero() > 0:
-            # Add the squared error loss on the correct angles for known class pixels
-            angle_loss_val = angle_loss(
-                angles_pred[nucleus_mask], angles[nucleus_mask]
-            ).mean()
-
+        if angle_loss_val is not None:
             self.log("angle_loss", angle_loss_val)
 
-            # Add the cross-entropy loss on the cell type prediction for nucleus pixels
-            celltype_loss = self.celltype_criterion(
-                class_pred[nucleus_mask], classes[nucleus_mask] - 1
-            )
+        if celltype_loss is not None:
             self.log("celltype_loss", celltype_loss)
-
-            train_loss = foreground_loss + angle_loss_val + celltype_loss
-        else:
-            train_loss = foreground_loss
-
         self.log("train_loss", train_loss)
+
         return train_loss
 
     def validation_step(self, batch, batch_idx):

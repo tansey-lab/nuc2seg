@@ -44,9 +44,15 @@ def test_plot_model_predictions():
     tmpdir = tempfile.mkdtemp()
 
     try:
-        plot_model_predictions(ds, predictions, os.path.join(tmpdir, output_path))
         plot_model_predictions(
-            ds, predictions, os.path.join(tmpdir, "quiver.png"), use_quiver=True
+            ds, predictions, os.path.join(tmpdir, output_path), bbox=[1, 1, 63, 63]
+        )
+        plot_model_predictions(
+            ds,
+            predictions,
+            os.path.join(tmpdir, "quiver.png"),
+            use_quiver=True,
+            bbox=[1, 1, 63, 63],
         )
     finally:
         shutil.rmtree(tmpdir)

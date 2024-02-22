@@ -107,7 +107,7 @@ def test_angle_accuracy():
     prediction[0, 1, 0, 1] = torch.logit(torch.tensor(0.01))
     prediction[0, 1, 1, 1] = torch.logit(torch.tensor(0.5))
 
-    labels = torch.tensor([[[-1, -1], [-1, 1]]])
+    labels = torch.tensor([[[1, 1], [1, 0]]])
     target = torch.tensor([[[0.01, 0.01], [0.99, 0.99]]])
 
     result = angle_accuracy(prediction, labels, target)

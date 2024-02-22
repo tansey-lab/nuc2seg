@@ -279,8 +279,7 @@ def raster_to_polygon(raster):
 
 
 def convert_segmentation_to_shapefile(
-    segmentation,
-    dataset: Nuc2SegDataset,
+    segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
 ):
     x1, y1, x2, y2 = dataset.bbox
 
@@ -305,6 +304,14 @@ def convert_segmentation_to_shapefile(
         translated_poly = affinity.translate(poly, xoff=x1, yoff=y1)
 
         gdf.loc[value, "geometry"] = translated_poly
+
+        mean_probs = predictions.classes[mask, :].mean(axis=0)
+        mean_probs = mean_probs / mean_probs.sum()
+        class_assignment = int(np.argmax(mean_probs))
+
+        gdf.loc[value, "class_assignment"] = class_assignment
+        for i, val in enumerate(mean_probs):
+            gdf.loc[value, f"class_{i}_prob"] = val
 
     gdf.set_geometry("geometry", inplace=True)
 

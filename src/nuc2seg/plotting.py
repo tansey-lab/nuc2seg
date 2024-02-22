@@ -24,8 +24,6 @@ def plot_tiling(bboxes, output_path):
 def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
     label_plot = dataset.labels.copy()
     transcripts = dataset.transcripts.copy()
-    label_plot[label_plot >= 1] = 2
-    label_plot[label_plot == -1] = 1
 
     if bbox is not None:
         label_plot = label_plot[bbox[0] : bbox[2], bbox[1] : bbox[3]]
@@ -38,13 +36,19 @@ def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
         transcripts[:, 1] = transcripts[:, 1] - bbox[1]
 
     # Created fixed colormap for labels where 0 is background, 1 is border and 2 is nucleus
-    colormap = ListedColormap([(0.0, 0.0, 0.0, 1.0), cm.copper(128), cm.copper(200)])
-    nucleus_color = colormap.colors[2]  # Color for 'Nucleus'
-    border_color = colormap.colors[1]  # Color for 'Border'
-    background_color = colormap.colors[0]  # Color for 'Background'
+    nucleus_color = cm.copper(200)[:3]  # Color for 'Nucleus'
+    border_color = cm.copper(128)[:3]  # Color for 'Border'
+    background_color = cm.copper(0)[:3]  # Color for 'Background'
 
     ax.set_title("Labels and transcripts")
-    ax.imshow(label_plot.T, cmap=colormap)
+
+    label_plot_image = np.zeros((label_plot.shape[0], label_plot.shape[1], 3))
+
+    label_plot_image[label_plot == 0] = background_color
+    label_plot_image[label_plot == -1] = border_color
+    label_plot_image[label_plot > 0] = nucleus_color
+
+    ax.imshow(label_plot_image.transpose(1, 0, 2))
 
     # Add legend with square patches of color to the right of the plot area
     ax.legend(
@@ -211,8 +215,24 @@ def plot_model_predictions(
 
 def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
     fig, ax = plt.subplots(figsize=(15, 15))
-    segmentation_gdf.plot(ax=ax, color="blue")
+    segmentation_gdf.plot(
+        ax=ax,
+        color="blue",
+    )
     nuclei_gdf.plot(ax=ax, color="red")
 
+    fig.savefig(output_path)
+    plt.close()
+
+
+def plot_segmentation_class_assignment(segmentation_gdf, output_path):
+    fig, ax = plt.subplots(figsize=(15, 15))
+    segmentation_gdf.plot(
+        ax=ax,
+        categorical=True,
+        column="class_assignment",
+        legend=True,
+        cmap="tab20",
+    )
     fig.savefig(output_path)
     plt.close()
