@@ -3,9 +3,14 @@ import logging
 import os.path
 
 from nuc2seg import log_config
-from nuc2seg.segment import greedy_cell_segmentation, convert_segmentation_to_shapefile
+from nuc2seg.segment import (
+    greedy_cell_segmentation,
+    convert_segmentation_to_shapefile,
+    convert_transcripts_to_anndata,
+)
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
 from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
+from nuc2seg.xenium import read_transcripts_into_points
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +25,20 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
+        "--transcripts",
+        help="Xenium transcripts file in parquet format.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
         "--shapefile-output",
         help="Cell segmentation shapefile in parquet format.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--anndata-output",
+        help="Cell-segmented anndata in h5ad format.",
         type=str,
         required=True,
     )
@@ -56,6 +73,8 @@ def get_parser():
 def main():
     args = get_parser().parse_args()
 
+    transcripts = read_transcripts_into_points(args.transcripts)
+
     dataset = Nuc2SegDataset.load_h5(args.dataset)
     predictions = ModelPredictions.load_h5(args.predictions)
 
@@ -72,11 +91,21 @@ def main():
     gdf = convert_segmentation_to_shapefile(
         segmentation=result.segmentation, dataset=dataset, predictions=predictions
     )
+    logger.info(f"Creating anndata")
 
+    ad = convert_transcripts_to_anndata(
+        transcript_gdf=transcripts, segmentation_gdf=gdf
+    )
+
+    logger.info(f"Saving anndata to {args.anndata_output}")
+    ad.write_h5ad(args.anndata_output)
+
+    logger.info(f"Converting segmentation to shapefile")
     nuclei_gdf = convert_segmentation_to_shapefile(
         segmentation=dataset.labels, dataset=dataset, predictions=predictions
     )
 
+    logger.info(f"Plotting segmentation and class assignment.")
     plot_final_segmentation(
         nuclei_gdf=nuclei_gdf,
         segmentation_gdf=gdf,
@@ -86,4 +115,6 @@ def main():
         segmentation_gdf=gdf,
         output_path=os.path.join(os.path.dirname(args.output), "class_assignment.png"),
     )
+
+    logger.info(f"Saving shapefile to {args.shapefile_output}")
     gdf.to_parquet(args.shapefile_output)

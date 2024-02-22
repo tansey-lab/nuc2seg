@@ -5,10 +5,14 @@ from nuc2seg.segment import (
     raster_to_polygon,
     stitch_predictions,
     convert_segmentation_to_shapefile,
+    convert_transcripts_to_anndata,
 )
 import numpy as np
 import pytest
 import torch
+import geopandas
+
+from shapely import Polygon, Point
 from blended_tiling import TilingModule
 from nuc2seg.data import ModelPredictions, Nuc2SegDataset
 
@@ -276,3 +280,29 @@ def test_convert_segmentation_to_shapefile():
     assert gdf.iloc[1].geometry.area <= 100
     assert np.isclose(gdf.iloc[0].class_0_prob, 0.967741935483871)
     assert np.isclose(gdf.iloc[1].class_1_prob, 0.967741935483871)
+
+
+def test_convert_transcripts_to_anndata():
+    boundaries = geopandas.GeoDataFrame(
+        [
+            [Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+            [Polygon([(1, 1), (1, 3), (3, 3), (3, 1)])],
+        ],
+        columns=["geometry"],
+    )
+
+    transcripts = geopandas.GeoDataFrame(
+        [
+            ["a", Point(0.5, 0.5)],
+            ["b", Point(2, 2)],
+        ],
+        columns=["feature_name", "geometry"],
+    )
+
+    adata = convert_transcripts_to_anndata(
+        transcript_gdf=transcripts, segmentation_gdf=boundaries
+    )
+
+    assert adata.n_vars == 2
+    assert adata.n_obs == 2
+    assert adata.obsm["spatial"].shape == (2, 2)

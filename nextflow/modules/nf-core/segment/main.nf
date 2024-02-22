@@ -11,6 +11,7 @@ process SEGMENT {
     output:
     tuple val(meta), path("${prefix}/segmentation.h5"), emit: segmentation
     tuple val(meta), path("${prefix}/shapes.parquet") , emit: shapefile
+    tuple val(meta), path("${prefix}/anndata.h5ad")   , emit: anndata
     tuple val(meta), path("${prefix}/*.png")          , emit: plot
     path  "versions.yml"                              , emit: versions
 
@@ -26,6 +27,7 @@ process SEGMENT {
     segment \
         --output ${prefix}/segmentation.h5 \
         --shapefile-output ${prefix}/shapes.parquet \
+        --anndata-output ${prefix}/anndata.h5ad \
         --dataset ${dataset} \
         --predictions ${predictions} \
         ${args}
