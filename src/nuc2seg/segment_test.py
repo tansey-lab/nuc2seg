@@ -234,10 +234,10 @@ def test_stitch_predictions():
 
 
 def test_convert_segmentation_to_shapefile():
-    classes = np.zeros((64, 64, 4))
+    classes = np.zeros((4, 64, 64))
 
-    classes[10:20, 10:20, :] = np.array([0.9, 0.01, 0.01, 0.01])
-    classes[30:40, 30:40, :] = np.array([0.01, 0.9, 0.01, 0.01])
+    classes[:, 10:20, 10:20] = np.array([0.9, 0.01, 0.01, 0.01])
+    classes[:, 30:40, 30:40] = np.array([0.01, 0.9, 0.01, 0.01])
 
     predictions = ModelPredictions(
         angles=np.zeros((64, 64)),

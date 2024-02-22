@@ -305,7 +305,7 @@ def convert_segmentation_to_shapefile(
 
         gdf.loc[value, "geometry"] = translated_poly
 
-        mean_probs = predictions.classes[mask, :].mean(axis=0)
+        mean_probs = predictions.classes.transpose(1, 2, 0)[mask, :].mean(axis=0)
         mean_probs = mean_probs / mean_probs.sum()
         class_assignment = int(np.argmax(mean_probs))
 
