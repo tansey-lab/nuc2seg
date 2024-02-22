@@ -30,8 +30,8 @@ jobs:
       - name: Build and push container
         uses: docker/build-push-action@v3
         with:
-          context: .
-          file: Dockerfile
+          context: containers/spatialdata
+          file: containers/spatialdata/Dockerfile
           push: true
           tags: jeffquinnmsk/spatialdata:latest
           cache-from: type=registry,ref=jeffquinnmsk/spatialdata:latest
