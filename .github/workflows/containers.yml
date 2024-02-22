@@ -27,6 +27,14 @@ jobs:
           tags: jeffquinnmsk/nuc2seg:latest
           cache-from: type=registry,ref=jeffquinnmsk/nuc2seg:latest
           cache-to: type=inline
+      - name: Build and push container
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: jeffquinnmsk/spatialdata:latest
+          cache-from: type=registry,ref=jeffquinnmsk/spatialdata:latest
   nextflow-integration:
     runs-on: ubuntu-20.04
     name: pytest
