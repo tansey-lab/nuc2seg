@@ -4,11 +4,13 @@ from nuc2seg.segment import (
     greedy_cell_segmentation,
     raster_to_polygon,
     stitch_predictions,
+    convert_segmentation_to_shapefile,
 )
 import numpy as np
 import pytest
 import torch
 from blended_tiling import TilingModule
+from nuc2seg.data import ModelPredictions, Nuc2SegDataset
 
 
 def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
@@ -229,3 +231,47 @@ def test_stitch_predictions():
     assert output.classes.shape == (3, 128, 128)
     assert output.angles.shape == (128, 128)
     assert output.foreground.shape == (128, 128)
+
+
+def test_convert_segmentation_to_shapefile():
+    classes = np.zeros((64, 64, 4))
+
+    classes[10:20, 10:20, :] = np.array([0.9, 0.01, 0.01, 0.01])
+    classes[30:40, 30:40, :] = np.array([0.01, 0.9, 0.01, 0.01])
+
+    predictions = ModelPredictions(
+        angles=np.zeros((64, 64)),
+        classes=classes,
+        foreground=np.ones((64, 64)) * 0.5,
+    )
+
+    dataset = Nuc2SegDataset(
+        labels=np.zeros((64, 64)),
+        angles=np.zeros((64, 64)),
+        classes=np.zeros((64, 64, 4)),
+        transcripts=np.array([[0, 0, 0], [32, 32, 1], [35, 35, 2], [22, 22, 2]]),
+        bbox=np.array([0, 0, 64, 64]),
+        n_classes=3,
+        n_genes=3,
+        resolution=1,
+    )
+
+    segmentation = np.zeros((64, 64))
+
+    segmentation[10:20, 10:20] = 1
+
+    segmentation[30:40, 30:40] = 2
+
+    gdf = convert_segmentation_to_shapefile(
+        dataset=dataset, predictions=predictions, segmentation=segmentation
+    )
+
+    assert gdf.shape[0] == 2
+    assert gdf.iloc[0].class_assignment == 0
+    assert gdf.iloc[1].class_assignment == 1
+    assert gdf.iloc[0].geometry.area > 80
+    assert gdf.iloc[0].geometry.area <= 100
+    assert gdf.iloc[1].geometry.area > 80
+    assert gdf.iloc[1].geometry.area <= 100
+    assert np.isclose(gdf.iloc[0].class_0_prob, 0.967741935483871)
+    assert np.isclose(gdf.iloc[1].class_1_prob, 0.967741935483871)

@@ -193,7 +193,7 @@ def squared_angle_difference(predictions, targets):
 
 
 def angle_accuracy(predictions, labels, target):
-    mask = labels == -1
+    mask = labels > 0
     angle_pred = torch.sigmoid(predictions[..., 1])
 
     angle_pred = angle_pred[mask]
