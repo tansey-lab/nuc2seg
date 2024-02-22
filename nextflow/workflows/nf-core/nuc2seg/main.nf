@@ -46,12 +46,14 @@ workflow NUC2SEG {
     if (params.weights == null || params.dataset == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
+            .join(xenium_input)
             .tap { segment_input }
     } else {
         Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
           file(params.dataset, checkIfExists: true)
         )])
             .join(PREDICT.out.predictions)
+            .join(xenium_input)
             .tap { segment_input }
     }
 
