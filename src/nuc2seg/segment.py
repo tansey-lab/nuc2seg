@@ -250,6 +250,12 @@ def greedy_cell_segmentation(
     return SegmentationResults(result)
 
 
+def collinear(p1, p2, p3):
+    return np.isclose(
+        (p1[1] - p2[1]) * (p1[0] - p3[0]), (p1[1] - p3[1]) * (p1[0] - p2[0])
+    )
+
+
 def raster_to_polygon(raster):
     # Find contours in the binary image
     contours, hierarchy = cv2.findContours(
@@ -277,8 +283,19 @@ def raster_to_polygon(raster):
     # You can loop over outer_contours to create multiple polygons if needed
     if outer_contours:
         exterior = outer_contours[0]
-        interior = holes
-        return Polygon(exterior, holes=interior)
+
+        # remove duplicate points without changing order
+        seen = []
+        for pt in exterior:
+            if pt in seen:
+                continue
+            # detect if last 3 points are collinear
+            if len(seen) > 2 and collinear(seen[-2], seen[-1], pt):
+                continue
+            else:
+                seen.append(pt)
+
+        return Polygon(seen, holes=[])
 
 
 def convert_segmentation_to_shapefile(
