@@ -36,4 +36,21 @@ process CREATE_SPATIALDATA {
         nuc2seg: \$( python -c 'from importlib.metadata import version;print(version("nuc2seg"))' )
     END_VERSIONS
     """
+
+    stub:
+    prefix = task.ext.prefix ?: "${meta.id}"
+    def args = task.ext.args ?: ""
+    """
+    mkdir -p "${prefix}"
+
+    echo create_sd.py \
+        --segmentation ${segmentation} \
+        --xenium-dir ${xenium_dir} \
+        --anndata ${anndata} \
+        --output-dir ${prefix}/tmpdir \
+        ${args}
+
+    touch ${prefix}/spatialdata.zarr
+    touch versions.yml
+    """
 }

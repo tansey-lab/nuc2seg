@@ -5,7 +5,9 @@ RUN pip install spatialdata-io pyarrow pandas ipython
 
 RUN mkdir -p /app
 
-COPY create_sd.py /app/ && RUN chmod +x /app/create_sd.py
+COPY create_sd.py /app/
+
+RUN chmod +x /app/create_sd.py
 
 ENV PYTHONUNBUFFERED=1
 
