@@ -85,4 +85,7 @@ autodoc_mock_imports = [
     "seaborn",
     "geopandas",
     "shapely",
+    "torch",
+    "torchvision",
+    "pytorch_lightning",
 ]

@@ -1,9 +1,8 @@
-import numpy as np
 import tqdm
+import numpy as np
 from scipy.special import softmax
 
 from nuc2seg.xenium import logger
-import numpy as np
 from scipy.special import logsumexp
 
 
