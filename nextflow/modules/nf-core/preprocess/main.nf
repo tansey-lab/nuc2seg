@@ -10,6 +10,7 @@ process PREPROCESS {
 
     output:
     tuple val(meta), path("${prefix}/preprocessed.h5"), emit: dataset
+    tuple val(meta), path("${prefix}/*.pdf")          , emit: plot
     path  "versions.yml"                , emit: versions
 
 
