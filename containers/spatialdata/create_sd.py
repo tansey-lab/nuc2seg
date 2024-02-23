@@ -30,3 +30,7 @@ def main():
     sd.table = ad
 
     sd.write(args.output)
+
+
+if __name__ == "__main__":
+    main()
