@@ -61,6 +61,8 @@ def create_rasterized_dataset(
     background_nucleus_distance=10,
     background_transcript_distance=4,
     background_pixel_transcripts=5,
+    min_n_celltypes=2,
+    max_n_celltypes=25,
 ):
     n_genes = tx_geo_df["gene_id"].max() + 1
 
@@ -152,8 +154,8 @@ def create_rasterized_dataset(
         relative_expression,
     ) = estimate_cell_types(
         nuclei_count_matrix,
-        min_components=2,
-        max_components=25,
+        min_components=min_n_celltypes,
+        max_components=max_n_celltypes,
     )
 
     best_k = get_best_k(aic_scores, bic_scores)
