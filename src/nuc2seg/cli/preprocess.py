@@ -2,8 +2,10 @@ import argparse
 import logging
 import numpy as np
 import pandas
+import os.path
 
 from nuc2seg import log_config
+from nuc2seg.plotting import plot_celltype_estimation_results
 from nuc2seg.xenium import (
     load_nuclei,
     load_and_filter_transcripts,
@@ -126,7 +128,7 @@ def main():
         min_qv=args.min_qv,
     )
 
-    ds = create_rasterized_dataset(
+    ds, celltyping_results = create_rasterized_dataset(
         nuclei_geo_df=nuclei_geo_df,
         tx_geo_df=tx_geo_df,
         sample_area=sample_area,
@@ -135,6 +137,16 @@ def main():
         background_nucleus_distance=args.background_nucleus_distance,
         background_pixel_transcripts=args.background_pixel_transcripts,
         background_transcript_distance=args.background_transcript_distance,
+    )
+
+    plot_celltype_estimation_results(
+        aic_scores=celltyping_results["aic_scores"],
+        bic_scores=celltyping_results["bic_scores"],
+        final_expression_profiles=celltyping_results["final_expression_profiles"],
+        final_prior_probs=celltyping_results["final_prior_probs"],
+        final_cell_types=celltyping_results["final_cell_types"],
+        relative_expression=celltyping_results["relative_expression"],
+        output_dir=os.path.dirname(args.output),
     )
 
     ds.save_h5(args.output)

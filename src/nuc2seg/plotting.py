@@ -8,6 +8,7 @@ from matplotlib import cm
 from matplotlib.colors import Normalize
 from matplotlib.colors import ListedColormap
 from nuc2seg.preprocessing import pol2cart
+import os.path
 
 
 def plot_tiling(bboxes, output_path):
@@ -236,3 +237,73 @@ def plot_segmentation_class_assignment(segmentation_gdf, output_path):
     )
     fig.savefig(output_path)
     plt.close()
+
+
+def plot_celltype_estimation_results(
+    aic_scores,
+    bic_scores,
+    final_expression_profiles,
+    final_prior_probs,
+    final_cell_types,
+    relative_expression,
+    output_dir,
+):
+    # Create a double line plot with aic and bic scores
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.plot(aic_scores, label="AIC")
+    ax.plot(bic_scores, label="BIC")
+    ax.set_xlabel("Number of components")
+    ax.set_ylabel("Score")
+    ax.set_title("AIC and BIC scores")
+    ax.legend()
+    fig.savefig(os.path.join(output_dir, "aic_bic_scores.pdf"))
+    plt.close()
+
+    # Create bar plot with the expression profiles
+    for idx, expression_profile in enumerate(final_expression_profiles):
+
+        n_celltypes = expression_profile.shape[0]
+
+        fig, ax = plt.subplots(nrows=n_celltypes, figsize=(10, 10))
+
+        for i in range(n_celltypes):
+            ax[i].bar(range(len(expression_profile[i])), expression_profile[i])
+            ax[i].set_xlabel("Gene")
+            ax[i].set_ylabel("Expression")
+            ax[i].set_title(f"Expression profile for cell type {i}")
+
+        fig.suptitle(f"Expression profiles for k={n_celltypes}")
+        fig.savefig(
+            os.path.join(output_dir, f"expression_profiles_k={n_celltypes}.pdf")
+        )
+        fig.tight_layout()
+        plt.close()
+
+        fig, ax = plt.subplots(nrows=n_celltypes, figsize=(10, 10))
+
+        for i in range(n_celltypes):
+            ax[i].bar(
+                range(len(relative_expression[idx][i])), relative_expression[idx][i]
+            )
+            ax[i].set_xlabel("Gene")
+            ax[i].set_ylabel("Relative expression")
+            ax[i].set_title(f"Relative expression profile for cell type {i}")
+
+        fig.suptitle(f"Relative expression profiles for k={n_celltypes}")
+        fig.savefig(
+            os.path.join(
+                output_dir, f"relative_expression_profiles_k={n_celltypes}.pdf"
+            )
+        )
+        fig.tight_layout()
+        plt.close()
+
+        # Create bar plot with the prior probabilities
+        fig, ax = plt.subplots(figsize=(10, 10))
+        ax.bar(range(len(final_prior_probs[idx])), final_prior_probs[idx])
+        ax.set_xlabel("Cell type")
+        ax.set_ylabel("Prior probability")
+        ax.set_title(f"Prior probabilities for k={n_celltypes}")
+        fig.savefig(os.path.join(output_dir, f"prior_probs_k={n_celltypes}.pdf"))
+        fig.tight_layout()
+        plt.close()
