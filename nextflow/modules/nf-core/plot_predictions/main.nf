@@ -9,7 +9,7 @@ process PLOT_PREDICTIONS {
     tuple val(meta), path(dataset), path(predictions)
 
     output:
-    tuple val(meta), path("${prefix}/plots"), emit: results
+    tuple val(meta), path("${prefix}/prediction_plots"), emit: results
     path  "versions.yml"                , emit: versions
 
 
@@ -27,7 +27,7 @@ process PLOT_PREDICTIONS {
         --tile-height ${params.tile_height} \
         --tile-width ${params.tile_width} \
         --overlap-percentage ${params.overlap_percentage} \
-        --output-dir ${prefix}/plots \
+        --output-dir ${prefix}/prediction_plots \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

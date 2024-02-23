@@ -24,11 +24,8 @@ process CREATE_SPATIALDATA {
     create_sd \
         --segmentation ${segmentation} \
         --xenium-dir ${xenium_dir} \
-        --output ${prefix}/tmpdir \
+        --output ${prefix}/spatialdata.zarr \
         ${args}
-
-    zip -r -0 spatialdata.zarr ${prefix}/tmpdir
-    rm -rf ${prefix}/tmpdir
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

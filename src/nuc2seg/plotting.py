@@ -129,6 +129,7 @@ def plot_angles_quiver(
             if mask[xi, yi]:
                 dx, dy = pol2cart(0.5, angles[xi, yi])
                 ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07, alpha=0.5)
+    ax.set_title("Predicted angles")
 
 
 def plot_angle_legend(ax):
@@ -215,7 +216,7 @@ def plot_model_predictions(
 
 
 def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
-    fig, ax = plt.subplots(figsize=(15, 15))
+    fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     segmentation_gdf.plot(
         ax=ax,
         color="blue",
@@ -227,7 +228,7 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
 
 
 def plot_segmentation_class_assignment(segmentation_gdf, output_path):
-    fig, ax = plt.subplots(figsize=(15, 15))
+    fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     segmentation_gdf.plot(
         ax=ax,
         categorical=True,
@@ -248,6 +249,10 @@ def plot_celltype_estimation_results(
     relative_expression,
     output_dir,
 ):
+    # create output_dir if not exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
     # Create a double line plot with aic and bic scores
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.plot(aic_scores, label="AIC")
@@ -264,14 +269,15 @@ def plot_celltype_estimation_results(
 
         n_celltypes = expression_profile.shape[0]
 
-        fig, ax = plt.subplots(nrows=n_celltypes, figsize=(10, 10))
+        fig, ax = plt.subplots(
+            nrows=n_celltypes, figsize=(10, 10), sharex=True, sharey=True
+        )
 
         for i in range(n_celltypes):
             ax[i].bar(range(len(expression_profile[i])), expression_profile[i])
-            ax[i].set_xlabel("Gene")
-            ax[i].set_ylabel("Expression")
-            ax[i].set_title(f"Expression profile for cell type {i}")
 
+        ax[-1].set_xlabel("Gene")
+        ax[0].set_ylabel("Expression")
         fig.suptitle(f"Expression profiles for k={n_celltypes}")
         fig.savefig(
             os.path.join(output_dir, f"expression_profiles_k={n_celltypes}.pdf")
@@ -279,16 +285,17 @@ def plot_celltype_estimation_results(
         fig.tight_layout()
         plt.close()
 
-        fig, ax = plt.subplots(nrows=n_celltypes, figsize=(10, 10))
+        fig, ax = plt.subplots(
+            nrows=n_celltypes, figsize=(10, 10), sharex=True, sharey=True
+        )
 
         for i in range(n_celltypes):
             ax[i].bar(
                 range(len(relative_expression[idx][i])), relative_expression[idx][i]
             )
-            ax[i].set_xlabel("Gene")
-            ax[i].set_ylabel("Relative expression")
-            ax[i].set_title(f"Relative expression profile for cell type {i}")
 
+        ax[-1].set_xlabel("Gene")
+        ax[0].set_ylabel("Relative expression")
         fig.suptitle(f"Relative expression profiles for k={n_celltypes}")
         fig.savefig(
             os.path.join(

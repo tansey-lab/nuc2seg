@@ -2,6 +2,8 @@
 import argparse
 import spatialdata_io
 import geopandas
+from spatialdata.models import ShapesModel
+from spatialdata.transformations import Identity
 
 
 def get_args():
@@ -20,6 +22,7 @@ def main():
 
     # Load the segmentation shapefile
     seg = geopandas.read_parquet(args.segmentation)
+    seg = ShapesModel.parse(seg, transformations={"global": Identity()})
 
     sd.shapes["nuc2seg_cell_segmentation"] = seg
 

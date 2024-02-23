@@ -146,7 +146,7 @@ def main():
         final_prior_probs=celltyping_results["final_prior_probs"],
         final_cell_types=celltyping_results["final_cell_types"],
         relative_expression=celltyping_results["relative_expression"],
-        output_dir=os.path.dirname(args.output),
+        output_dir=os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
     )
 
     ds.save_h5(args.output)
