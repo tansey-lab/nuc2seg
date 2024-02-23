@@ -6,6 +6,7 @@ from nuc2seg.segment import (
     stitch_predictions,
     convert_segmentation_to_shapefile,
     convert_transcripts_to_anndata,
+    collinear,
 )
 import numpy as np
 import pytest
@@ -306,3 +307,11 @@ def test_convert_transcripts_to_anndata():
     assert adata.n_vars == 2
     assert adata.n_obs == 2
     assert adata.obsm["spatial"].shape == (2, 2)
+
+
+def test_collinear():
+    assert collinear((0, 0), (1, 1), (2, 2))
+    assert collinear((0, 0), (1, 0), (2, 0))
+    assert not collinear((0, 0), (1, 0), (2, 1))
+    assert not collinear((0, 0), (1, 1), (2, 0))
+    assert not collinear((0, 1), (1, 1), (2, 0))
