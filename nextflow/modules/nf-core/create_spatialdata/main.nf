@@ -21,11 +21,10 @@ process CREATE_SPATIALDATA {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    create_sd.py \
+    create_sd \
         --segmentation ${segmentation} \
         --xenium-dir ${xenium_dir} \
-        --anndata ${anndata} \
-        --output-dir ${prefix}/tmpdir \
+        --output ${prefix}/tmpdir \
         ${args}
 
     zip -r -0 spatialdata.zarr ${prefix}/tmpdir

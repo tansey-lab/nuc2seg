@@ -9,6 +9,8 @@ COPY create_sd.py /app/
 
 RUN chmod +x /app/create_sd.py
 
+RUN ln -s /app/create_sd.py /usr/local/bin/create_sd
+
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
