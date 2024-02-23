@@ -87,6 +87,19 @@ def get_parser():
         type=str,
         help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
     )
+    parser.add_argument(
+        "--max-n-celltypes",
+        help="Maximum number of cell types to consider (inclusive).",
+        type=int,
+        default=2,
+    )
+
+    parser.add_argument(
+        "--min-n-celltypes",
+        help="Minimum number of cell types to consider.",
+        type=int,
+        default=25,
+    )
     return parser
 
 
@@ -137,8 +150,13 @@ def main():
         background_nucleus_distance=args.background_nucleus_distance,
         background_pixel_transcripts=args.background_pixel_transcripts,
         background_transcript_distance=args.background_transcript_distance,
+        min_n_celltypes=args.min_n_celltypes,
+        max_n_celltypes=args.max_n_celltypes,
     )
 
+    logger.info(
+        f"Plotting cell type estimation results to {os.path.join(os.path.dirname(args.output), 'cell_typing_plots')}"
+    )
     plot_celltype_estimation_results(
         aic_scores=celltyping_results["aic_scores"],
         bic_scores=celltyping_results["bic_scores"],

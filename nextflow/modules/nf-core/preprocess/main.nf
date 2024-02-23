@@ -9,9 +9,9 @@ process PREPROCESS {
     tuple val(meta), path(xenium_dir)
 
     output:
-    tuple val(meta), path("${prefix}/preprocessed.h5"), emit: dataset
-    tuple val(meta), path("${prefix}/*.pdf")          , emit: plot
-    path  "versions.yml"                , emit: versions
+    tuple val(meta), path("${prefix}/preprocessed.h5")                  , emit: dataset
+    tuple val(meta), path("${prefix}/cell_typing_plots/*.pdf")          , emit: plot
+    path  "versions.yml"                                                , emit: versions
 
 
     when:

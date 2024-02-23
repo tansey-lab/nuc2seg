@@ -20,6 +20,7 @@ Quickstart
 .. code::
 
         nextflow run tansey-lab/nuc2seg \
+            -r main \
             -profile <docker/singularity/mskcc_iris/...> \
             --xenium_dir <path to xenium output> \
             --outdir <path to output> \
