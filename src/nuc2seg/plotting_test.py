@@ -1,5 +1,6 @@
-from nuc2seg.plotting import plot_model_predictions
+from nuc2seg.plotting import plot_model_predictions, plot_celltype_estimation_results
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
+from nuc2seg.celltyping import estimate_cell_types
 from nuc2seg.preprocessing import cart2pol
 import numpy as np
 import tempfile
@@ -53,6 +54,44 @@ def test_plot_model_predictions():
             os.path.join(tmpdir, "quiver.png"),
             use_quiver=True,
             bbox=[1, 1, 63, 63],
+        )
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+def test_plot_celltype_estimation_results():
+    np.random.seed(0)
+    n_genes, n_cells = 10, 100
+
+    gene_counts = np.random.poisson(10, size=(n_cells, n_genes))
+
+    tmpdir = tempfile.mkdtemp()
+
+    try:
+        (
+            aic_scores,
+            bic_scores,
+            final_expression_profiles,
+            final_prior_probs,
+            final_cell_types,
+            relative_expression,
+        ) = estimate_cell_types(
+            gene_counts,
+            min_components=2,
+            max_components=10,
+            max_em_steps=3,
+            tol=1e-4,
+            warm_start=False,
+        )
+
+        plot_celltype_estimation_results(
+            aic_scores,
+            bic_scores,
+            final_expression_profiles,
+            final_prior_probs,
+            final_cell_types,
+            relative_expression,
+            tmpdir,
         )
     finally:
         shutil.rmtree(tmpdir)

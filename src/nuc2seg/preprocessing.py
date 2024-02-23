@@ -43,6 +43,15 @@ def create_pixel_geodf(x_min, x_max, y_min, y_max):
     return idx_geo_df
 
 
+def get_best_k(aic_scores, bic_scores):
+    best_k = np.argmin(aic_scores)
+    if np.argmin(bic_scores) != best_k:
+        logger.warning(
+            "The best k according to AIC and BIC do not match. Using AIC to determine k"
+        )
+    return best_k
+
+
 def create_rasterized_dataset(
     nuclei_geo_df: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
@@ -134,8 +143,21 @@ def create_rasterized_dataset(
 
     logger.info("Estimating cell types")
     # Estimate the cell types
-    results = estimate_cell_types(nuclei_count_matrix)
-    best_k = 12
+    (
+        aic_scores,
+        bic_scores,
+        final_expression_profiles,
+        final_prior_probs,
+        final_cell_types,
+        relative_expression,
+    ) = estimate_cell_types(
+        nuclei_count_matrix,
+        min_components=2,
+        max_components=25,
+    )
+
+    best_k = get_best_k(aic_scores, bic_scores)
+    logger.info(f"Best k: {best_k + 2}")
 
     # Estimate the background rate
     tx_background_mask = (
@@ -151,7 +173,7 @@ def create_rasterized_dataset(
         background_probs[g] = (tx_geo_df_background["gene_id"] == g).sum() + 1
 
     # Estimate the density of each cell type
-    cell_type_probs = results["cell_types"][best_k]
+    cell_type_probs = final_cell_types[best_k]
 
     # Assign hard labels to nuclei
     cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
@@ -190,4 +212,11 @@ def create_rasterized_dataset(
         resolution=1.0,
     )
 
-    return ds
+    return ds, {
+        "aic_scores": aic_scores,
+        "bic_scores": bic_scores,
+        "final_expression_profiles": final_expression_profiles,
+        "final_prior_probs": final_prior_probs,
+        "final_cell_types": final_cell_types,
+        "relative_expression": relative_expression,
+    }

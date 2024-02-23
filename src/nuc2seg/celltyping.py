@@ -34,7 +34,6 @@ def estimate_cell_types(
     tol=1e-4,
     warm_start=False,
 ):
-
     n_nuclei, n_genes = gene_counts.shape
 
     # Randomly initialize cell type profiles
@@ -146,10 +145,41 @@ def estimate_cell_types(
         logger.debug(f"AIC: {aic_scores[idx]:.4f}")
         logger.debug(f"BIC: {bic_scores[idx]:.4f}")
 
-    return {
-        "bic": bic_scores,
-        "aic": aic_scores,
-        "expression_profiles": final_expression_profiles,
-        "prior_probs": final_prior_probs,
-        "cell_types": final_cell_types,
-    }
+    relative_expression = calculate_celltype_relative_expression(
+        gene_counts, final_cell_types
+    )
+
+    return (
+        aic_scores,
+        bic_scores,
+        final_expression_profiles,
+        final_prior_probs,
+        final_cell_types,
+        relative_expression,
+    )
+
+
+def calculate_celltype_relative_expression(gene_counts, final_cell_types):
+    results = []
+    for idx, cell_types in enumerate(final_cell_types):
+        assignments = np.argmax(cell_types, axis=1)
+
+        relative_expressions = []
+        for cell_type_idx in range(cell_types.shape[1]):
+
+            if np.count_nonzero(assignments == cell_type_idx) == 0:
+                relative_expressions.append(np.zeros(gene_counts.shape[1]))
+                continue
+
+            in_group_mean = gene_counts[assignments == cell_type_idx].mean(axis=0)
+            out_of_group_mean = gene_counts[assignments != cell_type_idx].mean(axis=0)
+
+            out_of_group_mean = out_of_group_mean.clip(min=1e-2)
+
+            relative_expression = in_group_mean / out_of_group_mean
+
+            relative_expressions.append(relative_expression)
+
+        relative_expressions = np.array(relative_expressions)
+        results.append(relative_expressions)
+    return results

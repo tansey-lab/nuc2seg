@@ -59,8 +59,7 @@ workflow NUC2SEG {
 
     SEGMENT( segment_input )
 
-    SEGMENT.out.segmentation
-        .join(SEGMENT.out.shapefile)
+    SEGMENT.out.shapefile
         .join(SEGMENT.out.anndata)
         .join(xenium_input)
         .set{ create_spatialdata_input }
