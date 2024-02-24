@@ -9,6 +9,7 @@ You can use this reference to see which options are available for each command, 
 these options with a custom nextflow config file. For example:
 
 .. code::
+
     process {
         withName: PREPROCESS {
             ext.args = [
