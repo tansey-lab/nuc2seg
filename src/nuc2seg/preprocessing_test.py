@@ -154,7 +154,7 @@ def test_transcripts_df():
 
 def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
     np.random.seed(0)
-    ds, _ = create_rasterized_dataset(
+    ds = create_rasterized_dataset(
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
         sample_area=shapely.Polygon([(1, 1), (30, 1), (30, 20), (1, 20), (1, 1)]),
@@ -166,12 +166,10 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
     )
 
     assert ds.labels.shape == (30, 20)
-    assert ds.classes.shape == (30, 20)
     assert ds.transcripts.shape == (8, 3)
     assert ds.x_extent_pixels == 30
     assert ds.y_extent_pixels == 20
     assert ds.n_genes == 2
-    assert ds.n_classes == 2
 
     # Assert coordinated are transformed relative to the bbox
     assert ds.transcripts[:, 0].min() == 9.0

@@ -44,6 +44,12 @@ def get_parser():
         default=0,
     )
     parser.add_argument(
+        "--index",
+        help="Chain index.",
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
         "--n-chains",
         help="Number of parallel chains with different random initialization for cell typing.",
         type=int,

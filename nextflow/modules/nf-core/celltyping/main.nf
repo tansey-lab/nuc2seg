@@ -1,18 +1,17 @@
-process PREPROCESS {
+process CELLTYPING {
     tag "$meta.id"
-    label 'process_high'
+    label 'process_medium'
+    cpus 1
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/nuc2seg:latest' :
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
 
     input:
-    tuple val(meta), path(xenium_dir), path(cell_typing_results)
+    tuple val(meta), path(xenium_dir), val(chain_idx), val(n_chains)
 
     output:
-    tuple val(meta), path("${prefix}/preprocessed.h5")                  , emit: dataset
-    tuple val(meta), path("${prefix}/cell_typing_plots/*.pdf")          , emit: plot
+    tuple val(meta), path("${prefix}/cell_typing_chain_${chain_idx}.h5"), emit: cell_typing_results
     path  "versions.yml"                                                , emit: versions
-
 
     when:
     task.ext.when == null || task.ext.when
@@ -22,11 +21,12 @@ process PREPROCESS {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    preprocess \
+    celltyping \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
         --transcripts-file ${xenium_dir}/transcripts.parquet \
-        --output ${prefix}/preprocessed.h5 \
-        --celltyping-results ${cell_typing_results} \
+        --output ${prefix}/cell_typing_chain_${chain_idx}.h5 \
+        --n-chains ${n_chains} \
+        --index ${chain_idx} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml
