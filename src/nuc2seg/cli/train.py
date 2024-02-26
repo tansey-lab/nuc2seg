@@ -5,7 +5,7 @@ from multiprocessing import cpu_count
 from nuc2seg import log_config
 from nuc2seg.data import Nuc2SegDataset, TiledDataset
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 

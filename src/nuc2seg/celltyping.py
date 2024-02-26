@@ -3,6 +3,7 @@ import numpy as np
 from scipy.special import softmax
 
 from nuc2seg.xenium import logger
+from nuc2seg.data import CelltypingResults
 from scipy.special import logsumexp
 
 
@@ -24,7 +25,6 @@ def aic_bic(gene_counts, expression_profiles, prior_probs):
     return aic, bic
 
 
-## TODO: Maybe replace this with a library that does the same thing
 def estimate_cell_types(
     gene_counts,
     min_components=2,
@@ -32,11 +32,15 @@ def estimate_cell_types(
     max_em_steps=100,
     tol=1e-4,
     warm_start=False,
+    rng: np.random.Generator = None,
 ):
+    if rng is None:
+        rng = np.random.default_rng()
+
     n_nuclei, n_genes = gene_counts.shape
 
     # Randomly initialize cell type profiles
-    cur_expression_profiles = np.random.dirichlet(np.ones(n_genes), size=min_components)
+    cur_expression_profiles = rng.dirichlet(np.ones(n_genes), size=min_components)
 
     # Initialize probabilities to be uniform
     cur_prior_probs = np.ones(min_components) / min_components
@@ -72,12 +76,12 @@ def estimate_cell_types(
 
             # Split the dominant cluster
             dominant = np.argmax(cur_prior_probs)
-            split_prob = np.random.random()
+            split_prob = rng.random()
             next_prior_probs[-1] = next_prior_probs[dominant] * split_prob
             next_prior_probs[dominant] = next_prior_probs[dominant] * (1 - split_prob)
             next_expression_profiles[-1] = cur_expression_profiles[
                 dominant
-            ] * split_prob + (1 - split_prob) * np.random.dirichlet(np.ones(n_genes))
+            ] * split_prob + (1 - split_prob) * rng.dirichlet(np.ones(n_genes))
 
             cur_prior_probs = next_prior_probs
             cur_expression_profiles = next_expression_profiles
@@ -86,9 +90,7 @@ def estimate_cell_types(
             logger.debug("expression:", cur_expression_profiles)
         else:
             # Cold start from a random location
-            cur_expression_profiles = np.random.dirichlet(
-                np.ones(n_genes), size=n_components
-            )
+            cur_expression_profiles = rng.dirichlet(np.ones(n_genes), size=n_components)
             cur_prior_probs = np.ones(n_components) / n_components
 
         converge = tol + 1
@@ -148,13 +150,15 @@ def estimate_cell_types(
         gene_counts, final_cell_types
     )
 
-    return (
-        aic_scores,
-        bic_scores,
-        final_expression_profiles,
-        final_prior_probs,
-        final_cell_types,
-        relative_expression,
+    return CelltypingResults(
+        aic_scores=aic_scores,
+        bic_scores=bic_scores,
+        final_expression_profiles=final_expression_profiles,
+        final_prior_probs=final_prior_probs,
+        final_cell_types=final_cell_types,
+        relative_expression=relative_expression,
+        min_n_components=min_components,
+        max_n_components=max_components,
     )
 
 

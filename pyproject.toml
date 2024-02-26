@@ -42,7 +42,8 @@ dependencies = [
     "lightning",
     "wandb",
     "opencv-contrib-python-headless",
-    "anndata"
+    "anndata",
+    "kneed==0.8.5"
 ]
 
 [project.optional-dependencies]

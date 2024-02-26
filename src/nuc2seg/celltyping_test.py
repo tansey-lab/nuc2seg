@@ -8,6 +8,15 @@ def test_estimate_cell_types():
 
     gene_counts = np.random.poisson(10, size=(n_cells, n_genes))
 
+    celltyping_results = estimate_cell_types(
+        gene_counts,
+        min_components=2,
+        max_components=10,
+        max_em_steps=3,
+        tol=1e-4,
+        warm_start=False,
+    )
+
     (
         aic_scores,
         bic_scores,
@@ -15,13 +24,13 @@ def test_estimate_cell_types():
         final_prior_probs,
         final_cell_types,
         relative_expression,
-    ) = estimate_cell_types(
-        gene_counts,
-        min_components=2,
-        max_components=10,
-        max_em_steps=3,
-        tol=1e-4,
-        warm_start=False,
+    ) = (
+        celltyping_results.aic_scores,
+        celltyping_results.bic_scores,
+        celltyping_results.final_expression_profiles,
+        celltyping_results.final_prior_probs,
+        celltyping_results.final_cell_types,
+        celltyping_results.relative_expression,
     )
 
     assert len(aic_scores) == 9
@@ -48,6 +57,15 @@ def test_estimate_cell_types2():
     data[66:, 8:] = np.random.poisson(10, size=(33, 4))
     data[:66, 8:] = np.random.poisson(1, size=(66, 4))
 
+    celltyping_results = estimate_cell_types(
+        data,
+        min_components=2,
+        max_components=25,
+        max_em_steps=10,
+        tol=1e-4,
+        warm_start=False,
+    )
+
     (
         aic_scores,
         bic_scores,
@@ -55,13 +73,13 @@ def test_estimate_cell_types2():
         final_prior_probs,
         final_cell_types,
         relative_expression,
-    ) = estimate_cell_types(
-        data,
-        min_components=2,
-        max_components=25,
-        max_em_steps=10,
-        tol=1e-4,
-        warm_start=False,
+    ) = (
+        celltyping_results.aic_scores,
+        celltyping_results.bic_scores,
+        celltyping_results.final_expression_profiles,
+        celltyping_results.final_prior_probs,
+        celltyping_results.final_cell_types,
+        celltyping_results.relative_expression,
     )
 
     assert len(aic_scores) == 24

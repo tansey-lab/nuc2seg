@@ -10,6 +10,89 @@ from blended_tiling import TilingModule
 logger = logging.getLogger(__name__)
 
 
+class CelltypingResults:
+    def __init__(
+        self,
+        aic_scores,
+        bic_scores,
+        final_expression_profiles,
+        final_prior_probs,
+        final_cell_types,
+        relative_expression,
+        min_n_components,
+        max_n_components,
+    ):
+        self.aic_scores = aic_scores
+        self.bic_scores = bic_scores
+        self.final_expression_profiles = final_expression_profiles
+        self.final_prior_probs = final_prior_probs
+        self.final_cell_types = final_cell_types
+        self.relative_expression = relative_expression
+        self.n_component_values = np.arange(min_n_components, max_n_components + 1)
+
+    def save_h5(self, path):
+        with h5py.File(path, "w") as f:
+            f.create_dataset("aic_scores", data=self.aic_scores, compression="gzip")
+            f.create_dataset("bic_scores", data=self.bic_scores, compression="gzip")
+            f.create_dataset(
+                "n_component_values", data=self.n_component_values, compression="gzip"
+            )
+            for idx, k in self.n_component_values:
+                f.create_group(str(idx))
+                f[str(idx)].create_dataset(
+                    "final_expression_profiles",
+                    data=self.final_expression_profiles[k],
+                    compression="gzip",
+                )
+                f[str(idx)].create_dataset(
+                    "final_prior_probs",
+                    data=self.final_prior_probs[k],
+                    compression="gzip",
+                )
+                f[str(idx)].create_dataset(
+                    "final_cell_types",
+                    data=self.final_cell_types[k],
+                    compression="gzip",
+                )
+                f[str(idx)].create_dataset(
+                    "relative_expression",
+                    data=self.relative_expression[k],
+                    compression="gzip",
+                )
+                f[str(idx)].attrs["n_components"] = k
+
+    @staticmethod
+    def load_h5(path):
+        with h5py.File(path, "r") as f:
+            aic_scores = f["aic_scores"][:]
+            bic_scores = f["bic_scores"][:]
+            final_expression_profiles = []
+            final_prior_probs = []
+            final_cell_types = []
+            relative_expression = []
+            n_component_values = []
+            for idx, k in f["n_component_values"][:]:
+                aic_scores.append(f[str(idx)]["aic_scores"][:])
+                bic_scores.append(f[str(idx)]["bic_scores"][:])
+                final_expression_profiles.append(
+                    f[str(idx)]["final_expression_profiles"][:]
+                )
+                final_prior_probs.append(f[str(idx)]["final_prior_probs"][:])
+                final_cell_types.append(f[str(idx)]["final_cell_types"][:])
+                relative_expression.append(f[str(idx)]["relative_expression"][:])
+                n_component_values.append(f.attrs["n_components"])
+        return CelltypingResults(
+            aic_scores=aic_scores,
+            bic_scores=bic_scores,
+            final_expression_profiles=final_expression_profiles,
+            final_prior_probs=final_prior_probs,
+            final_cell_types=final_cell_types,
+            relative_expression=relative_expression,
+            min_n_components=min(n_component_values),
+            max_n_components=max(n_component_values),
+        )
+
+
 class Nuc2SegDataset:
     def __init__(
         self, labels, angles, classes, transcripts, bbox, n_classes, n_genes, resolution

@@ -68,6 +68,15 @@ def test_plot_celltype_estimation_results():
     tmpdir = tempfile.mkdtemp()
 
     try:
+        celltyping_results = estimate_cell_types(
+            gene_counts,
+            min_components=2,
+            max_components=10,
+            max_em_steps=3,
+            tol=1e-4,
+            warm_start=False,
+        )
+
         (
             aic_scores,
             bic_scores,
@@ -75,13 +84,13 @@ def test_plot_celltype_estimation_results():
             final_prior_probs,
             final_cell_types,
             relative_expression,
-        ) = estimate_cell_types(
-            gene_counts,
-            min_components=2,
-            max_components=10,
-            max_em_steps=3,
-            tol=1e-4,
-            warm_start=False,
+        ) = (
+            celltyping_results.aic_scores,
+            celltyping_results.bic_scores,
+            celltyping_results.final_expression_profiles,
+            celltyping_results.final_prior_probs,
+            celltyping_results.final_cell_types,
+            celltyping_results.relative_expression,
         )
 
         plot_celltype_estimation_results(

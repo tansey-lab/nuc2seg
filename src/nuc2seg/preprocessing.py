@@ -10,6 +10,7 @@ import pandas as pd
 from nuc2seg.data import Nuc2SegDataset
 from nuc2seg.xenium import get_bounding_box, logger
 from nuc2seg.celltyping import estimate_cell_types
+from kneed import KneeLocator
 
 
 def cart2pol(x, y):
@@ -44,12 +45,27 @@ def create_pixel_geodf(x_min, x_max, y_min, y_max):
 
 
 def get_best_k(aic_scores, bic_scores):
-    best_k = np.argmin(aic_scores)
-    if np.argmin(bic_scores) != best_k:
+    best_k_aic = np.argmin(aic_scores)
+    best_k_bic = np.argmin(bic_scores)
+
+    if best_k_bic == best_k_aic:
+        return best_k_aic
+    else:
         logger.warning(
-            "The best k according to AIC and BIC do not match. Using AIC to determine k"
+            f"The best k according to AIC and BIC do not match ({best_k_aic} vs {best_k_bic}). Using BIC eblow to determine k"
         )
-    return best_k
+        kneedle = KneeLocator(
+            x=np.arange(len(bic_scores)),
+            y=bic_scores,
+            S=2,
+            curve="convex",
+            direction="decreasing",
+        )
+        best_k = kneedle.elbow
+
+        logger.info(f"BIC elbow to chose k: {best_k}")
+
+        return best_k
 
 
 def create_rasterized_dataset(
@@ -145,6 +161,13 @@ def create_rasterized_dataset(
 
     logger.info("Estimating cell types")
     # Estimate the cell types
+
+    celltyping_result = estimate_cell_types(
+        nuclei_count_matrix,
+        min_components=min_n_celltypes,
+        max_components=max_n_celltypes,
+    )
+
     (
         aic_scores,
         bic_scores,
@@ -152,10 +175,13 @@ def create_rasterized_dataset(
         final_prior_probs,
         final_cell_types,
         relative_expression,
-    ) = estimate_cell_types(
-        nuclei_count_matrix,
-        min_components=min_n_celltypes,
-        max_components=max_n_celltypes,
+    ) = (
+        celltyping_result.aic_scores,
+        celltyping_result.bic_scores,
+        celltyping_result.final_expression_profiles,
+        celltyping_result.final_prior_probs,
+        celltyping_result.final_cell_types,
+        celltyping_result.relative_expression,
     )
 
     best_k = get_best_k(aic_scores, bic_scores)
