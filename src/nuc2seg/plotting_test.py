@@ -71,7 +71,7 @@ def test_plot_celltype_estimation_results():
         celltyping_results = estimate_cell_types(
             gene_counts,
             min_components=2,
-            max_components=10,
+            max_components=4,
             max_em_steps=3,
             tol=1e-4,
             warm_start=False,
@@ -94,8 +94,8 @@ def test_plot_celltype_estimation_results():
         )
 
         plot_celltype_estimation_results(
-            aic_scores,
-            bic_scores,
+            np.stack([aic_scores * 1.01, aic_scores, aic_scores * 0.99]),
+            np.stack([bic_scores * 1.01, bic_scores, bic_scores * 0.99]),
             final_expression_profiles,
             final_prior_probs,
             final_cell_types,

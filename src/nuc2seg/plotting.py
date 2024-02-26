@@ -255,11 +255,41 @@ def plot_celltype_estimation_results(
 
     # Create a double line plot with aic and bic scores
     fig, ax = plt.subplots(figsize=(10, 10))
-    ax.plot(aic_scores, label="AIC")
-    ax.plot(bic_scores, label="BIC")
+
+    error = np.stack(
+        [
+            np.abs(aic_scores.mean(axis=0) - aic_scores.min(axis=0)),
+            np.abs(aic_scores.mean(axis=0) - aic_scores.max(axis=0)),
+        ]
+    )
+
+    # add min/max error bars
+    ax.errorbar(
+        range(len(aic_scores.mean(axis=0))),
+        aic_scores.mean(axis=0),
+        yerr=error,
+        label="AIC",
+        alpha=0.5,
+    )
+
+    error = np.stack(
+        [
+            bic_scores.mean(axis=0) - bic_scores.min(axis=0),
+            bic_scores.max(axis=0) - bic_scores.mean(axis=0),
+        ]
+    )
+
+    ax.errorbar(
+        range(len(bic_scores.mean(axis=0))),
+        bic_scores.mean(axis=0),
+        yerr=error,
+        label="BIC",
+        alpha=0.5,
+    )
+
     ax.set_xlabel("Number of components")
     ax.set_ylabel("Score")
-    ax.set_title("AIC and BIC scores")
+    ax.set_title("AIC and BIC scores with error multiple trials")
     ax.legend()
     fig.savefig(os.path.join(output_dir, "aic_bic_scores.pdf"))
     plt.close()

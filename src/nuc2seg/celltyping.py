@@ -6,10 +6,10 @@ from scipy.special import softmax
 from nuc2seg.xenium import logger
 from nuc2seg.data import CelltypingResults, RasterizedDataset
 from scipy.special import logsumexp
+from collections import defaultdict
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):
-
     n_components = expression_profiles.shape[0]
     n_genes = expression_profiles.shape[1]
     n_samples = gene_counts.shape[0]
@@ -225,4 +225,56 @@ def run_cell_type_estimation(
         min_components=min_components,
         max_components=max_components,
         rng=rng,
+    )
+
+
+def combine_celltyping_chains(results: list[CelltypingResults]):
+    combined_expression_profiles = defaultdict(list)
+    combined_prior_probs = defaultdict(list)
+    combined_cell_types = defaultdict(list)
+    combined_relative_expression = defaultdict(list)
+    aic_scores = []
+    bic_scores = []
+
+    for result in results:
+        aic_scores.append(result.aic_scores)
+        bic_scores.append(result.bic_scores)
+        for idx, k in enumerate(result.n_component_values):
+            combined_expression_profiles[k].append(
+                result.final_expression_profiles[idx]
+            )
+            combined_prior_probs[k].append(result.final_prior_probs[idx])
+            combined_cell_types[k].append(result.final_cell_types[idx])
+            combined_relative_expression[k].append(result.relative_expression[idx])
+
+    final_expression_profiles = [
+        np.stack(combined_expression_profiles[k]).mean(axis=0)
+        for k in combined_expression_profiles
+    ]
+    final_prior_probs = [
+        np.stack(combined_prior_probs[k]).mean(axis=0) for k in combined_prior_probs
+    ]
+    final_cell_types = [
+        np.stack(combined_cell_types[k]).mean(axis=0) for k in combined_cell_types
+    ]
+    relative_expression = [
+        np.stack(combined_relative_expression[k]).mean(axis=0)
+        for k in combined_relative_expression
+    ]
+    aic_scores = np.stack(aic_scores).mean(axis=0)
+    bic_scores = np.stack(bic_scores).mean(axis=0)
+
+    return (
+        CelltypingResults(
+            aic_scores=aic_scores,
+            bic_scores=bic_scores,
+            final_expression_profiles=final_expression_profiles,
+            final_prior_probs=final_prior_probs,
+            final_cell_types=final_cell_types,
+            relative_expression=relative_expression,
+            min_n_components=min(combined_prior_probs.keys()),
+            max_n_components=max(combined_prior_probs.keys()),
+        ),
+        np.stack(aic_scores),
+        np.stack(bic_scores),
     )

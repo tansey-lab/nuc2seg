@@ -1,4 +1,8 @@
-from nuc2seg.celltyping import estimate_cell_types, run_cell_type_estimation
+from nuc2seg.celltyping import (
+    estimate_cell_types,
+    run_cell_type_estimation,
+    combine_celltyping_chains,
+)
 import numpy as np
 
 
@@ -105,3 +109,36 @@ def test_run_cell_type_estimation(test_nuclei_df, test_transcripts_df):
     assert len(results.aic_scores) == 2
     assert len(results.bic_scores) == 2
     assert results.n_component_values.tolist() == [2, 3]
+
+
+def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
+    rng = np.random.default_rng(0)
+    results = run_cell_type_estimation(
+        nuclei_geo_df=test_nuclei_df,
+        tx_geo_df=test_transcripts_df,
+        foreground_nucleus_distance=1,
+        max_components=3,
+        min_components=2,
+        rng=rng,
+    )
+    rng = np.random.default_rng(1)
+    results2 = run_cell_type_estimation(
+        nuclei_geo_df=test_nuclei_df,
+        tx_geo_df=test_transcripts_df,
+        foreground_nucleus_distance=1,
+        max_components=3,
+        min_components=2,
+        rng=rng,
+    )
+
+    final_result, _, _ = combine_celltyping_chains([results, results2])
+
+    np.testing.assert_array_equal(
+        final_result.aic_scores,
+        np.stack([results.aic_scores, results2.aic_scores]).mean(axis=0),
+    )
+
+    np.testing.assert_array_equal(
+        final_result.bic_scores,
+        np.stack([results.bic_scores, results2.bic_scores]).mean(axis=0),
+    )
