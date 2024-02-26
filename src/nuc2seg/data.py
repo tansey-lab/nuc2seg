@@ -37,26 +37,26 @@ class CelltypingResults:
             f.create_dataset(
                 "n_component_values", data=self.n_component_values, compression="gzip"
             )
-            for idx, k in self.n_component_values:
+            for idx, k in enumerate(self.n_component_values):
                 f.create_group(str(idx))
                 f[str(idx)].create_dataset(
                     "final_expression_profiles",
-                    data=self.final_expression_profiles[k],
+                    data=self.final_expression_profiles[idx],
                     compression="gzip",
                 )
                 f[str(idx)].create_dataset(
                     "final_prior_probs",
-                    data=self.final_prior_probs[k],
+                    data=self.final_prior_probs[idx],
                     compression="gzip",
                 )
                 f[str(idx)].create_dataset(
                     "final_cell_types",
-                    data=self.final_cell_types[k],
+                    data=self.final_cell_types[idx],
                     compression="gzip",
                 )
                 f[str(idx)].create_dataset(
                     "relative_expression",
-                    data=self.relative_expression[k],
+                    data=self.relative_expression[idx],
                     compression="gzip",
                 )
                 f[str(idx)].attrs["n_components"] = k
@@ -71,16 +71,14 @@ class CelltypingResults:
             final_cell_types = []
             relative_expression = []
             n_component_values = []
-            for idx, k in f["n_component_values"][:]:
-                aic_scores.append(f[str(idx)]["aic_scores"][:])
-                bic_scores.append(f[str(idx)]["bic_scores"][:])
+            for idx, k in enumerate(f["n_component_values"][:]):
                 final_expression_profiles.append(
                     f[str(idx)]["final_expression_profiles"][:]
                 )
                 final_prior_probs.append(f[str(idx)]["final_prior_probs"][:])
                 final_cell_types.append(f[str(idx)]["final_cell_types"][:])
                 relative_expression.append(f[str(idx)]["relative_expression"][:])
-                n_component_values.append(f.attrs["n_components"])
+                n_component_values.append(f[str(idx)].attrs["n_components"])
         return CelltypingResults(
             aic_scores=aic_scores,
             bic_scores=bic_scores,
@@ -90,6 +88,51 @@ class CelltypingResults:
             relative_expression=relative_expression,
             min_n_components=min(n_component_values),
             max_n_components=max(n_component_values),
+        )
+
+
+class RasterizedDataset:
+    def __init__(self, labels, angles, transcripts, bbox, n_genes, resolution):
+        self.labels = labels
+        self.angles = angles
+        self.transcripts = transcripts
+        self.bbox = bbox
+        self.n_genes = n_genes
+        self.resolution = resolution
+
+    def save_h5(self, path):
+        with h5py.File(path, "w") as f:
+            f.create_dataset("labels", data=self.labels, compression="gzip")
+            f.create_dataset("angles", data=self.angles, compression="gzip")
+            f.create_dataset("transcripts", data=self.transcripts, compression="gzip")
+            f.create_dataset("bbox", data=self.bbox)
+            f.attrs["n_genes"] = self.n_genes
+            f.attrs["resolution"] = self.resolution
+
+    @property
+    def x_extent_pixels(self):
+        return self.labels.shape[0]
+
+    @property
+    def y_extent_pixels(self):
+        return self.labels.shape[1]
+
+    @staticmethod
+    def load_h5(path):
+        with h5py.File(path, "r") as f:
+            labels = f["labels"][:]
+            angles = f["angles"][:]
+            transcripts = f["transcripts"][:]
+            bbox = f["bbox"][:]
+            n_genes = f.attrs["n_genes"]
+            resolution = f.attrs["resolution"]
+        return RasterizedDataset(
+            labels=labels,
+            angles=angles,
+            transcripts=transcripts,
+            bbox=bbox,
+            n_genes=n_genes,
+            resolution=resolution,
         )
 
 

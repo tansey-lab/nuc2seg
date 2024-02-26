@@ -1,4 +1,4 @@
-from nuc2seg.celltyping import estimate_cell_types
+from nuc2seg.celltyping import estimate_cell_types, run_cell_type_estimation
 import numpy as np
 
 
@@ -85,3 +85,23 @@ def test_estimate_cell_types2():
     assert len(aic_scores) == 24
     assert len(bic_scores) == 24
     assert aic_scores.argmin() == bic_scores.argmin() == 1
+
+
+def test_run_cell_type_estimation(test_nuclei_df, test_transcripts_df):
+    rng = np.random.default_rng(0)
+    results = run_cell_type_estimation(
+        nuclei_geo_df=test_nuclei_df,
+        tx_geo_df=test_transcripts_df,
+        foreground_nucleus_distance=1,
+        max_components=3,
+        min_components=2,
+        rng=rng,
+    )
+
+    assert len(results.final_cell_types) == 2
+    assert len(results.final_expression_profiles) == 2
+    assert len(results.final_prior_probs) == 2
+    assert len(results.relative_expression) == 2
+    assert len(results.aic_scores) == 2
+    assert len(results.bic_scores) == 2
+    assert results.n_component_values.tolist() == [2, 3]

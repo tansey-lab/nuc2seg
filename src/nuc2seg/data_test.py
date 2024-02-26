@@ -1,6 +1,12 @@
 import shutil
 import pytest
-from nuc2seg.data import Nuc2SegDataset, TiledDataset, generate_tiles
+from nuc2seg.data import (
+    Nuc2SegDataset,
+    TiledDataset,
+    generate_tiles,
+    CelltypingResults,
+    RasterizedDataset,
+)
 import numpy as np
 import tempfile
 import os.path
@@ -97,3 +103,81 @@ def test_tiled_dataset(test_dataset):
     assert second_tile["classes"].shape == (5, 10)
     assert second_tile["location"].size == 2
     assert second_tile["nucleus_mask"].shape == (5, 10)
+
+
+def test_celltype_results():
+    results = CelltypingResults(
+        aic_scores=np.array([1, 2, 3]),
+        bic_scores=np.array([1, 2, 3]),
+        final_expression_profiles=[
+            np.array([1, 2]),
+            np.array([1, 2, 3]),
+            np.array([1, 2, 3, 4]),
+        ],
+        final_prior_probs=[
+            np.array([[1, 2]]),
+            np.array([[1, 2, 3]]),
+            np.array([[1, 2, 3, 4]]),
+        ],
+        final_cell_types=[
+            np.array([1, 2]),
+            np.array([1, 2, 3]),
+            np.array([1, 2, 3, 4]),
+        ],
+        relative_expression=[
+            np.array([1, 2]),
+            np.array([1, 2, 3]),
+            np.array([1, 2, 3, 4]),
+        ],
+        min_n_components=2,
+        max_n_components=4,
+    )
+
+    tmpdir = tempfile.mkdtemp()
+
+    try:
+        results.save_h5(os.path.join(tmpdir, "celltype_results.h5"))
+        results2 = CelltypingResults.load_h5(
+            os.path.join(tmpdir, "celltype_results.h5")
+        )
+
+        np.testing.assert_array_equal(results.aic_scores, results2.aic_scores)
+        np.testing.assert_array_equal(results.bic_scores, results2.bic_scores)
+        assert len(results.final_expression_profiles) == len(
+            results2.final_expression_profiles
+        )
+        assert len(results.final_prior_probs) == len(results2.final_prior_probs)
+        assert len(results.final_cell_types) == len(results2.final_cell_types)
+        assert len(results.relative_expression) == len(results2.relative_expression)
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+def test_rasterized_dataset():
+    ds = RasterizedDataset(
+        labels=np.ones((10, 20)),
+        angles=np.ones((10, 20)),
+        transcripts=np.array([[0, 0, 0], [5, 5, 1], [10, 10, 2]]),
+        bbox=np.array([100, 100, 110, 120]),
+        n_genes=3,
+        resolution=1,
+    )
+
+    tmpdir = tempfile.mkdtemp()
+    output_path = os.path.join(tmpdir, "test.h5")
+
+    assert ds.n_genes == 3
+    assert ds.x_extent_pixels == 10
+    assert ds.y_extent_pixels == 20
+
+    try:
+        ds.save_h5(output_path)
+        ds2 = RasterizedDataset.load_h5(output_path)
+
+        np.testing.assert_array_equal(ds.labels, ds2.labels)
+        np.testing.assert_array_equal(ds.angles, ds2.angles)
+        np.testing.assert_array_equal(ds.transcripts, ds2.transcripts)
+        np.testing.assert_array_equal(ds.bbox, ds2.bbox)
+        assert ds.n_genes == ds2.n_genes
+    finally:
+        shutil.rmtree(tmpdir)

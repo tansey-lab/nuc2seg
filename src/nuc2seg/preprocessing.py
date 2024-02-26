@@ -7,7 +7,7 @@ import shapely
 from scipy.spatial import KDTree
 import pandas as pd
 
-from nuc2seg.data import Nuc2SegDataset
+from nuc2seg.data import RasterizedDataset
 from nuc2seg.xenium import get_bounding_box, logger
 from nuc2seg.celltyping import estimate_cell_types
 from kneed import KneeLocator
@@ -77,8 +77,6 @@ def create_rasterized_dataset(
     background_nucleus_distance=10,
     background_transcript_distance=4,
     background_pixel_transcripts=5,
-    min_n_celltypes=2,
-    max_n_celltypes=25,
 ):
     n_genes = tx_geo_df["gene_id"].max() + 1
 
@@ -159,34 +157,6 @@ def create_rasterized_dataset(
         1,
     )
 
-    logger.info("Estimating cell types")
-    # Estimate the cell types
-
-    celltyping_result = estimate_cell_types(
-        nuclei_count_matrix,
-        min_components=min_n_celltypes,
-        max_components=max_n_celltypes,
-    )
-
-    (
-        aic_scores,
-        bic_scores,
-        final_expression_profiles,
-        final_prior_probs,
-        final_cell_types,
-        relative_expression,
-    ) = (
-        celltyping_result.aic_scores,
-        celltyping_result.bic_scores,
-        celltyping_result.final_expression_profiles,
-        celltyping_result.final_prior_probs,
-        celltyping_result.final_cell_types,
-        celltyping_result.relative_expression,
-    )
-
-    best_k = get_best_k(aic_scores, bic_scores)
-    logger.info(f"Best k: {best_k + 2}")
-
     # Estimate the background rate
     tx_background_mask = (
         labels[
@@ -199,15 +169,6 @@ def create_rasterized_dataset(
     tx_geo_df_background = tx_geo_df[tx_background_mask]
     for g in range(n_genes):
         background_probs[g] = (tx_geo_df_background["gene_id"] == g).sum() + 1
-
-    # Estimate the density of each cell type
-    cell_type_probs = final_cell_types[best_k]
-
-    # Assign hard labels to nuclei
-    cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
-    pixel_types = np.copy(labels)
-    nuclei_mask = labels > 0
-    pixel_types[nuclei_mask] = cell_type_labels[labels[nuclei_mask]]
 
     # Calculate the angle at which each pixel faces to point at its nearest nucleus centroid.
     # Normalize it to be in [0,1]
@@ -223,28 +184,17 @@ def create_rasterized_dataset(
         labels_geo_df["nucleus_angle"].values
     )
 
-    n_classes = cell_type_probs.shape[-1]
-
     logger.info("Creating dataset")
     X = tx_geo_df["x_location"].values.astype(int) - x_min
     Y = tx_geo_df["y_location"].values.astype(int) - y_min
     G = tx_geo_df["gene_id"].values.astype(int)
-    ds = Nuc2SegDataset(
+    ds = RasterizedDataset(
         labels=labels,
         angles=angles,
-        classes=pixel_types,
         transcripts=np.array([X, Y, G]).T,
         bbox=np.array([x_min, y_min, x_max, y_max]),
-        n_classes=n_classes,
         n_genes=n_genes,
         resolution=1.0,
     )
 
-    return ds, {
-        "aic_scores": aic_scores,
-        "bic_scores": bic_scores,
-        "final_expression_profiles": final_expression_profiles,
-        "final_prior_probs": final_prior_probs,
-        "final_cell_types": final_cell_types,
-        "relative_expression": relative_expression,
-    }
+    return ds

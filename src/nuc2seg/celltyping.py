@@ -1,9 +1,10 @@
 import tqdm
 import numpy as np
-from scipy.special import softmax
+import geopandas
 
+from scipy.special import softmax
 from nuc2seg.xenium import logger
-from nuc2seg.data import CelltypingResults
+from nuc2seg.data import CelltypingResults, RasterizedDataset
 from scipy.special import logsumexp
 
 
@@ -186,3 +187,42 @@ def calculate_celltype_relative_expression(gene_counts, final_cell_types):
         relative_expressions = np.array(relative_expressions)
         results.append(relative_expressions)
     return results
+
+
+def run_cell_type_estimation(
+    nuclei_geo_df: geopandas.GeoDataFrame,
+    tx_geo_df: geopandas.GeoDataFrame,
+    foreground_nucleus_distance: float = 1,
+    min_components: int = 2,
+    max_components: int = 25,
+    rng: np.random.Generator = None,
+):
+
+    # Create a nuclei x gene count matrix
+    tx_nuclei_geo_df = geopandas.sjoin_nearest(
+        tx_geo_df, nuclei_geo_df, distance_col="nucleus_distance"
+    )
+
+    n_genes = tx_nuclei_geo_df["gene_id"].max() + 1
+
+    nuclei_count_geo_df = tx_nuclei_geo_df[
+        tx_nuclei_geo_df["nucleus_distance"] <= foreground_nucleus_distance
+    ]
+
+    # I think we have enough memory to just store this as a dense array
+    nuclei_count_matrix = np.zeros((nuclei_geo_df.shape[0] + 1, n_genes), dtype=int)
+    np.add.at(
+        nuclei_count_matrix,
+        (
+            nuclei_count_geo_df["nucleus_label"].values.astype(int),
+            nuclei_count_geo_df["gene_id"].values.astype(int),
+        ),
+        1,
+    )
+
+    return estimate_cell_types(
+        nuclei_count_matrix,
+        min_components=min_components,
+        max_components=max_components,
+        rng=rng,
+    )
