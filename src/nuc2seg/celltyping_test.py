@@ -32,3 +32,38 @@ def test_estimate_cell_types():
     for i, x in enumerate(final_cell_types):
         assert x.shape[0] == 100
         assert x.shape[1] == i + 2
+
+
+def test_estimate_cell_types2():
+    np.random.seed(0)
+    n_genes, n_cells = 12, 99
+
+    data = np.zeros((n_cells, n_genes), dtype=int)
+    data[:33, :4] = np.random.poisson(10, size=(33, 4))
+    data[33:, :4] = np.random.poisson(1, size=(66, 4))
+    data[33:66, 4:8] = np.random.poisson(10, size=(33, 4))
+    data[:33, 4:8] = np.random.poisson(1, size=(33, 4))
+    data[66:, :8] = np.random.poisson(1, size=(33, 8))
+
+    data[66:, 8:] = np.random.poisson(10, size=(33, 4))
+    data[:66, 8:] = np.random.poisson(1, size=(66, 4))
+
+    (
+        aic_scores,
+        bic_scores,
+        final_expression_profiles,
+        final_prior_probs,
+        final_cell_types,
+        relative_expression,
+    ) = estimate_cell_types(
+        data,
+        min_components=2,
+        max_components=25,
+        max_em_steps=10,
+        tol=1e-4,
+        warm_start=False,
+    )
+
+    assert len(aic_scores) == 24
+    assert len(bic_scores) == 24
+    assert aic_scores.argmin() == bic_scores.argmin() == 1
