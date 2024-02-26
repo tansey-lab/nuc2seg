@@ -263,13 +263,13 @@ def combine_celltyping_chains(results: list[CelltypingResults]):
         np.nanmean(np.stack(combined_relative_expression[k]), axis=0)
         for k in combined_relative_expression
     ]
-    aic_scores = np.stack(aic_scores).mean(axis=0)
-    bic_scores = np.stack(bic_scores).mean(axis=0)
+    mean_aic_scores = np.stack(aic_scores).mean(axis=0)
+    mean_bic_scores = np.stack(bic_scores).mean(axis=0)
 
     return (
         CelltypingResults(
-            aic_scores=aic_scores,
-            bic_scores=bic_scores,
+            aic_scores=mean_aic_scores,
+            bic_scores=mean_bic_scores,
             final_expression_profiles=final_expression_profiles,
             final_prior_probs=final_prior_probs,
             final_cell_types=final_cell_types,

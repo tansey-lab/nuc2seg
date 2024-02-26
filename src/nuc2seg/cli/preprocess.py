@@ -152,7 +152,7 @@ def main():
         celltyping_results.final_prior_probs,
         celltyping_results.final_cell_types,
         celltyping_results.relative_expression,
-        os.path.join(args.output_dir, "cell_typing_plots"),
+        os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
     )
 
     ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results)
