@@ -7,7 +7,7 @@ import shapely
 from scipy.spatial import KDTree
 import pandas as pd
 
-from nuc2seg.data import RasterizedDataset
+from nuc2seg.data import RasterizedDataset, CelltypingResults, Nuc2SegDataset
 from nuc2seg.xenium import get_bounding_box, logger
 from nuc2seg.celltyping import estimate_cell_types
 from kneed import KneeLocator
@@ -195,6 +195,37 @@ def create_rasterized_dataset(
         bbox=np.array([x_min, y_min, x_max, y_max]),
         n_genes=n_genes,
         resolution=1.0,
+    )
+
+    return ds
+
+
+def create_nuc2seg_dataset(
+    rasterized_dataset: RasterizedDataset,
+    celltyping_results: CelltypingResults,
+):
+
+    best_k = get_best_k(celltyping_results.aic_scores, celltyping_results.bic_scores)
+    n_classes = celltyping_results.n_component_values[best_k]
+
+    # Estimate the density of each cell type
+    cell_type_probs = celltyping_results.final_cell_types[best_k]
+
+    # Assign hard labels to nuclei
+    cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
+    pixel_types = np.copy(rasterized_dataset.labels)
+    nuclei_mask = rasterized_dataset.labels > 0
+    pixel_types[nuclei_mask] = cell_type_labels[rasterized_dataset.labels[nuclei_mask]]
+
+    ds = Nuc2SegDataset(
+        labels=rasterized_dataset.labels,
+        angles=rasterized_dataset.angles,
+        classes=pixel_types,
+        transcripts=rasterized_dataset.transcripts,
+        bbox=rasterized_dataset.bbox,
+        n_classes=n_classes,
+        n_genes=rasterized_dataset.n_genes,
+        resolution=rasterized_dataset.resolution,
     )
 
     return ds

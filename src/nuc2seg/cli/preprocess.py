@@ -1,6 +1,5 @@
 import argparse
 import logging
-import numpy as np
 import pandas
 import os.path
 
@@ -11,7 +10,7 @@ from nuc2seg.xenium import (
     create_shapely_rectangle,
 )
 from nuc2seg.celltyping import combine_celltyping_chains
-from nuc2seg.preprocessing import create_rasterized_dataset
+from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
 from nuc2seg.data import CelltypingResults
 from nuc2seg.plotting import plot_celltype_estimation_results
 
@@ -155,3 +154,7 @@ def main():
         celltyping_results.relative_expression,
         os.path.join(args.output_dir, "cell_typing_plots"),
     )
+
+    ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results)
+
+    ds.save_h5(args.output)

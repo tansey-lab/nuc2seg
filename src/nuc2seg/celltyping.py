@@ -248,17 +248,19 @@ def combine_celltyping_chains(results: list[CelltypingResults]):
             combined_relative_expression[k].append(result.relative_expression[idx])
 
     final_expression_profiles = [
-        np.stack(combined_expression_profiles[k]).mean(axis=0)
+        np.nanmean(np.stack(combined_expression_profiles[k]), axis=0)
         for k in combined_expression_profiles
     ]
     final_prior_probs = [
-        np.stack(combined_prior_probs[k]).mean(axis=0) for k in combined_prior_probs
+        np.nanmean(np.stack(combined_prior_probs[k]), axis=0)
+        for k in combined_prior_probs
     ]
     final_cell_types = [
-        np.stack(combined_cell_types[k]).mean(axis=0) for k in combined_cell_types
+        np.nanmean(np.stack(combined_cell_types[k]), axis=0)
+        for k in combined_cell_types
     ]
     relative_expression = [
-        np.stack(combined_relative_expression[k]).mean(axis=0)
+        np.nanmean(np.stack(combined_relative_expression[k]), axis=0)
         for k in combined_relative_expression
     ]
     aic_scores = np.stack(aic_scores).mean(axis=0)
