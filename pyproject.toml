@@ -42,7 +42,8 @@ dependencies = [
     "lightning",
     "wandb",
     "opencv-contrib-python-headless",
-    "anndata"
+    "anndata",
+    "kneed==0.8.5"
 ]
 
 [project.optional-dependencies]
@@ -60,6 +61,8 @@ train = "nuc2seg.cli.train:main"
 predict = "nuc2seg.cli.predict:main"
 plot_predictions = "nuc2seg.cli.plot_predictions:main"
 segment = "nuc2seg.cli.segment:main"
+celltyping = "nuc2seg.cli.celltyping:main"
+
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]

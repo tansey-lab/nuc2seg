@@ -1,7 +1,7 @@
 import argparse
 import logging
+import numpy as np
 import pandas
-import os.path
 
 from nuc2seg import log_config
 from nuc2seg.xenium import (
@@ -9,17 +9,14 @@ from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
-from nuc2seg.celltyping import combine_celltyping_chains
-from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
-from nuc2seg.data import CelltypingResults
-from nuc2seg.plotting import plot_celltype_estimation_results
+from nuc2seg.celltyping import run_cell_type_estimation
 
 logger = logging.getLogger(__name__)
 
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="This is a utility for preprocessing Xenium data for the model."
+        description="Run celltype estimation on nucelus-segmented reads."
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
@@ -41,17 +38,22 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--celltyping-results",
-        help="Path to one or more celltyping results files.",
-        type=str,
-        required=True,
-        nargs="+",
+        "--seed",
+        help="Seed to use for PRNG.",
+        type=int,
+        default=0,
     )
     parser.add_argument(
-        "--resolution",
-        help="Size of a pixel in microns for rasterization.",
-        type=float,
-        default=1.0,
+        "--index",
+        help="Chain index.",
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        "--n-chains",
+        help="Number of parallel chains with different random initialization for cell typing.",
+        type=int,
+        default=1,
     )
     parser.add_argument(
         "--min-qv",
@@ -66,30 +68,24 @@ def get_parser():
         default=1,
     )
     parser.add_argument(
-        "--background-nucleus-distance",
-        help="Distance from a nucleus to be considered background.",
-        type=int,
-        default=10,
-    )
-    parser.add_argument(
-        "--background-transcript-distance",
-        help="Distance from a transcript to be considered background.",
-        type=int,
-        default=4,
-    )
-    parser.add_argument(
-        "--background-pixel-transcripts",
-        help="Number of transcripts in a pixel to be considered background.",
-        type=int,
-        default=5,
-    )
-    parser.add_argument(
         "--sample-area",
         default=None,
         type=str,
         help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
     )
+    parser.add_argument(
+        "--max-n-celltypes",
+        help="Maximum number of cell types to consider (inclusive).",
+        type=int,
+        default=25,
+    )
 
+    parser.add_argument(
+        "--min-n-celltypes",
+        help="Minimum number of cell types to consider.",
+        type=int,
+        default=2,
+    )
     return parser
 
 
@@ -105,6 +101,9 @@ def main():
     args = get_args()
 
     log_config.configure_logging(args)
+
+    seeds = np.random.SeedSequence(args.seed).spawn(args.n_chains)
+    rng = np.random.default_rng(seeds[args.index])
 
     if args.sample_area:
         sample_area = create_shapely_rectangle(
@@ -129,32 +128,13 @@ def main():
         min_qv=args.min_qv,
     )
 
-    rasterized_dataset = create_rasterized_dataset(
+    celltype_results = run_cell_type_estimation(
         nuclei_geo_df=nuclei_geo_df,
         tx_geo_df=tx_geo_df,
-        sample_area=sample_area,
-        resolution=args.resolution,
         foreground_nucleus_distance=args.foreground_nucleus_distance,
-        background_nucleus_distance=args.background_nucleus_distance,
-        background_pixel_transcripts=args.background_pixel_transcripts,
-        background_transcript_distance=args.background_transcript_distance,
+        min_components=args.min_n_celltypes,
+        max_components=args.max_n_celltypes,
+        rng=rng,
     )
 
-    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
-    celltyping_results, aic_scores, bic_scores = combine_celltyping_chains(
-        celltyping_chains
-    )
-
-    plot_celltype_estimation_results(
-        aic_scores,
-        bic_scores,
-        celltyping_results.final_expression_profiles,
-        celltyping_results.final_prior_probs,
-        celltyping_results.final_cell_types,
-        celltyping_results.relative_expression,
-        os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
-    )
-
-    ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results)
-
-    ds.save_h5(args.output)
+    celltype_results.save_h5(args.output)

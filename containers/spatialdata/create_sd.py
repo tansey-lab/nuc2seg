@@ -4,6 +4,7 @@ import spatialdata_io
 import geopandas
 from spatialdata.models import ShapesModel
 from spatialdata.transformations import Identity
+from spatialdata.transformations.operations import get_transformation
 
 
 def get_args():
@@ -20,9 +21,11 @@ def main():
     args = get_args()
     sd = spatialdata_io.xenium(args.xenium_dir)
 
+    shape_transform = get_transformation(sd.shapes["nucleus_boundaries"])
+
     # Load the segmentation shapefile
-    seg = geopandas.read_parquet(args.segmentation)
-    seg = ShapesModel.parse(seg, transformations={"global": Identity()})
+    seg = geopandas.read_parquet(args.segmentation).set_geometry("geometry").dropna()
+    seg = ShapesModel.parse(seg, transformations={"global": shape_transform})
 
     sd.shapes["nuc2seg_cell_segmentation"] = seg
 

@@ -7,9 +7,10 @@ import shapely
 from scipy.spatial import KDTree
 import pandas as pd
 
-from nuc2seg.data import Nuc2SegDataset
+from nuc2seg.data import RasterizedDataset, CelltypingResults, Nuc2SegDataset
 from nuc2seg.xenium import get_bounding_box, logger
 from nuc2seg.celltyping import estimate_cell_types
+from kneed import KneeLocator
 
 
 def cart2pol(x, y):
@@ -44,12 +45,27 @@ def create_pixel_geodf(x_min, x_max, y_min, y_max):
 
 
 def get_best_k(aic_scores, bic_scores):
-    best_k = np.argmin(aic_scores)
-    if np.argmin(bic_scores) != best_k:
+    best_k_aic = np.argmin(aic_scores)
+    best_k_bic = np.argmin(bic_scores)
+
+    if best_k_bic == best_k_aic:
+        return best_k_aic
+    else:
         logger.warning(
-            "The best k according to AIC and BIC do not match. Using AIC to determine k"
+            f"The best k according to AIC and BIC do not match ({best_k_aic} vs {best_k_bic}). Using BIC eblow to determine k"
         )
-    return best_k
+        kneedle = KneeLocator(
+            x=np.arange(len(bic_scores)),
+            y=bic_scores,
+            S=2,
+            curve="convex",
+            direction="decreasing",
+        )
+        best_k = kneedle.elbow
+
+        logger.info(f"BIC elbow to chose k: {best_k}")
+
+        return best_k
 
 
 def create_rasterized_dataset(
@@ -61,8 +77,6 @@ def create_rasterized_dataset(
     background_nucleus_distance=10,
     background_transcript_distance=4,
     background_pixel_transcripts=5,
-    min_n_celltypes=2,
-    max_n_celltypes=25,
 ):
     n_genes = tx_geo_df["gene_id"].max() + 1
 
@@ -143,24 +157,6 @@ def create_rasterized_dataset(
         1,
     )
 
-    logger.info("Estimating cell types")
-    # Estimate the cell types
-    (
-        aic_scores,
-        bic_scores,
-        final_expression_profiles,
-        final_prior_probs,
-        final_cell_types,
-        relative_expression,
-    ) = estimate_cell_types(
-        nuclei_count_matrix,
-        min_components=min_n_celltypes,
-        max_components=max_n_celltypes,
-    )
-
-    best_k = get_best_k(aic_scores, bic_scores)
-    logger.info(f"Best k: {best_k + 2}")
-
     # Estimate the background rate
     tx_background_mask = (
         labels[
@@ -173,15 +169,6 @@ def create_rasterized_dataset(
     tx_geo_df_background = tx_geo_df[tx_background_mask]
     for g in range(n_genes):
         background_probs[g] = (tx_geo_df_background["gene_id"] == g).sum() + 1
-
-    # Estimate the density of each cell type
-    cell_type_probs = final_cell_types[best_k]
-
-    # Assign hard labels to nuclei
-    cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
-    pixel_types = np.copy(labels)
-    nuclei_mask = labels > 0
-    pixel_types[nuclei_mask] = cell_type_labels[labels[nuclei_mask]]
 
     # Calculate the angle at which each pixel faces to point at its nearest nucleus centroid.
     # Normalize it to be in [0,1]
@@ -197,28 +184,48 @@ def create_rasterized_dataset(
         labels_geo_df["nucleus_angle"].values
     )
 
-    n_classes = cell_type_probs.shape[-1]
-
     logger.info("Creating dataset")
     X = tx_geo_df["x_location"].values.astype(int) - x_min
     Y = tx_geo_df["y_location"].values.astype(int) - y_min
     G = tx_geo_df["gene_id"].values.astype(int)
-    ds = Nuc2SegDataset(
+    ds = RasterizedDataset(
         labels=labels,
         angles=angles,
-        classes=pixel_types,
         transcripts=np.array([X, Y, G]).T,
         bbox=np.array([x_min, y_min, x_max, y_max]),
-        n_classes=n_classes,
         n_genes=n_genes,
         resolution=1.0,
     )
 
-    return ds, {
-        "aic_scores": aic_scores,
-        "bic_scores": bic_scores,
-        "final_expression_profiles": final_expression_profiles,
-        "final_prior_probs": final_prior_probs,
-        "final_cell_types": final_cell_types,
-        "relative_expression": relative_expression,
-    }
+    return ds
+
+
+def create_nuc2seg_dataset(
+    rasterized_dataset: RasterizedDataset,
+    celltyping_results: CelltypingResults,
+):
+
+    best_k = get_best_k(celltyping_results.aic_scores, celltyping_results.bic_scores)
+    n_classes = celltyping_results.n_component_values[best_k]
+
+    # Estimate the density of each cell type
+    cell_type_probs = celltyping_results.final_cell_types[best_k]
+
+    # Assign hard labels to nuclei
+    cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
+    pixel_types = np.copy(rasterized_dataset.labels)
+    nuclei_mask = rasterized_dataset.labels > 0
+    pixel_types[nuclei_mask] = cell_type_labels[rasterized_dataset.labels[nuclei_mask]]
+
+    ds = Nuc2SegDataset(
+        labels=rasterized_dataset.labels,
+        angles=rasterized_dataset.angles,
+        classes=pixel_types,
+        transcripts=rasterized_dataset.transcripts,
+        bbox=rasterized_dataset.bbox,
+        n_classes=n_classes,
+        n_genes=rasterized_dataset.n_genes,
+        resolution=rasterized_dataset.resolution,
+    )
+
+    return ds
