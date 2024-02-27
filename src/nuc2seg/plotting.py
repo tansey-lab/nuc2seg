@@ -247,6 +247,7 @@ def plot_celltype_estimation_results(
     final_prior_probs,
     final_cell_types,
     relative_expression,
+    n_components,
     output_dir,
 ):
     # create output_dir if not exists
@@ -265,7 +266,7 @@ def plot_celltype_estimation_results(
 
     # add min/max error bars
     ax.errorbar(
-        range(len(aic_scores.mean(axis=0))),
+        n_components,
         aic_scores.mean(axis=0),
         yerr=error,
         label="AIC",
@@ -280,7 +281,7 @@ def plot_celltype_estimation_results(
     )
 
     ax.errorbar(
-        range(len(bic_scores.mean(axis=0))),
+        n_components,
         bic_scores.mean(axis=0),
         yerr=error,
         label="BIC",
