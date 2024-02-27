@@ -100,6 +100,7 @@ def test_plot_celltype_estimation_results():
             final_prior_probs,
             final_cell_types,
             relative_expression,
+            celltyping_results.n_component_values,
             tmpdir,
         )
     finally:
