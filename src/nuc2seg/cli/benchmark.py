@@ -67,8 +67,18 @@ def get_parser():
     return parser
 
 
+def get_args():
+    parser = get_parser()
+
+    args = parser.parse_args()
+
+    return args
+
+
 def main():
-    args = get_parser().parse_args()
+    args = get_args()
+
+    log_config.configure_logging(args)
 
     logger.info(f"Loading segmentation from {args.segmentation}")
     segmentation = SegmentationResults.load_h5(args.segmentation)
@@ -76,7 +86,7 @@ def main():
     logger.info(
         f"Loading IF data from {args.if_ome_tiff} and {args.morphology_ome_tiff}"
     )
-    aligned_if_intensities, channel_names = benchmark.load_immunofluorescence(
+    channel_names, aligned_if_intensities = benchmark.load_immunofluorescence(
         segmentation=segmentation,
         if_ome_tiff_path=args.if_ome_tiff,
         morphology_mip_ome_tiff_path=args.morphology_ome_tiff,
@@ -88,7 +98,6 @@ def main():
     del aligned_if_intensities
 
     logger.info(f"Loading predictions from {args.predictions}")
-    predictions = ModelPredictions.load_h5(args.predictions)
 
     logger.info(f"Loading xenium cell segmentation from {args.xenium_cells}")
     xenium_cell_segmentation_mask = read_xenium_cell_segmentation_masks(
@@ -98,13 +107,36 @@ def main():
     )
 
     foreground_intensities, background_intensities = (
-        benchmark.score_foreground_segmentation(predictions, segmentation)
+        benchmark.score_foreground_segmentation(
+            (segmentation.segmentation > 0), target_if_intensities
+        )
+    )
+
+    xenium_foreground_intensities, xenium_background_intensities = (
+        benchmark.score_foreground_segmentation(
+            (xenium_cell_segmentation_mask > 0).astype(int), target_if_intensities
+        )
     )
 
     plotting.plot_foreground_background_benchmark(
         foreground_intensities,
         background_intensities,
-        os.path.join(args.output_dir, "foreground_background_benchmark.pdf"),
+        os.path.join(args.output_dir, "nuc2seg_foreground_background_benchmark.png"),
+    )
+
+    plotting.plot_foreground_background_benchmark(
+        xenium_foreground_intensities,
+        xenium_background_intensities,
+        os.path.join(args.output_dir, "xenium_foreground_background_benchmark.png"),
+    )
+
+    logger.info(f"Creating boxplot")
+    plotting.foreground_background_boxplot(
+        nuc2seg_foreground_intensities=foreground_intensities,
+        nuc2seg_background_intensities=background_intensities,
+        xenium_foreground_intensities=xenium_foreground_intensities,
+        xenium_background_intensities=xenium_background_intensities,
+        output_path=os.path.join(args.output_dir, "foreground_background_boxplot.png"),
     )
 
     nuc2seg_intensities, nuc2seg_segment_sizes = (
@@ -124,11 +156,11 @@ def main():
     plotting.plot_segmentation_avg_intensity_distribution(
         nuc2seg_intensities,
         xenium_intensities,
-        os.path.join(args.output_dir, "segmentation_avg_intensity_distribution.pdf"),
+        os.path.join(args.output_dir, "segmentation_avg_intensity_distribution.png"),
     )
 
     plotting.plot_segmentation_size_distribution(
         nuc2seg_segment_sizes,
         xenium_segment_sizes,
-        os.path.join(args.output_dir, "segmentation_size_distribution.pdf"),
+        os.path.join(args.output_dir, "segmentation_size_distribution.png"),
     )

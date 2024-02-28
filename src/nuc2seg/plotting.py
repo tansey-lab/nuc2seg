@@ -1,4 +1,5 @@
 import geopandas
+import pandas
 from shapely import box
 from matplotlib import pyplot as plt
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
@@ -357,6 +358,7 @@ def plot_foreground_background_benchmark(
     ax.set_xlabel("Intensity")
     ax.set_ylabel("Frequency")
     ax.set_title("Foreground and background IF intensity distributions")
+    ax.legend()
 
     fig.savefig(output_path)
 
@@ -368,9 +370,10 @@ def plot_segmentation_avg_intensity_distribution(
 
     ax.hist(nuc2seg_intensities, bins=100, alpha=0.5, label="Nuc2Seg")
     ax.hist(other_intensities, bins=100, alpha=0.5, label="Xenium")
-    ax.set_xlabel("Intensity")
+    ax.set_xlabel("Avg Intensity of Cell Segment")
     ax.set_ylabel("Frequency")
     ax.set_title("Average segment intensity distributions")
+    ax.legend()
 
     fig.savefig(output_path)
 
@@ -385,5 +388,53 @@ def plot_segmentation_size_distribution(
     ax.set_xlabel("Segment # of Pixels")
     ax.set_ylabel("Frequency")
     ax.set_title("Average segment size distributions")
+    ax.legend()
 
     fig.savefig(output_path)
+
+
+def foreground_background_boxplot(
+    nuc2seg_foreground_intensities,
+    nuc2seg_background_intensities,
+    xenium_foreground_intensities,
+    xenium_background_intensities,
+    output_path,
+):
+    import seaborn as sns
+
+    sns.set_theme(style="ticks", palette="pastel")
+
+    df = pandas.DataFrame()
+    df["intensity"] = np.concatenate(
+        [
+            nuc2seg_foreground_intensities,
+            nuc2seg_background_intensities,
+            xenium_foreground_intensities,
+            xenium_background_intensities,
+        ]
+    )
+
+    df["method"] = (
+        ["Nuc2Seg"] * len(nuc2seg_foreground_intensities)
+        + ["Nuc2Seg"] * len(nuc2seg_background_intensities)
+        + ["Xenium"] * len(xenium_foreground_intensities)
+        + ["Xenium"] * len(xenium_background_intensities)
+    )
+    df["class"] = (
+        ["Foreground"] * len(nuc2seg_foreground_intensities)
+        + ["Background"] * len(nuc2seg_background_intensities)
+        + ["Foreground"] * len(xenium_foreground_intensities)
+        + ["Background"] * len(xenium_background_intensities)
+    )
+    # Draw a nested boxplot to show bills by day and time
+
+    sns.boxplot(
+        x="method",
+        y="intensity",
+        hue="class",
+        data=df,
+        fill=False,
+        gap=0.1,
+        showfliers=False,
+    )
+    plt.savefig(output_path)

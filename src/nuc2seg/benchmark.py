@@ -6,7 +6,7 @@ import numpy as np
 import logging
 import tqdm
 
-from nuc2seg.data import SegmentationResults, Nuc2SegDataset, ModelPredictions
+from nuc2seg.data import SegmentationResults, ModelPredictions
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +53,20 @@ def load_immunofluorescence(
         resized = cv2.resize(
             res,
             (segmentation.segmentation.shape[0], segmentation.segmentation.shape[1]),
-        )
+        ).T
         transformed_images.append(resized)
 
     return channel_names_in_order, np.stack(transformed_images)
 
 
 def get_per_segment_immunofluorescence_intensity(
-    segmentation: np.ndarray,
-    immunofluorescence: np.ndarray,
+    segmentation: np.ndarray, immunofluorescence: np.ndarray, maximum_cells=4000
 ):
 
     intensities = []
     segment_sizes = []
 
-    for value in tqdm.tqdm(np.unique(segmentation)):
+    for value in tqdm.tqdm(np.unique(segmentation)[:maximum_cells]):
         if value in [-1, 0]:
             continue
         mask = segmentation == value
@@ -80,11 +79,11 @@ def get_per_segment_immunofluorescence_intensity(
 
 
 def score_foreground_segmentation(
-    predictions: ModelPredictions,
+    predictions: np.ndarray,
     immunofluorescence: np.ndarray,
 ):
-    foreground_mask = predictions.foreground > 0.5
-    background_mask = predictions.foreground <= 0.5
+    foreground_mask = predictions > 0.5
+    background_mask = predictions <= 0.5
 
     foreground_intensity = immunofluorescence[foreground_mask]
     background_intensity = immunofluorescence[background_mask]

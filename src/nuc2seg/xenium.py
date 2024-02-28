@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import zarr
 import cv2
-
+from skimage.transform import resize
 from matplotlib import pyplot as plt
 from shapely import Polygon
 from shapely.geometry import box
@@ -161,7 +161,7 @@ def read_xenium_cell_segmentation_masks(
     cell_segment_zarr_file, x_extent_pixels, y_extent_pixels
 ):
     cells = zarr.open(cell_segment_zarr_file)
-    cell_masks = cells.masks[1][:].T
-    return cv2.resize(
-        cell_masks, (x_extent_pixels, y_extent_pixels), interpolation=cv2.INTER_NEAREST
-    )
+    cell_masks = cells.masks[1][:].T.astype(int)
+    return resize(
+        cell_masks, (x_extent_pixels, y_extent_pixels), order=0, preserve_range=True
+    ).astype(int)
