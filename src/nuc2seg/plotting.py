@@ -345,3 +345,45 @@ def plot_celltype_estimation_results(
         fig.savefig(os.path.join(output_dir, f"prior_probs_k={n_celltypes}.pdf"))
         fig.tight_layout()
         plt.close()
+
+
+def plot_foreground_background_benchmark(
+    foreground_intensities, background_intensities, output_path
+):
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    ax.hist(foreground_intensities, bins=100, alpha=0.5, label="Foreground")
+    ax.hist(background_intensities, bins=100, alpha=0.5, label="Background")
+    ax.set_xlabel("Intensity")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Foreground and background IF intensity distributions")
+
+    fig.savefig(output_path)
+
+
+def plot_segmentation_avg_intensity_distribution(
+    nuc2seg_intensities, other_intensities, output_path
+):
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    ax.hist(nuc2seg_intensities, bins=100, alpha=0.5, label="Nuc2Seg")
+    ax.hist(other_intensities, bins=100, alpha=0.5, label="Xenium")
+    ax.set_xlabel("Intensity")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Average segment intensity distributions")
+
+    fig.savefig(output_path)
+
+
+def plot_segmentation_size_distribution(
+    nuc2seg_intensities, other_intensities, output_path
+):
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    ax.hist(nuc2seg_intensities, bins=100, alpha=0.5, label="Nuc2Seg")
+    ax.hist(other_intensities, bins=100, alpha=0.5, label="Xenium")
+    ax.set_xlabel("Segment # of Pixels")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Average segment size distributions")
+
+    fig.savefig(output_path)
