@@ -66,7 +66,7 @@ def main():
         )
 
     else:
-        df = pandas.read_parquet(args.transcripts_file)
+        df = pandas.read_parquet(args.transcripts)
         y_max = df["y_location"].max()
         x_max = df["x_location"].max()
 
