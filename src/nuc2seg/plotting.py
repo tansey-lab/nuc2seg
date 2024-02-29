@@ -364,12 +364,12 @@ def plot_foreground_background_benchmark(
 
 
 def plot_segmentation_avg_intensity_distribution(
-    nuc2seg_intensities, other_intensities, output_path
+    nuc2seg_intensities, other_intensities, output_path, other_method_name="Xenium"
 ):
     fig, ax = plt.subplots(figsize=(10, 10))
 
     ax.hist(nuc2seg_intensities, bins=100, alpha=0.5, label="Nuc2Seg")
-    ax.hist(other_intensities, bins=100, alpha=0.5, label="Xenium")
+    ax.hist(other_intensities, bins=100, alpha=0.5, label=other_method_name)
     ax.set_xlabel("Avg Intensity of Cell Segment")
     ax.set_ylabel("Frequency")
     ax.set_title("Average segment intensity distributions")
@@ -379,12 +379,12 @@ def plot_segmentation_avg_intensity_distribution(
 
 
 def plot_segmentation_size_distribution(
-    nuc2seg_intensities, other_intensities, output_path
+    nuc2seg_intensities, other_intensities, output_path, other_method_name="Xenium"
 ):
     fig, ax = plt.subplots(figsize=(10, 10))
 
     ax.hist(nuc2seg_intensities, bins=100, alpha=0.5, label="Nuc2Seg")
-    ax.hist(other_intensities, bins=100, alpha=0.5, label="Xenium")
+    ax.hist(other_intensities, bins=100, alpha=0.5, label=other_method_name)
     ax.set_xlabel("Segment # of Pixels")
     ax.set_ylabel("Frequency")
     ax.set_title("Average segment size distributions")
@@ -396,9 +396,10 @@ def plot_segmentation_size_distribution(
 def foreground_background_boxplot(
     nuc2seg_foreground_intensities,
     nuc2seg_background_intensities,
-    xenium_foreground_intensities,
-    xenium_background_intensities,
+    other_method_foreground_intensities,
+    other_method_background_intensities,
     output_path,
+    other_method_name="Xenium",
 ):
     import seaborn as sns
 
@@ -409,22 +410,22 @@ def foreground_background_boxplot(
         [
             nuc2seg_foreground_intensities,
             nuc2seg_background_intensities,
-            xenium_foreground_intensities,
-            xenium_background_intensities,
+            other_method_foreground_intensities,
+            other_method_background_intensities,
         ]
     )
 
     df["method"] = (
         ["Nuc2Seg"] * len(nuc2seg_foreground_intensities)
         + ["Nuc2Seg"] * len(nuc2seg_background_intensities)
-        + ["Xenium"] * len(xenium_foreground_intensities)
-        + ["Xenium"] * len(xenium_background_intensities)
+        + [other_method_name] * len(other_method_foreground_intensities)
+        + [other_method_name] * len(other_method_background_intensities)
     )
     df["class"] = (
         ["Foreground"] * len(nuc2seg_foreground_intensities)
         + ["Background"] * len(nuc2seg_background_intensities)
-        + ["Foreground"] * len(xenium_foreground_intensities)
-        + ["Background"] * len(xenium_background_intensities)
+        + ["Foreground"] * len(other_method_foreground_intensities)
+        + ["Background"] * len(other_method_background_intensities)
     )
     # Draw a nested boxplot to show bills by day and time
 

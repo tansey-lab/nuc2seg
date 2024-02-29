@@ -63,7 +63,7 @@ predict = "nuc2seg.cli.predict:main"
 plot_predictions = "nuc2seg.cli.plot_predictions:main"
 segment = "nuc2seg.cli.segment:main"
 celltyping = "nuc2seg.cli.celltyping:main"
-benchmark = "nuc2seg.cli.benchmark:main"
+autofluorescence = "nuc2seg.cli.autofluorescence_benchmark:main"
 
 
 [build-system]
