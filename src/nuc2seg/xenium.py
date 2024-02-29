@@ -5,6 +5,9 @@ import shapely
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import zarr
+import cv2
+from skimage.transform import resize
 from matplotlib import pyplot as plt
 from shapely import Polygon
 from shapely.geometry import box
@@ -152,3 +155,13 @@ def plot_distribution_of_cell_types(cell_type_probs):
             cell_type_probs[np.argmax(cell_type_probs, axis=1) == idx, idx], bins=200
         )
     plt.show()
+
+
+def read_xenium_cell_segmentation_masks(
+    cell_segment_zarr_file, x_extent_pixels, y_extent_pixels
+):
+    cells = zarr.open(cell_segment_zarr_file)
+    cell_masks = cells.masks[1][:].T.astype(int)
+    return resize(
+        cell_masks, (x_extent_pixels, y_extent_pixels), order=0, preserve_range=True
+    ).astype(int)

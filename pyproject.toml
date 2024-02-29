@@ -43,7 +43,11 @@ dependencies = [
     "wandb",
     "opencv-contrib-python-headless",
     "anndata",
-    "kneed==0.8.5"
+    "kneed==0.8.5",
+    "rasterio",
+    "zarr",
+    "scikit-image",
+    "pyometiff"
 ]
 
 [project.optional-dependencies]
@@ -62,6 +66,7 @@ predict = "nuc2seg.cli.predict:main"
 plot_predictions = "nuc2seg.cli.plot_predictions:main"
 segment = "nuc2seg.cli.segment:main"
 celltyping = "nuc2seg.cli.celltyping:main"
+autofluorescence = "nuc2seg.cli.autofluorescence_benchmark:main"
 
 
 [build-system]
