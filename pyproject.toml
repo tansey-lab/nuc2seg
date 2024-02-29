@@ -67,6 +67,7 @@ plot_predictions = "nuc2seg.cli.plot_predictions:main"
 segment = "nuc2seg.cli.segment:main"
 celltyping = "nuc2seg.cli.celltyping:main"
 autofluorescence = "nuc2seg.cli.autofluorescence_benchmark:main"
+baysor_preprocess_transcripts = "nuc2seg.cli.baysor_preprocess_transcripts:main"
 
 
 [build-system]
