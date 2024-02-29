@@ -44,7 +44,8 @@ dependencies = [
     "opencv-contrib-python-headless",
     "anndata",
     "kneed==0.8.5",
-    "rasterio"
+    "rasterio",
+    "zarr"
 ]
 
 [project.optional-dependencies]
