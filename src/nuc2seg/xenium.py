@@ -104,7 +104,9 @@ def load_and_filter_transcripts(
     original_count = len(transcripts_df)
 
     transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
-    transcripts_df.drop(columns=["nucleus_distance"], inplace=True)
+
+    if "nucleus_distance" in transcripts_df.columns:
+        transcripts_df.drop(columns=["nucleus_distance"], inplace=True)
 
     count_after_bbox = len(transcripts_df)
 

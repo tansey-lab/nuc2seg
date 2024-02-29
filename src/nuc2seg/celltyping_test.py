@@ -7,7 +7,7 @@ import numpy as np
 
 
 def test_estimate_cell_types():
-    np.random.seed(0)
+    rng = np.random.default_rng(0)
     n_genes, n_cells = 10, 100
 
     gene_counts = np.random.poisson(10, size=(n_cells, n_genes))
@@ -19,6 +19,7 @@ def test_estimate_cell_types():
         max_em_steps=3,
         tol=1e-4,
         warm_start=False,
+        rng=rng,
     )
 
     (
@@ -48,7 +49,7 @@ def test_estimate_cell_types():
 
 
 def test_estimate_cell_types2():
-    np.random.seed(0)
+    rng = np.random.default_rng(0)
     n_genes, n_cells = 12, 99
 
     data = np.zeros((n_cells, n_genes), dtype=int)
@@ -68,6 +69,7 @@ def test_estimate_cell_types2():
         max_em_steps=10,
         tol=1e-4,
         warm_start=False,
+        rng=rng,
     )
 
     (
