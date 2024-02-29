@@ -45,7 +45,8 @@ dependencies = [
     "anndata",
     "kneed==0.8.5",
     "rasterio",
-    "zarr"
+    "zarr",
+    "scikit-image"
 ]
 
 [project.optional-dependencies]
