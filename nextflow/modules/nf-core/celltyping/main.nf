@@ -1,7 +1,6 @@
 process CELLTYPING {
     tag "$meta.id"
     label 'process_medium'
-    cpus 1
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/nuc2seg:latest' :
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"

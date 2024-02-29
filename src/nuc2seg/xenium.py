@@ -105,6 +105,22 @@ def load_and_filter_transcripts(
 ):
     transcripts_df = read_transcripts_into_points(transcripts_file)
 
+    if np.issubdtype(transcripts_df["cell_id"].dtype, np.integer):
+        pass
+    else:
+        # map string values to integers
+        mapping = dict(
+            zip(
+                transcripts_df["cell_id"].unique(),
+                np.arange(1, len(transcripts_df["cell_id"].unique()) + 1),
+            )
+        )
+        if "UNASSIGNED" in mapping:
+            del mapping["UNASSIGNED"]
+        transcripts_df["cell_id"] = (
+            transcripts_df["cell_id"].apply(lambda x: mapping.get(x, 0)).astype(int)
+        )
+
     original_count = len(transcripts_df)
 
     transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
