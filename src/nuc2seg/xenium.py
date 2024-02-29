@@ -63,6 +63,10 @@ def read_transcripts_into_points(
 ):
     transcripts = pd.read_parquet(transcripts_file)
 
+    transcripts["feature_name"] = transcripts["feature_name"].apply(
+        lambda x: x.decode("utf-8") if isinstance(x, bytes) else x
+    )
+
     tx_geo_df = gpd.GeoDataFrame(
         transcripts,
         geometry=gpd.points_from_xy(
