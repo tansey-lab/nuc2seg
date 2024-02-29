@@ -46,7 +46,8 @@ dependencies = [
     "kneed==0.8.5",
     "rasterio",
     "zarr",
-    "scikit-image"
+    "scikit-image",
+    "pyometiff"
 ]
 
 [project.optional-dependencies]
