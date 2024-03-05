@@ -44,19 +44,19 @@ def get_parser():
         "--tile-height",
         help="Height of the tiles.",
         type=int,
-        default=64,
+        default=1000,
     )
     parser.add_argument(
         "--tile-width",
         help="Width of the tiles.",
         type=int,
-        default=64,
+        default=1000,
     )
     parser.add_argument(
         "--overlap-percentage",
         help="What percent of each tile dimension overlaps with the next tile.",
         type=float,
-        default=0.25,
+        default=0.5,
     )
 
     return parser
