@@ -123,7 +123,8 @@ def load_and_filter_transcripts(
 
     original_count = len(transcripts_df)
 
-    transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
+    if sample_area is not None:
+        transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
 
     if "nucleus_distance" in transcripts_df.columns:
         transcripts_df.drop(columns=["nucleus_distance"], inplace=True)

@@ -1,13 +1,12 @@
 import argparse
 import logging
-import pandas
-import os.path
 
 from nuc2seg import log_config
 from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
+from nuc2seg.preprocessing import tile_transcripts_to_csv
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +17,8 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
-        "--output-path",
-        help="Destination for transcript CSV.",
+        "--output-dir",
+        help="Directory to save baysor input CSVs.",
         type=str,
         required=True,
     )
@@ -40,6 +39,24 @@ def get_parser():
         help="Minimum quality value for a transcript to be included.",
         type=float,
         default=20.0,
+    )
+    parser.add_argument(
+        "--tile-height",
+        help="Height of the tiles.",
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
+        "--tile-width",
+        help="Width of the tiles.",
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
+        "--overlap-percentage",
+        help="What percent of each tile dimension overlaps with the next tile.",
+        type=float,
+        default=0.25,
     )
 
     return parser
@@ -64,23 +81,24 @@ def main():
         sample_area = create_shapely_rectangle(
             *[float(x) for x in args.sample_area.split(",")]
         )
-
     else:
-        df = pandas.read_parquet(args.transcripts)
-        y_max = df["y_location"].max()
-        x_max = df["x_location"].max()
-
-        sample_area = create_shapely_rectangle(0, 0, x_max, y_max)
+        sample_area = None
 
     transcripts = load_and_filter_transcripts(
         transcripts_file=args.transcripts,
         sample_area=sample_area,
         min_qv=args.min_qv,
     )
+
     mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
 
     transcripts["nucleus_id"] = 0
     transcripts.loc[mask, "nucleus_id"] = transcripts["cell_id"][mask]
 
-    logger.info(f"Writing CSV to {args.output_path}")
-    transcripts.to_csv(os.path.join(args.output_path), index=False)
+    logger.info(f"Writing CSVs to {args.output_path}")
+    tile_transcripts_to_csv(
+        transcripts=transcripts,
+        tile_size=(args.tile_height, args.tile_width),
+        overlap=args.overlap_percentage,
+        output_dir=args.output_dir,
+    )

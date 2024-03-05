@@ -4,13 +4,26 @@ import geopandas
 import geopandas as gpd
 import numpy as np
 import shapely
-from scipy.spatial import KDTree
 import pandas as pd
+import tqdm
+import os.path
 
-from nuc2seg.data import RasterizedDataset, CelltypingResults, Nuc2SegDataset
-from nuc2seg.xenium import get_bounding_box, logger
+from nuc2seg.data import (
+    RasterizedDataset,
+    CelltypingResults,
+    Nuc2SegDataset,
+    generate_tiles,
+)
+from nuc2seg.xenium import (
+    get_bounding_box,
+    logger,
+    create_shapely_rectangle,
+    filter_gdf_to_inside_polygon,
+)
 from nuc2seg.celltyping import estimate_cell_types
 from kneed import KneeLocator
+from blended_tiling import TilingModule
+from scipy.spatial import KDTree
 
 
 def cart2pol(x, y):
@@ -229,3 +242,32 @@ def create_nuc2seg_dataset(
     )
 
     return ds
+
+
+def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
+    x_max = math.ceil(transcripts["x_location"].max())
+    y_max = math.ceil(transcripts["y_location"].min())
+
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=(overlap, overlap),
+        base_size=(x_max, y_max),
+    )
+
+    total_n_transcripts = len(transcripts)
+    pbar = tqdm.tqdm(total=total_n_transcripts)
+
+    for x1, y1, x2, y2 in generate_tiles(
+        tiler,
+        x_extent=x_max,
+        y_extent=y_max,
+        overlap_fraction=overlap,
+        tile_size=tile_size,
+    ):
+        bbox = create_shapely_rectangle(x1, y1, x2, y2)
+        filtered_df = filter_gdf_to_inside_polygon(transcripts, bbox)
+        output_path = os.path.join(output_dir, f"tile_{x1}_{y1}_{x2}_{y2}.csv")
+        pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
+            output_path, index=False
+        )
+        pbar.update(len(filtered_df))

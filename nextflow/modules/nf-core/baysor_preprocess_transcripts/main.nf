@@ -9,7 +9,7 @@ process BAYSOR_PREPROCESS_TRANSCRIPTS {
     tuple val(meta), path(xenium_dir)
 
     output:
-    tuple val(meta), path("${prefix}/baysor/baysor_transcripts.csv"), emit: baysor_transcripts
+    tuple val(meta), path("${prefix}/baysor/input/*.csv"), emit: transcripts
 
 
     script:
@@ -17,10 +17,10 @@ process BAYSOR_PREPROCESS_TRANSCRIPTS {
     def args = task.ext.args ?: ""
     def sample_area_flag = params.sample_area == null ? "" : "--sample-area ${params.sample_area}"
     """
-    mkdir -p "${prefix}/baysor"
+    mkdir -p "${prefix}/baysor/input"
     baysor_preprocess_transcripts \
         --transcripts ${xenium_dir}/transcripts.parquet \
-        --output-path ${prefix}/baysor/baysor_transcripts.csv \
+        --output-dir ${prefix}/baysor/input \
         ${args}
     """
 }

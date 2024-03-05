@@ -195,13 +195,7 @@ def generate_tiles(
     tiler: TilingModule, x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None
 ):
     """
-    A generator function to yield overlapping tiles from a 2D NumPy array (image).
-
-    Parameters:
-    - image: 2D NumPy array representing the image.
-    - tile_size: Tuple of (tile_height, tile_width), the size of each tile.
-    - overlap_fraction: Fraction of overlap between tiles (0 to 1).
-    - tile_ids: List of tile IDs to generate. If None, all tiles are generated.
+    A generator function to yield overlapping tiles
 
     Yields:
     - BBox extent in pixels for each tile (non inclusive end) x1, y1, x2, y2

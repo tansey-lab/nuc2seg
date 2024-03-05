@@ -24,7 +24,7 @@ workflow BAYSOR_SEGMENTATION {
         .tap { baysor_param_sweep }
 
 
-    BAYSOR_PREPROCESS_TRANSCRIPTS.out.baysor_transcripts
+    BAYSOR_PREPROCESS_TRANSCRIPTS.out.transcripts
         .combine( baysor_param_sweep )
         .tap { baysor_input }
 
