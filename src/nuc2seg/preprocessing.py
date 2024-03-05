@@ -257,16 +257,18 @@ def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
     total_n_transcripts = len(transcripts)
     pbar = tqdm.tqdm(total=total_n_transcripts)
 
-    for x1, y1, x2, y2 in generate_tiles(
-        tiler,
-        x_extent=x_max,
-        y_extent=y_max,
-        overlap_fraction=overlap,
-        tile_size=tile_size,
+    for idx, (x1, y1, x2, y2) in enumerate(
+        generate_tiles(
+            tiler,
+            x_extent=x_max,
+            y_extent=y_max,
+            overlap_fraction=overlap,
+            tile_size=tile_size,
+        )
     ):
         bbox = create_shapely_rectangle(x1, y1, x2, y2)
         filtered_df = filter_gdf_to_inside_polygon(transcripts, bbox)
-        output_path = os.path.join(output_dir, f"tile_{x1}_{y1}_{x2}_{y2}.csv")
+        output_path = os.path.join(output_dir, f"tile_{idx}.csv")
         pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
             output_path, index=False
         )
