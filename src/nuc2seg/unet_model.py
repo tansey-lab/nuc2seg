@@ -116,8 +116,8 @@ class SparseUNet(LightningModule):
         n_filters=10,
         bilinear=False,
         lr: float = 1e-5,
-        weight_decay: float = 1e-8,
-        momentum: float = 0.999,
+        weight_decay: float = 0,
+        betas: float = (0.9, 0.999),
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -161,11 +161,11 @@ class SparseUNet(LightningModule):
         )  # Map back to Batch x ImageX x Image Y x Classes
 
     def configure_optimizers(self):
-        return optim.RMSprop(
+        return optim.Adam(
             self.parameters(),
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
-            momentum=self.hparams.momentum,
+            betas=self.hparams.betas,
         )
 
     def training_step(self, batch, batch_idx):

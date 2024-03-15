@@ -79,10 +79,7 @@ def get_parser():
         default=1e-8,
     )
     parser.add_argument(
-        "--momentum",
-        help="Momentum.",
-        type=float,
-        default=0.999,
+        "--betas", help="Betas.", type=float, default=(0.9, 0.999), nargs=2
     )
     parser.add_argument(
         "--gradient-clipping",
@@ -201,7 +198,7 @@ def main():
         n_filters=args.n_filters,
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
-        momentum=args.momentum,
+        betas=args.betas,
     )
 
     # save checkpoints based on "val_loss" metric
