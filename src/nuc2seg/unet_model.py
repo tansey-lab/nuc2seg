@@ -161,7 +161,7 @@ class SparseUNet(LightningModule):
         )  # Map back to Batch x ImageX x Image Y x Classes
 
     def configure_optimizers(self):
-        return optim.Adam(
+        return optim.AdamW(
             self.parameters(),
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
