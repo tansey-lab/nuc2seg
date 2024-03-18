@@ -73,6 +73,9 @@ def training_step(
     prediction,
     foreground_criterion,
     celltype_criterion,
+    foreground_loss_factor=1.0,
+    celltype_loss_factor=1.0,
+    angle_loss_factor=10.0,
 ):
     label_mask = label_mask.type(torch.bool)
 
@@ -97,10 +100,14 @@ def training_step(
             class_pred[nucleus_mask], classes[nucleus_mask] - 1
         )
 
-        train_loss = foreground_loss + angle_loss_val + celltype_loss
+        train_loss = (
+            (foreground_loss * foreground_loss_factor)
+            + (angle_loss_val * angle_loss_factor)
+            + (celltype_loss * celltype_loss_factor)
+        )
         return train_loss, foreground_loss, angle_loss_val, celltype_loss
     else:
-        train_loss = foreground_loss
+        train_loss = foreground_loss * foreground_loss_factor
         return train_loss, foreground_loss, None, None
 
 
@@ -118,6 +125,9 @@ class SparseUNet(LightningModule):
         lr: float = 1e-5,
         weight_decay: float = 0,
         betas: float = (0.9, 0.999),
+        angle_loss_factor: float = 10.0,
+        foreground_loss_factor: float = 1.0,
+        celltype_loss_factor: float = 1.0,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -191,6 +201,9 @@ class SparseUNet(LightningModule):
             prediction=prediction,
             foreground_criterion=self.foreground_criterion,
             celltype_criterion=self.celltype_criterion,
+            foreground_loss_factor=self.hparams.foreground_loss_factor,
+            celltype_loss_factor=self.hparams.celltype_loss_factor,
+            angle_loss_factor=self.hparams.angle_loss_factor,
         )
 
         self.log("foreground_loss", foreground_loss)
