@@ -5,7 +5,13 @@ import tqdm
 import numpy as np
 
 from nuc2seg import log_config
-from nuc2seg.data import Nuc2SegDataset, TiledDataset, ModelPredictions, generate_tiles
+from nuc2seg.data import (
+    Nuc2SegDataset,
+    TiledDataset,
+    ModelPredictions,
+    SegmentationResults,
+    generate_tiles,
+)
 from nuc2seg.plotting import plot_model_predictions
 
 logger = logging.getLogger(__name__)
@@ -13,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Evaluate a UNet model on preprocessed data."
+        description="Plot raw UNet predictions vs segmentation vs raw data."
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
@@ -25,6 +31,12 @@ def get_parser():
     parser.add_argument(
         "--dataset",
         help="Path to dataset in h5 format.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--segmentation",
+        help="Segmentation output in h5 format.",
         type=str,
         required=True,
     )
@@ -94,6 +106,8 @@ def main():
         overlap_fraction=args.overlap_percentage,
     )
 
+    segmentation = SegmentationResults.load_h5(args.segmentation)
+
     os.makedirs(args.output_dir, exist_ok=True)
 
     plots = 0
@@ -106,13 +120,13 @@ def main():
             continue
 
         plot_model_predictions(
+            segmentation=segmentation,
             dataset=ds,
             model_predictions=predictions,
             bbox=bbox,
             output_path=os.path.join(
                 args.output_dir, "_".join([str(x) for x in bbox]) + ".pdf"
             ),
-            use_quiver=True,
         )
 
         plots += 1
