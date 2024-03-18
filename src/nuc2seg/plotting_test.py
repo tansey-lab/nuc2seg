@@ -1,5 +1,5 @@
 from nuc2seg.plotting import plot_model_predictions, plot_celltype_estimation_results
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions
+from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
 from nuc2seg.celltyping import estimate_cell_types
 from nuc2seg.preprocessing import cart2pol
 import numpy as np
@@ -40,19 +40,21 @@ def test_plot_model_predictions():
         foreground=np.random.random((64, 64)),
     )
 
+    segmentation_arr = labels.copy()
+    segmentation_arr[labels != 0] = 1
+
+    segmentation = SegmentationResults(segmentation=segmentation_arr)
+
     output_path = "test.png"
 
     tmpdir = tempfile.mkdtemp()
 
     try:
         plot_model_predictions(
-            ds, predictions, os.path.join(tmpdir, output_path), bbox=[1, 1, 63, 63]
-        )
-        plot_model_predictions(
-            ds,
-            predictions,
-            os.path.join(tmpdir, "quiver.png"),
-            use_quiver=True,
+            segmentation=segmentation,
+            dataset=ds,
+            model_predictions=predictions,
+            output_path=os.path.join(tmpdir, output_path),
             bbox=[1, 1, 63, 63],
         )
     finally:

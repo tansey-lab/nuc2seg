@@ -6,7 +6,7 @@ process PLOT_PREDICTIONS {
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
 
     input:
-    tuple val(meta), path(dataset), path(predictions)
+    tuple val(meta), path(dataset), path(predictions), path(segmentation)
 
     output:
     tuple val(meta), path("${prefix}/prediction_plots"), emit: results
@@ -28,6 +28,7 @@ process PLOT_PREDICTIONS {
         --tile-width ${params.tile_width} \
         --overlap-percentage ${params.overlap_percentage} \
         --output-dir ${prefix}/prediction_plots \
+        --segmentation ${segmentation} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

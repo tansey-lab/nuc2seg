@@ -1,15 +1,15 @@
-import geopandas
-import pandas
-from shapely import box
-from matplotlib import pyplot as plt
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions
-import numpy as np
-import math
-from matplotlib import cm
-from matplotlib.colors import Normalize
-from matplotlib.colors import ListedColormap
-from nuc2seg.preprocessing import pol2cart
 import os.path
+
+import geopandas
+import numpy as np
+import pandas
+from matplotlib import cm
+from matplotlib import pyplot as plt
+from matplotlib.colors import Normalize, LinearSegmentedColormap
+from shapely import box
+
+from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
+from nuc2seg.preprocessing import pol2cart
 
 
 def plot_tiling(bboxes, output_path):
@@ -97,65 +97,75 @@ def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
     )
 
 
-def plot_angles(ax, predictions: ModelPredictions, bbox=None):
-
-    angles = predictions.angles
-
-    if bbox is not None:
-        angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-
-    ax.imshow(angles.T, vmin=-np.pi, vmax=np.pi, cmap="hsv")
-    ax.set_title("Predicted angles")
-
-
 def plot_angles_quiver(
-    ax, dataset: Nuc2SegDataset, predictions: ModelPredictions, bbox=None
+    ax,
+    dataset: Nuc2SegDataset,
+    predictions: ModelPredictions,
+    segmentation: SegmentationResults,
+    bbox=None,
 ):
     angles = predictions.angles
     labels = dataset.labels
+    segmentation = segmentation.segmentation
 
     if bbox is not None:
         angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
         labels = labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+        segmentation = segmentation[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+        segmentation = segmentation > 0
         nuclei = labels > 0
         mask = labels == -1
     else:
+        segmentation = segmentation > 0
         nuclei = labels > 0
         mask = labels == -1
 
     ax.imshow(nuclei.T, vmin=0, vmax=1, cmap="binary", interpolation="none")
 
+    colors = [(1, 1, 1), (0, 0, 1)]  # Blue to white
+    cmap_name = "blue_white"
+    custom_cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=2)
+
+    ax.imshow(
+        segmentation.T,
+        vmin=0,
+        vmax=1,
+        cmap=custom_cmap,
+        alpha=0.1,
+        interpolation="none",
+    )
+
     for xi in range(nuclei.shape[0]):
         for yi in range(nuclei.shape[1]):
             if mask[xi, yi]:
                 dx, dy = pol2cart(0.5, angles[xi, yi])
-                ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07, alpha=0.5)
-    ax.set_title("Predicted angles")
+                ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07)
+    ax.set_title("Predicted angles and segmentation")
 
-
-def plot_angle_legend(ax):
-    # Define colormap normalization for 0 to 2*pi
-    norm = Normalize(-np.pi, np.pi)
-
-    # Plot a color mesh on the polar plot
-    # with the color set by the angle
-
-    n = 200  # the number of secants for the mesh
-    t = np.linspace(-np.pi, np.pi, n)  # theta values
-    r = np.linspace(0.8, 1, 2)  # radius values change 0.6 to 0 for full circle
-    rg, tg = np.meshgrid(r, t)  # create a r,theta meshgrid
-    c = tg  # define color values as theta value
-    im = ax.pcolormesh(
-        t, r, c.T, norm=norm, cmap="hsv"
-    )  # plot the colormesh on axis with colormap
-    ax.set_theta_direction(-1)
-    # remove tick labels
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
-    ax.set_title("Angle Legend", fontsize=9)  # title with padding for y label
-    # decrease left margin
-    plt.subplots_adjust(left=-0.5)
-    ax.spines["polar"].set_visible(False)  # turn off the axis spine.
+    ax.legend(
+        handles=[
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor="black",
+                markersize=10,
+                label="Nucleus",
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor="blue",
+                markersize=10,
+                label="Segmented Cell",
+            ),
+        ],
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+    )
 
 
 def plot_foreground(ax, predictions: ModelPredictions, bbox=None):
@@ -177,36 +187,27 @@ def update_projection(ax_dict, ax_key, projection="3d", fig=None):
 
 
 def plot_model_predictions(
+    segmentation: SegmentationResults,
     dataset: Nuc2SegDataset,
     model_predictions: ModelPredictions,
     output_path=None,
     bbox=None,
-    use_quiver=True,
 ):
 
-    if use_quiver:
-        layout = """
-        A
-        B
-        C
-        """
-    else:
-        layout = """
-        A.
-        BD
-        C.
-        """
+    layout = """
+    A
+    B
+    C
+    """
 
-    if use_quiver:
-        fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 10))
-        plot_angles_quiver(ax["B"], dataset, model_predictions, bbox=bbox)
-    else:
-        fig, ax = plt.subplot_mosaic(
-            mosaic=layout, figsize=(10, 10), width_ratios=[9, 1]
-        )
-        plot_angles(ax["B"], model_predictions, bbox=bbox)
-        update_projection(ax, "D", projection="polar", fig=fig)
-        plot_angle_legend(ax["D"])
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 10))
+    plot_angles_quiver(
+        ax=ax["B"],
+        dataset=dataset,
+        predictions=model_predictions,
+        segmentation=segmentation,
+        bbox=bbox,
+    )
 
     plot_labels(ax["A"], dataset, bbox=bbox)
     plot_foreground(ax["C"], model_predictions, bbox=bbox)

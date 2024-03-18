@@ -48,21 +48,6 @@ workflow NUC2SEG {
     if (params.weights == null || params.dataset == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
-            .tap { plot_input }
-    } else {
-        Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
-          file(params.dataset, checkIfExists: true)
-        )])
-            .join(PREDICT.out.predictions)
-            .tap { plot_input }
-    }
-
-    PLOT_PREDICTIONS( plot_input )
-
-
-    if (params.weights == null || params.dataset == null) {
-        PREPROCESS.out.dataset
-            .join(PREDICT.out.predictions)
             .join(ch_input.map { tuple(it[0], it[1]) })
             .tap { segment_input }
     } else {
@@ -82,4 +67,20 @@ workflow NUC2SEG {
         .set{ create_spatialdata_input }
 
     CREATE_SPATIALDATA( create_spatialdata_input )
+
+    if (params.weights == null || params.dataset == null) {
+        PREPROCESS.out.dataset
+            .join(PREDICT.out.predictions)
+            .join(SEGMENT.out.segmentation)
+            .tap { plot_input }
+    } else {
+        Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
+          file(params.dataset, checkIfExists: true)
+        )])
+            .join(PREDICT.out.predictions)
+            .join(SEGMENT.out.segmentation)
+            .tap { plot_input }
+    }
+
+    PLOT_PREDICTIONS( plot_input )
 }
