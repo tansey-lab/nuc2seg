@@ -106,32 +106,26 @@ def plot_angles_quiver(
 ):
     angles = predictions.angles
     labels = dataset.labels
-    segmentation = segmentation.segmentation
+    segmentation = segmentation.segmentation.copy()
 
     if bbox is not None:
         angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
         labels = labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]
         segmentation = segmentation[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-        segmentation = segmentation > 0
+        segmentation[segmentation == 0] = np.nan
         nuclei = labels > 0
         mask = labels == -1
     else:
-        segmentation = segmentation > 0
+        segmentation[segmentation == 0] = np.nan
         nuclei = labels > 0
         mask = labels == -1
 
     ax.imshow(nuclei.T, vmin=0, vmax=1, cmap="binary", interpolation="none")
 
-    colors = [(1, 1, 1), (0, 0, 1)]  # Blue to white
-    cmap_name = "blue_white"
-    custom_cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=2)
-
     ax.imshow(
         segmentation.T,
-        vmin=0,
-        vmax=1,
-        cmap=custom_cmap,
-        alpha=0.1,
+        cmap="tab10",
+        alpha=0.6,
         interpolation="none",
     )
 
