@@ -1,12 +1,11 @@
 import argparse
 import logging
+import geopandas as gpd
+import pandas
+import math
 
 from nuc2seg import log_config
-from nuc2seg.xenium import (
-    load_and_filter_transcripts,
-    create_shapely_rectangle,
-)
-from nuc2seg.preprocessing import tile_transcripts_to_csv
+from nuc2seg.postprocess import stitch_shapes
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +16,13 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
-        "--output-dir",
-        help="Directory to save baysor input CSVs.",
+        "--baysor-shapefiles",
+        help="One or more shapefiles output by baysor.",
         type=str,
         required=True,
+        nargs="+",
     )
+
     parser.add_argument(
         "--transcripts",
         help="Xenium transcripts in parquet format.",
@@ -29,16 +30,16 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
+        "--output",
+        required=True,
+        type=str,
+        help="Output file.",
+    )
+    parser.add_argument(
         "--sample-area",
         default=None,
         type=str,
         help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
-    )
-    parser.add_argument(
-        "--min-qv",
-        help="Minimum quality value for a transcript to be included.",
-        type=float,
-        default=20.0,
     )
     parser.add_argument(
         "--tile-height",
@@ -75,30 +76,22 @@ def main():
 
     log_config.configure_logging(args)
 
-    logger.info(f"Loading transcripts from {args.transcripts}")
+    transcript_df = pandas.read_parquet(args.transcripts)
 
-    if args.sample_area:
-        sample_area = create_shapely_rectangle(
-            *[float(x) for x in args.sample_area.split(",")]
-        )
-    else:
-        sample_area = None
+    x_extent = math.ceil(transcript_df["x_location"].astype(float).max())
+    y_extent = math.ceil(transcript_df["y_location"].astype(float).max())
 
-    transcripts = load_and_filter_transcripts(
-        transcripts_file=args.transcripts,
-        sample_area=sample_area,
-        min_qv=args.min_qv,
+    shapefiles = sorted(
+        args.baysor_shapefiles, key=lambda x: int(x.split("_")[-1].split(".")[0])
     )
 
-    mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
+    gdfs = [gpd.read_file(shapefile) for shapefile in shapefiles]
 
-    transcripts["nucleus_id"] = 0
-    transcripts.loc[mask, "nucleus_id"] = transcripts["cell_id"][mask]
-
-    logger.info(f"Writing CSVs to {args.output_path}")
-    tile_transcripts_to_csv(
-        transcripts=transcripts,
-        tile_size=(args.tile_height, args.tile_width),
+    stitched_shapes = stitch_shapes(
+        shapes=gdfs,
+        tile_size=(args.tile_width, args.tile_height),
+        base_size=(x_extent, y_extent),
         overlap=args.overlap_percentage,
-        output_dir=args.output_dir,
     )
+
+    stitched_shapes.to_parquet(args.output)

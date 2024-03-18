@@ -1,5 +1,7 @@
 include { BAYSOR } from '../../../modules/nf-core/baysor/main'
 include { BAYSOR_PREPROCESS_TRANSCRIPTS } from '../../../modules/nf-core/baysor_preprocess_transcripts/main'
+include { BAYSOR_POSTPROCESS } from '../../../modules/nf-core/baysor_postprocess/main'
+
 
 workflow BAYSOR_SEGMENTATION {
     def name = params.name == null ? "nuc2seg" : params.name
@@ -24,9 +26,13 @@ workflow BAYSOR_SEGMENTATION {
         .tap { baysor_param_sweep }
 
 
-    BAYSOR_PREPROCESS_TRANSCRIPTS.out.baysor_transcripts
+    BAYSOR_PREPROCESS_TRANSCRIPTS.out.transcripts
         .combine( baysor_param_sweep )
         .tap { baysor_input }
 
     BAYSOR( baysor_input )
+
+    ch_input.join(BAYSOR.out.shapes.groupTuple()).tap { postprocess_input }
+
+    BAYSOR_POSTPROCESS( postprocess_input )
 }
