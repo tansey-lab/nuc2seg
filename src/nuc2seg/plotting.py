@@ -131,7 +131,7 @@ def plot_angles_quiver(
         vmin=0,
         vmax=1,
         cmap=custom_cmap,
-        alpha=0.1,
+        alpha=0.5,
         interpolation="none",
     )
 

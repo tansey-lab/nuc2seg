@@ -95,7 +95,7 @@ def main():
     transcripts["nucleus_id"] = 0
     transcripts.loc[mask, "nucleus_id"] = transcripts["cell_id"][mask]
 
-    logger.info(f"Writing CSVs to {args.output_path}")
+    logger.info(f"Writing CSVs to {args.output_dir}")
     tile_transcripts_to_csv(
         transcripts=transcripts,
         tile_size=(args.tile_height, args.tile_width),
