@@ -148,6 +148,24 @@ def get_parser():
         type=float,
         default=0.25,
     )
+    parser.add_argument(
+        "--foreground-loss-factor",
+        help="Multiply foreground loss by this factor before backpropagation.",
+        type=float,
+        default=1.0,
+    )
+    parser.add_argument(
+        "--celltype-loss-factor",
+        help="Multiply celltype loss by this factor before backpropagation.",
+        type=float,
+        default=1.0,
+    )
+    parser.add_argument(
+        "--angle-loss-factor",
+        help="Multiply angle loss by this factor before backpropagation.",
+        type=float,
+        default=10.0,
+    )
     return parser
 
 
@@ -187,10 +205,12 @@ def main():
         num_workers=args.num_dataloader_workers,
     )
 
-    # Init model from datamodule's attributes
     model = SparseUNet(
         n_channels=600,
         n_classes=ds.n_classes,
+        angle_loss_factor=args.angle_loss_factor,
+        foreground_loss_factor=args.foreground_loss_factor,
+        celltype_loss_factor=args.celltype_loss_factor,
         celltype_criterion_weights=tiled_ds.celltype_criterion_weights,
         tile_height=args.tile_height,
         tile_width=args.tile_width,
