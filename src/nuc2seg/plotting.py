@@ -106,7 +106,7 @@ def plot_angles_quiver(
 ):
     angles = predictions.angles
     labels = dataset.labels
-    segmentation = segmentation.segmentation.copy()
+    segmentation = segmentation.segmentation.copy().astype(float)
 
     if bbox is not None:
         angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
