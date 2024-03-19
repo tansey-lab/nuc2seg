@@ -26,7 +26,7 @@ workflow BAYSOR_SEGMENTATION {
         .tap { baysor_param_sweep }
 
 
-    BAYSOR_PREPROCESS_TRANSCRIPTS.out.transcripts
+    BAYSOR_PREPROCESS_TRANSCRIPTS.out.transcripts.transpose()
         .combine( baysor_param_sweep )
         .map { tuple([id: it[0].id,
                       baysor_min_molecules_per_cell_values: it[2],
@@ -35,8 +35,6 @@ workflow BAYSOR_SEGMENTATION {
                       baysor_scale_std_values: it[5],
                       baysor_n_clusters_values: it[6]], it[1]) }
         .tap { baysor_input }
-
-    baysor_input.view()
 
     BAYSOR( baysor_input )
 
