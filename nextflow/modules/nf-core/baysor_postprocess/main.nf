@@ -23,4 +23,17 @@ process BAYSOR_POSTPROCESS {
         --baysor-shapefiles ${shapefiles} \
         ${args}
     """
+
+    stub:
+    prefix = task.ext.prefix ?: "${meta.id}"
+    def args = task.ext.args ?: ""
+    """
+    mkdir -p "${prefix}/baysor"
+    echo baysor_postprocess \
+        --transcripts ${xenium_dir}/transcripts.parquet \
+        --output ${prefix}/baysor/segmentation.parquet \
+        --baysor-shapefiles ${shapefiles} \
+        ${args}
+    touch ${prefix}/baysor/segmentation.parquet
+    """
 }
