@@ -37,7 +37,7 @@ process BAYSOR {
         --n-clusters ${baysor_n_clusters} \
         --output ${output_dir_name}/segmentation.csv \
         --plot \
-        --save-polygons geojson \
+        --save-polygons=GeoJSON \
         ${transcripts_file} :nucleus_id
     """
 }
