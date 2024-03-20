@@ -246,7 +246,7 @@ def create_nuc2seg_dataset(
 
 def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
     x_max = math.ceil(transcripts["x_location"].max())
-    y_max = math.ceil(transcripts["y_location"].min())
+    y_max = math.ceil(transcripts["y_location"].max())
 
     tiler = TilingModule(
         tile_size=tile_size,
