@@ -12,7 +12,7 @@ from nuc2seg.xenium import (
 from nuc2seg.celltyping import combine_celltyping_chains
 from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
 from nuc2seg.data import CelltypingResults
-from nuc2seg.plotting import plot_celltype_estimation_results
+from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +155,16 @@ def main():
         celltyping_results.n_component_values,
         os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
     )
+
+    for k in celltyping_results.n_component_values:
+        rank_genes_groups_plot(
+            celltyping_results=celltyping_results,
+            k=k,
+            output_path=os.path.join(
+                os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
+                f"rank_genes_groups_k={k}.pdf",
+            ),
+        )
 
     ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results)
 

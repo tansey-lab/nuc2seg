@@ -28,6 +28,7 @@ def aic_bic(gene_counts, expression_profiles, prior_probs):
 
 def estimate_cell_types(
     gene_counts,
+    gene_names,
     min_components=2,
     max_components=25,
     max_em_steps=100,
@@ -160,6 +161,7 @@ def estimate_cell_types(
         relative_expression=relative_expression,
         min_n_components=min_components,
         max_n_components=max_components,
+        gene_names=gene_names,
     )
 
 
@@ -220,8 +222,13 @@ def run_cell_type_estimation(
         1,
     )
 
+    gene_name_map = dict(zip(tx_geo_df["gene_id"], tx_geo_df["feature_name"]))
+
+    gene_names = np.array([gene_name_map[i] for i in range(n_genes)])
+
     return estimate_cell_types(
         nuclei_count_matrix,
+        gene_names=gene_names,
         min_components=min_components,
         max_components=max_components,
         rng=rng,
@@ -235,8 +242,14 @@ def combine_celltyping_chains(results: list[CelltypingResults]):
     combined_relative_expression = defaultdict(list)
     aic_scores = []
     bic_scores = []
+    gene_names = None
 
     for result in results:
+        if gene_names is None:
+            gene_names = result.gene_names
+        else:
+            if not np.all(gene_names == result.gene_names):
+                raise ValueError("Gene names do not match between results.")
         aic_scores.append(result.aic_scores)
         bic_scores.append(result.bic_scores)
         for idx, k in enumerate(result.n_component_values):
@@ -276,6 +289,7 @@ def combine_celltyping_chains(results: list[CelltypingResults]):
             relative_expression=relative_expression,
             min_n_components=min(combined_prior_probs.keys()),
             max_n_components=max(combined_prior_probs.keys()),
+            gene_names=gene_names,
         ),
         np.stack(aic_scores),
         np.stack(bic_scores),

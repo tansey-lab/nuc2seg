@@ -3,12 +3,16 @@ import os.path
 import geopandas
 import numpy as np
 import pandas
-from matplotlib import cm
+from matplotlib import cm, gridspec
 from matplotlib import pyplot as plt
-from matplotlib.colors import Normalize, LinearSegmentedColormap
 from shapely import box
 
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
+from nuc2seg.data import (
+    Nuc2SegDataset,
+    ModelPredictions,
+    SegmentationResults,
+    CelltypingResults,
+)
 from nuc2seg.preprocessing import pol2cart
 
 
@@ -436,3 +440,90 @@ def foreground_background_boxplot(
         showfliers=False,
     )
     plt.savefig(output_path)
+
+
+def rank_genes_groups_plot(
+    celltyping_results: CelltypingResults,
+    k: int,
+    output_path: str,
+    n_genes: int = 15,
+    fontsize: int = 8,
+    ncols: int = 4,
+    sharey: bool = True,
+    ax=None,
+):
+    k_idx = celltyping_results.n_component_values.tolist().index(k)
+    n_panels_per_row = ncols
+    if n_genes < 1:
+        raise NotImplementedError(
+            "Specifying a negative number for n_genes has not been implemented for "
+            f"this plot. Received n_genes={n_genes}."
+        )
+
+    group_names = [f"{i}" for i in range(k)]
+    # one panel for each group
+    # set up the figure
+    n_panels_x = min(n_panels_per_row, len(group_names))
+    n_panels_y = np.ceil(len(group_names) / n_panels_x).astype(int)
+
+    fig = plt.figure(
+        figsize=(
+            n_panels_x * 3,
+            n_panels_y * 3,
+        )
+    )
+    gs = gridspec.GridSpec(nrows=n_panels_y, ncols=n_panels_x, wspace=0.22, hspace=0.3)
+
+    ax0 = None
+    ymin = np.Inf
+    ymax = -np.Inf
+    for celltype_idx in range(k):
+        gene_names = celltyping_results.gene_names
+        scores = celltyping_results.relative_expression[k_idx][celltype_idx, :]
+
+        # Setting up axis, calculating y bounds
+        if sharey:
+            ymin = min(ymin, np.min(scores))
+            ymax = max(ymax, np.max(scores))
+
+            if ax0 is None:
+                ax = fig.add_subplot(gs[celltype_idx])
+                ax0 = ax
+            else:
+                ax = fig.add_subplot(gs[celltype_idx], sharey=ax0)
+        else:
+            ymin = np.min(scores)
+            ymax = np.max(scores)
+            ymax += 0.3 * (ymax - ymin)
+
+            ax = fig.add_subplot(gs[celltype_idx])
+            ax.set_ylim(ymin, ymax)
+
+        ax.set_xlim(-0.9, n_genes - 0.1)
+
+        # Making labels
+        for ig, gene_name in enumerate(gene_names):
+            ax.text(
+                ig,
+                scores[ig],
+                gene_name,
+                rotation="vertical",
+                verticalalignment="bottom",
+                horizontalalignment="center",
+                fontsize=fontsize,
+            )
+
+        ax.set_title(f"{celltype_idx}")
+        if celltype_idx >= n_panels_x * (n_panels_y - 1):
+            ax.set_xlabel("ranking")
+
+        # print the 'score' label only on the first panel per row.
+        if celltype_idx % n_panels_x == 0:
+            ax.set_ylabel("score")
+
+    if sharey is True:
+        ymax += 0.3 * (ymax - ymin)
+        ax.set_ylim(ymin, ymax)
+
+    fig.tight_layout()
+    fig.savefig(output_path, pad_inches=0.5)
