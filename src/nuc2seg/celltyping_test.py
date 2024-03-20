@@ -14,6 +14,7 @@ def test_estimate_cell_types():
 
     celltyping_results = estimate_cell_types(
         gene_counts,
+        gene_names=[f"gene_{i}" for i in range(n_genes)],
         min_components=2,
         max_components=10,
         max_em_steps=3,
@@ -64,6 +65,7 @@ def test_estimate_cell_types2():
 
     celltyping_results = estimate_cell_types(
         data,
+        gene_names=[f"gene_{i}" for i in range(n_genes)],
         min_components=2,
         max_components=25,
         max_em_steps=10,

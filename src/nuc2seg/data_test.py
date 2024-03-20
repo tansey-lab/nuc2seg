@@ -131,6 +131,7 @@ def test_celltype_results():
         ],
         min_n_components=2,
         max_n_components=4,
+        gene_names=np.array(["gene1", "gene2", "gene3"]),
     )
 
     tmpdir = tempfile.mkdtemp()

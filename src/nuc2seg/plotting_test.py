@@ -1,4 +1,8 @@
-from nuc2seg.plotting import plot_model_predictions, plot_celltype_estimation_results
+from nuc2seg.plotting import (
+    plot_model_predictions,
+    plot_celltype_estimation_results,
+    rank_genes_groups_plot,
+)
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
 from nuc2seg.celltyping import estimate_cell_types
 from nuc2seg.preprocessing import cart2pol
@@ -75,6 +79,7 @@ def test_plot_celltype_estimation_results():
     try:
         celltyping_results = estimate_cell_types(
             gene_counts,
+            gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
             min_components=2,
             max_components=4,
             max_em_steps=3,
@@ -108,5 +113,33 @@ def test_plot_celltype_estimation_results():
             celltyping_results.n_component_values,
             tmpdir,
         )
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+def test_rank_genes_groups_plot():
+    np.random.seed(0)
+    n_genes, n_cells = 10, 100
+
+    gene_counts = np.random.poisson(10, size=(n_cells, n_genes))
+
+    tmpdir = tempfile.mkdtemp()
+
+    try:
+        celltyping_results = estimate_cell_types(
+            gene_counts,
+            gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
+            min_components=2,
+            max_components=4,
+            max_em_steps=3,
+            tol=1e-4,
+            warm_start=False,
+        )
+        rank_genes_groups_plot(
+            celltyping_results,
+            k=4,
+            output_path=os.path.join(tmpdir, "rank_genes_groups.pdf"),
+        )
+
     finally:
         shutil.rmtree(tmpdir)

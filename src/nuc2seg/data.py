@@ -21,6 +21,7 @@ class CelltypingResults:
         relative_expression,
         min_n_components,
         max_n_components,
+        gene_names,
     ):
         self.aic_scores = aic_scores
         self.bic_scores = bic_scores
@@ -29,6 +30,7 @@ class CelltypingResults:
         self.final_cell_types = final_cell_types
         self.relative_expression = relative_expression
         self.n_component_values = np.arange(min_n_components, max_n_components + 1)
+        self.gene_names = gene_names
 
     def save_h5(self, path):
         with h5py.File(path, "w") as f:
@@ -36,6 +38,11 @@ class CelltypingResults:
             f.create_dataset("bic_scores", data=self.bic_scores, compression="gzip")
             f.create_dataset(
                 "n_component_values", data=self.n_component_values, compression="gzip"
+            )
+            f.create_dataset(
+                "gene_names",
+                data=np.char.encode(self.gene_names),
+                compression="gzip",
             )
             for idx, k in enumerate(self.n_component_values):
                 f.create_group(str(idx))
@@ -71,6 +78,7 @@ class CelltypingResults:
             final_cell_types = []
             relative_expression = []
             n_component_values = []
+            gene_names = np.char.decode(f["gene_names"][:], "utf-8")
             for idx, k in enumerate(f["n_component_values"][:]):
                 final_expression_profiles.append(
                     f[str(idx)]["final_expression_profiles"][:]
@@ -88,6 +96,7 @@ class CelltypingResults:
             relative_expression=relative_expression,
             min_n_components=min(n_component_values),
             max_n_components=max(n_component_values),
+            gene_names=gene_names,
         )
 
 
