@@ -2,8 +2,12 @@ import pytest
 import pandas
 import geopandas
 import shapely
-from nuc2seg.preprocessing import create_rasterized_dataset
+from nuc2seg.preprocessing import create_rasterized_dataset, tile_transcripts_to_csv
 import numpy as np
+import tempfile
+import shutil
+import glob
+import os.path
 
 
 @pytest.fixture(scope="package")
@@ -174,3 +178,22 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
     # Assert coordinated are transformed relative to the bbox
     assert ds.transcripts[:, 0].min() == 9.0
     assert ds.transcripts[:, 1].min() == 4.0
+
+
+def test_tile_transcripts_to_csv(test_transcripts_df):
+    output_dir = tempfile.mkdtemp()
+
+    try:
+        tile_transcripts_to_csv(
+            transcripts=test_transcripts_df,
+            tile_size=(10, 10),
+            overlap=0.5,
+            output_dir=output_dir,
+        )
+        output_fns = list(glob.glob(os.path.join(output_dir, "*.csv")))
+
+        assert len(output_fns) == 8
+        for fn in output_fns:
+            df = pandas.read_csv(fn)
+    finally:
+        shutil.rmtree(output_dir)
