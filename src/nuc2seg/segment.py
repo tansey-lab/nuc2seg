@@ -349,20 +349,19 @@ def spatial_join_polygons_and_transcripts(
 def convert_transcripts_to_anndata(
     transcript_gdf, segmentation_gdf, gene_name_column="feature_name"
 ):
+    segmentation_gdf["area"] = segmentation_gdf.geometry.area
+    segmentation_gdf["centroid_x"] = segmentation_gdf.geometry.centroid.x
+    segmentation_gdf["centroid_y"] = segmentation_gdf.geometry.centroid.y
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
     )
 
     cell_u = list(sorted(sjoined_gdf.index_right.unique()))
-    gene_u = list(sorted(sjoined_gdf.feature_name.unique()))
+    gene_u = list(sorted(sjoined_gdf[gene_name_column].unique()))
 
     sjoined_gdf["index_right"] = pd.Categorical(
         sjoined_gdf["index_right"], categories=cell_u, ordered=True
     )
-
-    sjoined_gdf["area"] = sjoined_gdf.geometry.area
-    sjoined_gdf["x"] = sjoined_gdf.geometry.centroid.x
-    sjoined_gdf["y"] = sjoined_gdf.geometry.centroid.y
 
     sjoined_gdf.set_index("index_right", inplace=True)
 
@@ -371,7 +370,7 @@ def convert_transcripts_to_anndata(
     data = sjoined_gdf["count"].tolist()
 
     sjoined_gdf["gene"] = pd.Categorical(
-        sjoined_gdf["feature_name"], categories=gene_u, ordered=True
+        sjoined_gdf[gene_name_column], categories=gene_u, ordered=True
     )
     row = sjoined_gdf.index.codes
     col = sjoined_gdf.gene.cat.codes
@@ -380,7 +379,7 @@ def convert_transcripts_to_anndata(
 
     adata = anndata.AnnData(
         X=sparse_matrix,
-        obsm={"spatial": sjoined_gdf[["x", "y"]].values},
+        obsm={"spatial": sjoined_gdf[["centroid_x", "centroid_y"]].values},
         obs=sjoined_gdf[["area"]],
         var=pd.DataFrame(index=gene_u),
     )
