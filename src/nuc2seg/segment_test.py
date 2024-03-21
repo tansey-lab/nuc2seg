@@ -12,6 +12,10 @@ import numpy as np
 import pytest
 import torch
 import geopandas
+import shutil
+import os.path
+import tempfile
+import anndata
 
 from shapely import Polygon, Point
 from blended_tiling import TilingModule
@@ -284,6 +288,7 @@ def test_convert_segmentation_to_shapefile():
 
 
 def test_convert_transcripts_to_anndata():
+    tmpdir = tempfile.mkdtemp()
     boundaries = geopandas.GeoDataFrame(
         [
             [Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
@@ -300,13 +305,30 @@ def test_convert_transcripts_to_anndata():
         columns=["feature_name", "geometry"],
     )
 
-    adata = convert_transcripts_to_anndata(
-        transcript_gdf=transcripts, segmentation_gdf=boundaries
-    )
+    try:
+        adata = convert_transcripts_to_anndata(
+            transcript_gdf=transcripts, segmentation_gdf=boundaries
+        )
+        adata.write_h5ad(os.path.join(tmpdir, "test.h5ad"))
+        adata = anndata.read_h5ad(os.path.join(tmpdir, "test.h5ad"))
 
-    assert adata.n_vars == 2
-    assert adata.n_obs == 2
-    assert adata.obsm["spatial"].shape == (2, 2)
+        assert adata.n_vars == 2
+        assert adata.n_obs == 2
+        np.testing.assert_array_equal(
+            adata.obsm["spatial"], np.array([[0.5, 0.5], [2.0, 2.0]])
+        )
+        np.testing.assert_array_equal(
+            adata.X.todense(),
+            np.array(
+                [
+                    [1, 0],
+                    [0, 1],
+                ]
+            ),
+        )
+        assert adata.var_names.tolist() == ["a", "b"]
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_collinear():

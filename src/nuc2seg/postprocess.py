@@ -5,7 +5,9 @@ import shapely
 import tqdm
 import json
 import logging
+import anndata
 
+from scipy.sparse import csr_matrix
 from nuc2seg.data import generate_tiles
 from blended_tiling import TilingModule
 from shapely import box
@@ -79,3 +81,33 @@ def read_baysor_results(shapes_fn, transcripts_fn) -> gpd.GeoDataFrame:
     result = gdf.merge(cell_to_cluster, left_on="cell", right_on="cell_id")
     del result["cell_id"]
     return result
+
+
+def baysor_transcripts_to_anndata(shapes_fns, transcripts_fns):
+    dfs = []
+
+    for transcripts_fn in transcripts_fns:
+        df = pd.read_csv(
+            transcripts_fn, usecols=["cell", "gene", "assignment_confidence"]
+        )
+        dfs.append(df)
+
+    df = pd.concat(dfs).dropna()
+
+    df["count"] = 1
+
+    cell_u = list(sorted(df.cell.unique()))
+    gene_u = list(sorted(df.gene.unique()))
+
+    data = df["count"].tolist()
+    df["cell"] = pd.Categorical(df["cell"], categories=cell_u, ordered=True)
+    df["gene"] = pd.Categorical(df["gene"], categories=gene_u, ordered=True)
+    row = df.cell.cat.codes
+    col = df.gene.cat.codes
+    sparse_matrix = csr_matrix((data, (row, col)), shape=(len(cell_u), len(gene_u)))
+
+    return anndata.AnnData(
+        X=sparse_matrix,
+        var=pd.DataFrame(index=gene_u),
+        obs=pd.DataFrame(index=cell_u),
+    )

@@ -6,7 +6,7 @@ import geopandas
 import numpy as np
 import anndata
 import tqdm
-
+import pandas as pd
 
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import (
@@ -14,7 +14,7 @@ from nuc2seg.data import (
     Nuc2SegDataset,
     SegmentationResults,
 )
-
+from scipy.sparse import csr_matrix
 from shapely import Polygon, affinity
 from blended_tiling import TilingModule
 
@@ -346,35 +346,43 @@ def spatial_join_polygons_and_transcripts(
     return joined_gdf
 
 
-def convert_transcripts_to_anndata(transcript_gdf, segmentation_gdf):
+def convert_transcripts_to_anndata(
+    transcript_gdf, segmentation_gdf, gene_name_column="feature_name"
+):
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
     )
 
-    transcripts_pivoted = sjoined_gdf[["index_right", "feature_name"]].pivot_table(
-        index="index_right", columns=["feature_name"], aggfunc=len, fill_value=0
+    cell_u = list(sorted(sjoined_gdf.index_right.unique()))
+    gene_u = list(sorted(sjoined_gdf.feature_name.unique()))
+
+    sjoined_gdf["index_right"] = pd.Categorical(
+        sjoined_gdf["index_right"], categories=cell_u, ordered=True
     )
 
-    segmentation_with_transcripts = sjoined_gdf.merge(
-        transcripts_pivoted, left_on="index_right", right_index=True, how="left"
-    )
+    sjoined_gdf["area"] = sjoined_gdf.geometry.area
+    sjoined_gdf["x"] = sjoined_gdf.geometry.centroid.x
+    sjoined_gdf["y"] = sjoined_gdf.geometry.centroid.y
 
-    feature_columns = transcripts_pivoted.columns
+    sjoined_gdf.set_index("index_right", inplace=True)
 
-    segmentation_with_transcripts["x"] = (
-        segmentation_with_transcripts.geometry.centroid.x
-    )
-    segmentation_with_transcripts["y"] = (
-        segmentation_with_transcripts.geometry.centroid.y
-    )
-    segmentation_with_transcripts["area"] = segmentation_with_transcripts.geometry.area
+    sjoined_gdf["count"] = 1
 
-    del segmentation_with_transcripts["index_right"]
+    data = sjoined_gdf["count"].tolist()
+
+    sjoined_gdf["gene"] = pd.Categorical(
+        sjoined_gdf["feature_name"], categories=gene_u, ordered=True
+    )
+    row = sjoined_gdf.index.codes
+    col = sjoined_gdf.gene.cat.codes
+
+    sparse_matrix = csr_matrix((data, (row, col)), shape=(len(cell_u), len(gene_u)))
 
     adata = anndata.AnnData(
-        X=segmentation_with_transcripts[feature_columns],
-        obsm={"spatial": segmentation_with_transcripts[["x", "y"]].values},
-        obs=segmentation_with_transcripts[["area"]],
+        X=sparse_matrix,
+        obsm={"spatial": sjoined_gdf[["x", "y"]].values},
+        obs=sjoined_gdf[["area"]],
+        var=pd.DataFrame(index=gene_u),
     )
 
     adata.obs_names.name = "cell_id"

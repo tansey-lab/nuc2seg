@@ -1,6 +1,10 @@
 import pandas
 
-from nuc2seg.postprocess import stitch_shapes, read_baysor_results
+from nuc2seg.postprocess import (
+    stitch_shapes,
+    read_baysor_results,
+    baysor_transcripts_to_anndata,
+)
 from shapely import box
 import geopandas as gpd
 import pytest
@@ -8,6 +12,7 @@ import json
 import tempfile
 import os.path
 import shutil
+import anndata
 
 
 @pytest.fixture(scope="package")
@@ -159,3 +164,30 @@ def test_stitch_shapes():
     ]
     result = stitch_shapes(shapes, (10, 10), (20, 20), 0.5)
     assert len(result) == 1
+
+
+def test_baysor_transcripts_to_anndata(test_baysor_output_table):
+    tmpdir = tempfile.mkdtemp()
+    try:
+        csv_fn = os.path.join(tmpdir, "test.csv")
+        test_baysor_output_table.to_csv(csv_fn, index=False)
+        csv2_fn = os.path.join(tmpdir, "test2.csv")
+        test_baysor_output_table.to_csv(csv2_fn, index=False)
+
+        ad = baysor_transcripts_to_anndata([csv_fn, csv2_fn])
+
+        ad.write_h5ad(os.path.join(tmpdir, "test.h5ad"))
+        ad = anndata.read_h5ad(os.path.join(tmpdir, "test.h5ad"))
+
+        assert ad.X.todense().shape == (2, 2)
+        assert ad.obs.index[0] == "CRb5afb8686-7568"
+        assert ad.obs.index[1] == "CRb5afb8686-7834"
+        assert ad.var.index[0] == "LUM"
+        assert ad.var.index[1] == "SEC11C"
+        assert ad.X.todense().sum() == 4
+        assert ad.X.todense()[0, 0] == 0
+        assert ad.X.todense()[0, 1] == 2
+        assert ad.X.todense()[1, 0] == 2
+        assert ad.X.todense()[1, 1] == 0
+    finally:
+        shutil.rmtree(tmpdir)
