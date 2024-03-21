@@ -11,6 +11,8 @@ from skimage.transform import resize
 from matplotlib import pyplot as plt
 from shapely import Polygon
 from shapely.geometry import box
+from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,10 @@ def get_bounding_box(poly: shapely.Polygon):
     return leftmost[0], rightmost[0], bottommost[1], topmost[1]
 
 
-def filter_gdf_to_inside_polygon(gdf, polygon):
+def filter_gdf_to_inside_polygon(gdf, polygon=None):
+    if polygon is None:
+        return gdf
+
     selection_vector = gdf.geometry.apply(lambda x: polygon.contains(x))
     logging.info(
         f"Filtering {len(gdf)} points to {selection_vector.sum()} inside polygon"
@@ -76,7 +81,7 @@ def read_transcripts_into_points(
     return tx_geo_df
 
 
-def load_nuclei(nuclei_file: str, sample_area: shapely.Polygon):
+def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None):
     nuclei_geo_df = read_boundaries_into_polygons(nuclei_file)
 
     original_n_nuclei = nuclei_geo_df.shape[0]

@@ -39,7 +39,8 @@ workflow BAYSOR_SEGMENTATION {
     BAYSOR( baysor_input )
 
     BAYSOR.out.shapes.groupTuple()
-        .map { tuple([id: it[0].id], file(params.xenium_dir, checkIfExists: true), it[1])}
+        .join(BAYSOR.out.segmentation.groupTuple())
+        .map { tuple([id: it[0].id], file(params.xenium_dir, checkIfExists: true), it[1], it[2])}
         .tap { postprocess_input }
 
     BAYSOR_POSTPROCESS( postprocess_input )

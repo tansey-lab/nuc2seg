@@ -228,13 +228,15 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
     plt.close()
 
 
-def plot_segmentation_class_assignment(segmentation_gdf, output_path):
+def plot_segmentation_class_assignment(
+    segmentation_gdf, output_path, cat_column="class_assignment"
+):
     fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     ax.invert_yaxis()
     segmentation_gdf.plot(
         ax=ax,
         categorical=True,
-        column="class_assignment",
+        column=cat_column,
         legend=True,
         cmap="tab20",
     )
