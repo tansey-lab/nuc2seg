@@ -99,12 +99,12 @@ def main():
     y_extent = math.ceil(transcript_df["y_location"].astype(float).max())
 
     shapefiles = sorted(
-        args.baysor_shapefiles, key=lambda x: int(x.split("_")[-1].split(".")[0])
+        args.baysor_shapefiles, key=lambda x: int(x.split("_")[1].split(".")[0])
     )
 
     transcript_assignment_files = sorted(
         args.baysor_transcript_assignments,
-        key=lambda x: int(x.split("_")[-1].split(".")[0]),
+        key=lambda x: int(x.split("_")[1].split(".")[0]),
     )
 
     if len(shapefiles) != len(transcript_assignment_files):
