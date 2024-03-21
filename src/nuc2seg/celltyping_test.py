@@ -1,7 +1,7 @@
 from nuc2seg.celltyping import (
     estimate_cell_types,
     run_cell_type_estimation,
-    combine_celltyping_chains,
+    select_best_celltyping_chain,
 )
 import numpy as np
 
@@ -135,14 +135,10 @@ def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
         rng=rng,
     )
 
-    final_result, _, _ = combine_celltyping_chains([results, results2])
+    results.bic_scores = np.array([1.0, 2.0])
+    results2.bic_scores = np.array([2.0, -1.0])
 
-    np.testing.assert_array_equal(
-        final_result.aic_scores,
-        np.stack([results.aic_scores, results2.aic_scores]).mean(axis=0),
-    )
+    final_result, _, _, best_k = select_best_celltyping_chain([results, results2])
 
-    np.testing.assert_array_equal(
-        final_result.bic_scores,
-        np.stack([results.bic_scores, results2.bic_scores]).mean(axis=0),
-    )
+    assert best_k == 1
+    assert final_result is results2

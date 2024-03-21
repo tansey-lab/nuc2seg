@@ -261,15 +261,15 @@ def plot_celltype_estimation_results(
 
     error = np.stack(
         [
-            np.abs(aic_scores.mean(axis=0) - aic_scores.min(axis=0)),
-            np.abs(aic_scores.mean(axis=0) - aic_scores.max(axis=0)),
+            np.abs(aic_scores.min(axis=0) - aic_scores.min(axis=0)),
+            np.abs(aic_scores.min(axis=0) - aic_scores.max(axis=0)),
         ]
     )
 
     # add min/max error bars
     ax.errorbar(
         n_components,
-        aic_scores.mean(axis=0),
+        aic_scores.min(axis=0),
         yerr=error,
         label="AIC",
         alpha=0.5,

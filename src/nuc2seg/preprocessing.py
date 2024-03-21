@@ -20,8 +20,7 @@ from nuc2seg.xenium import (
     create_shapely_rectangle,
     filter_gdf_to_inside_polygon,
 )
-from nuc2seg.celltyping import estimate_cell_types
-from kneed import KneeLocator
+from nuc2seg.celltyping import get_best_k
 from blended_tiling import TilingModule
 from scipy.spatial import KDTree
 
@@ -55,30 +54,6 @@ def create_pixel_geodf(x_min, x_max, y_min, y_max):
     )
 
     return idx_geo_df
-
-
-def get_best_k(aic_scores, bic_scores):
-    best_k_aic = np.argmin(aic_scores)
-    best_k_bic = np.argmin(bic_scores)
-
-    if best_k_bic == best_k_aic:
-        return best_k_aic
-    else:
-        logger.warning(
-            f"The best k according to AIC and BIC do not match ({best_k_aic} vs {best_k_bic}). Using BIC eblow to determine k"
-        )
-        kneedle = KneeLocator(
-            x=np.arange(len(bic_scores)),
-            y=bic_scores,
-            S=2,
-            curve="convex",
-            direction="decreasing",
-        )
-        best_k = kneedle.elbow
-
-        logger.info(f"BIC elbow to chose k: {best_k}")
-
-        return best_k
 
 
 def create_rasterized_dataset(
@@ -216,9 +191,8 @@ def create_rasterized_dataset(
 def create_nuc2seg_dataset(
     rasterized_dataset: RasterizedDataset,
     celltyping_results: CelltypingResults,
+    best_k: int,
 ):
-
-    best_k = get_best_k(celltyping_results.aic_scores, celltyping_results.bic_scores)
     n_classes = celltyping_results.n_component_values[best_k]
 
     # Estimate the density of each cell type

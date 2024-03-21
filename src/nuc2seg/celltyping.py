@@ -1,6 +1,7 @@
 import tqdm
 import numpy as np
 import geopandas
+from kneed import KneeLocator
 
 from scipy.special import softmax
 from nuc2seg.xenium import logger
@@ -235,11 +236,7 @@ def run_cell_type_estimation(
     )
 
 
-def combine_celltyping_chains(results: list[CelltypingResults]):
-    combined_expression_profiles = defaultdict(list)
-    combined_prior_probs = defaultdict(list)
-    combined_cell_types = defaultdict(list)
-    combined_relative_expression = defaultdict(list)
+def select_best_celltyping_chain(results: list[CelltypingResults]):
     aic_scores = []
     bic_scores = []
     gene_names = None
@@ -252,45 +249,38 @@ def combine_celltyping_chains(results: list[CelltypingResults]):
                 raise ValueError("Gene names do not match between results.")
         aic_scores.append(result.aic_scores)
         bic_scores.append(result.bic_scores)
-        for idx, k in enumerate(result.n_component_values):
-            combined_expression_profiles[k].append(
-                result.final_expression_profiles[idx]
-            )
-            combined_prior_probs[k].append(result.final_prior_probs[idx])
-            combined_cell_types[k].append(result.final_cell_types[idx])
-            combined_relative_expression[k].append(result.relative_expression[idx])
 
-    final_expression_profiles = [
-        np.nanmean(np.stack(combined_expression_profiles[k]), axis=0)
-        for k in combined_expression_profiles
-    ]
-    final_prior_probs = [
-        np.nanmean(np.stack(combined_prior_probs[k]), axis=0)
-        for k in combined_prior_probs
-    ]
-    final_cell_types = [
-        np.nanmean(np.stack(combined_cell_types[k]), axis=0)
-        for k in combined_cell_types
-    ]
-    relative_expression = [
-        np.nanmean(np.stack(combined_relative_expression[k]), axis=0)
-        for k in combined_relative_expression
-    ]
-    mean_aic_scores = np.stack(aic_scores).mean(axis=0)
-    mean_bic_scores = np.stack(bic_scores).mean(axis=0)
+    aic_scores = np.stack(aic_scores)
+    bic_scores = np.stack(bic_scores)
 
-    return (
-        CelltypingResults(
-            aic_scores=mean_aic_scores,
-            bic_scores=mean_bic_scores,
-            final_expression_profiles=final_expression_profiles,
-            final_prior_probs=final_prior_probs,
-            final_cell_types=final_cell_types,
-            relative_expression=relative_expression,
-            min_n_components=min(combined_prior_probs.keys()),
-            max_n_components=max(combined_prior_probs.keys()),
-            gene_names=gene_names,
-        ),
-        np.stack(aic_scores),
-        np.stack(bic_scores),
-    )
+    best_chain, best_k = np.where(bic_scores == bic_scores.min())
+    best_chain = best_chain.item()
+    best_k = best_k.item()
+
+    best_result = results[best_chain]
+
+    return (best_result, np.stack(aic_scores), np.stack(bic_scores), best_k)
+
+
+def get_best_k(aic_scores, bic_scores):
+    best_k_aic = np.argmin(aic_scores)
+    best_k_bic = np.argmin(bic_scores)
+
+    if best_k_bic == best_k_aic:
+        return best_k_aic
+    else:
+        logger.warning(
+            f"The best k according to AIC and BIC do not match ({best_k_aic} vs {best_k_bic}). Using BIC eblow to determine k"
+        )
+        kneedle = KneeLocator(
+            x=np.arange(len(bic_scores)),
+            y=bic_scores,
+            S=2,
+            curve="convex",
+            direction="decreasing",
+        )
+        best_k = kneedle.elbow
+
+        logger.info(f"BIC elbow to chose k: {best_k}")
+
+        return best_k
