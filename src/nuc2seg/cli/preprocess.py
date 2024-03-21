@@ -9,7 +9,7 @@ from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
-from nuc2seg.celltyping import combine_celltyping_chains
+from nuc2seg.celltyping import select_best_celltyping_chain
 from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
 from nuc2seg.data import CelltypingResults
 from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
@@ -141,7 +141,7 @@ def main():
     )
 
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
-    celltyping_results, aic_scores, bic_scores = combine_celltyping_chains(
+    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
         celltyping_chains
     )
 
@@ -166,6 +166,6 @@ def main():
             ),
         )
 
-    ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results)
+    ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results, best_k)
 
     ds.save_h5(args.output)
