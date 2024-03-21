@@ -1,6 +1,10 @@
 import pandas
 
-from nuc2seg.postprocess import stitch_shapes, read_baysor_results
+from nuc2seg.postprocess import (
+    stitch_shapes,
+    read_baysor_results,
+)
+from nuc2seg.segment import convert_transcripts_to_anndata
 from shapely import box
 import geopandas as gpd
 import pytest
@@ -8,6 +12,7 @@ import json
 import tempfile
 import os.path
 import shutil
+import anndata
 
 
 @pytest.fixture(scope="package")
@@ -16,21 +21,10 @@ def test_baysor_shapefile():
         {
             "coordinates": [
                 [
-                    [6859.742, 2657.661],
-                    [6860.28, 2657.3694],
-                    [6859.5723, 2656.134],
-                    [6858.534, 2655.866],
-                    [6857.9883, 2654.3904],
-                    [6857.6626, 2656.5325],
-                    [6857.2764, 2656.554],
-                    [6855.961, 2656.7205],
-                    [6853.911, 2656.7864],
-                    [6856.15, 2657.3735],
-                    [6856.2163, 2657.4062],
-                    [6857.623, 2657.0276],
-                    [6858.165, 2657.1401],
-                    [6858.2217, 2657.125],
-                    [6859.742, 2657.661],
+                    [0, 0],
+                    [0, 1],
+                    [1, 1],
+                    [1, 0],
                 ]
             ],
             "type": "Polygon",
@@ -39,15 +33,10 @@ def test_baysor_shapefile():
         {
             "coordinates": [
                 [
-                    [6648.5483, 3421.8179],
-                    [6647.761, 3419.9482],
-                    [6645.845, 3420.6394],
-                    [6644.915, 3419.9849],
-                    [6645.3506, 3420.5164],
-                    [6645.333, 3422.3325],
-                    [6645.297, 3424.1763],
-                    [6646.4624, 3423.5347],
-                    [6648.5483, 3421.8179],
+                    [10, 10],
+                    [10, 11],
+                    [11, 11],
+                    [11, 10],
                 ]
             ],
             "type": "Polygon",
@@ -66,8 +55,8 @@ def test_baysor_output_table():
             "cell_id": 2,
             "overlaps_nucleus": 1,
             "gene": "SEC11C",
-            "x": 6525.5605,
-            "y": 2511.285,
+            "x": 0.5,
+            "y": 0.5,
             "z": 34.055805,
             "qv": 21.204987,
             "gene_id": 4,
@@ -86,8 +75,8 @@ def test_baysor_output_table():
             "cell_id": 7729,
             "overlaps_nucleus": 0,
             "gene": "LUM",
-            "x": 6527.4717,
-            "y": 2722.4097,
+            "x": 10.5,
+            "y": 10.5,
             "z": 36.20927,
             "qv": 40.0,
             "gene_id": 11,
@@ -114,14 +103,15 @@ def test_read_baysor_results(test_baysor_shapefile, test_baysor_output_table):
 
     test_baysor_output_table.to_csv(csv_fn, index=False)
     try:
-        gdf = read_baysor_results(geojson_fn, csv_fn)
+        shape_gdf, tx_gdf = read_baysor_results(geojson_fn, csv_fn)
 
-        assert len(gdf) == 2
-        assert gdf["cell"].nunique() == 2
-        assert gdf["cell"].iloc[0] == 7568
-        assert gdf["cluster"].iloc[0] == 3
-        assert gdf["cell"].iloc[1] == 7834
-        assert gdf["cluster"].iloc[1] == 1
+        assert len(shape_gdf) == 2
+        assert shape_gdf["cell"].nunique() == 2
+        assert shape_gdf["cell"].iloc[0] == 7568
+        assert shape_gdf["cluster"].iloc[0] == 3
+        assert shape_gdf["cell"].iloc[1] == 7834
+        assert shape_gdf["cluster"].iloc[1] == 1
+        assert len(tx_gdf) == 2
     finally:
         shutil.rmtree(tmpdir)
 
@@ -159,3 +149,32 @@ def test_stitch_shapes():
     ]
     result = stitch_shapes(shapes, (10, 10), (20, 20), 0.5)
     assert len(result) == 1
+
+
+def test_baysor_transcripts_to_anndata(test_baysor_shapefile, test_baysor_output_table):
+    tmpdir = tempfile.mkdtemp()
+    geojson_fn = os.path.join(tmpdir, "test.geojson")
+    csv_fn = os.path.join(tmpdir, "test.csv")
+    with open(geojson_fn, "w") as f:
+        json.dump(test_baysor_shapefile, f)
+
+    test_baysor_output_table.to_csv(csv_fn, index=False)
+    try:
+        shape_gdf, tx_gdf = read_baysor_results(geojson_fn, csv_fn)
+        ad = convert_transcripts_to_anndata(
+            transcript_gdf=tx_gdf,
+            segmentation_gdf=shape_gdf,
+            gene_name_column="gene",
+        )
+        ad.write_h5ad(os.path.join(tmpdir, "test.h5ad"))
+        ad = anndata.read_h5ad(os.path.join(tmpdir, "test.h5ad"))
+
+        assert ad.X.todense().shape == (2, 2)
+        first_filter = ad.obsm["spatial"][:, 0] == 0.5
+        second_filter = ad.obsm["spatial"][:, 0] == 10.5
+        assert ad[ad.obs.index[first_filter], "SEC11C"].X.todense().item() == 1
+        assert ad[ad.obs.index[first_filter], "LUM"].X.todense().item() == 0
+        assert ad[ad.obs.index[second_filter], "LUM"].X.todense().item() == 1
+        assert ad[ad.obs.index[second_filter], "SEC11C"].X.todense().item() == 0
+    finally:
+        shutil.rmtree(tmpdir)

@@ -5,7 +5,9 @@ import shapely
 import tqdm
 import json
 import logging
+import anndata
 
+from scipy.sparse import csr_matrix
 from nuc2seg.data import generate_tiles
 from blended_tiling import TilingModule
 from shapely import box
@@ -57,7 +59,9 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
     return gpd.GeoDataFrame(pd.concat(all_shapes, ignore_index=True))
 
 
-def read_baysor_results(shapes_fn, transcripts_fn) -> gpd.GeoDataFrame:
+def read_baysor_results(
+    shapes_fn, transcripts_fn, x_column_name="x", y_column_name="y"
+) -> gpd.GeoDataFrame:
     with open(shapes_fn) as f:
         geojson_data = json.load(f)
 
@@ -72,10 +76,22 @@ def read_baysor_results(shapes_fn, transcripts_fn) -> gpd.GeoDataFrame:
 
     gdf = gpd.GeoDataFrame(records)
 
-    meta_df = pd.read_csv(transcripts_fn, usecols=["cell", "cluster"])
-    meta_df["cell_id"] = meta_df["cell"].apply(lambda x: int(x.split("-")[-1]))
-    cell_to_cluster = meta_df[["cell_id", "cluster"]].drop_duplicates()
+    transcripts_df = pd.read_csv(
+        transcripts_fn,
+        usecols=["cell", "cluster", "gene", "assignment_confidence", "x", "y"],
+    )
+    tx_geo_df = gpd.GeoDataFrame(
+        transcripts_df,
+        geometry=gpd.points_from_xy(
+            transcripts_df[x_column_name], transcripts_df[y_column_name]
+        ),
+    )
+
+    transcripts_df["cell_id"] = transcripts_df["cell"].apply(
+        lambda x: int(x.split("-")[-1])
+    )
+    cell_to_cluster = transcripts_df[["cell_id", "cluster"]].drop_duplicates()
 
     result = gdf.merge(cell_to_cluster, left_on="cell", right_on="cell_id")
     del result["cell_id"]
-    return result
+    return result, tx_geo_df
