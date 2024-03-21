@@ -59,7 +59,9 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
     return gpd.GeoDataFrame(pd.concat(all_shapes, ignore_index=True))
 
 
-def read_baysor_results(shapes_fn, transcripts_fn) -> gpd.GeoDataFrame:
+def read_baysor_results(
+    shapes_fn, transcripts_fn, x_column_name="x", y_column_name="y"
+) -> gpd.GeoDataFrame:
     with open(shapes_fn) as f:
         geojson_data = json.load(f)
 
@@ -74,40 +76,22 @@ def read_baysor_results(shapes_fn, transcripts_fn) -> gpd.GeoDataFrame:
 
     gdf = gpd.GeoDataFrame(records)
 
-    meta_df = pd.read_csv(transcripts_fn, usecols=["cell", "cluster"])
-    meta_df["cell_id"] = meta_df["cell"].apply(lambda x: int(x.split("-")[-1]))
-    cell_to_cluster = meta_df[["cell_id", "cluster"]].drop_duplicates()
+    transcripts_df = pd.read_csv(
+        transcripts_fn,
+        usecols=["cell", "cluster", "gene", "assignment_confidence", "x", "y"],
+    )
+    tx_geo_df = gpd.GeoDataFrame(
+        transcripts_df,
+        geometry=gpd.points_from_xy(
+            transcripts_df[x_column_name], transcripts_df[y_column_name]
+        ),
+    )
+
+    transcripts_df["cell_id"] = transcripts_df["cell"].apply(
+        lambda x: int(x.split("-")[-1])
+    )
+    cell_to_cluster = transcripts_df[["cell_id", "cluster"]].drop_duplicates()
 
     result = gdf.merge(cell_to_cluster, left_on="cell", right_on="cell_id")
     del result["cell_id"]
-    return result
-
-
-def baysor_transcripts_to_anndata(shapes_fns, transcripts_fns):
-    dfs = []
-
-    for transcripts_fn in transcripts_fns:
-        df = pd.read_csv(
-            transcripts_fn, usecols=["cell", "gene", "assignment_confidence"]
-        )
-        dfs.append(df)
-
-    df = pd.concat(dfs).dropna()
-
-    df["count"] = 1
-
-    cell_u = list(sorted(df.cell.unique()))
-    gene_u = list(sorted(df.gene.unique()))
-
-    data = df["count"].tolist()
-    df["cell"] = pd.Categorical(df["cell"], categories=cell_u, ordered=True)
-    df["gene"] = pd.Categorical(df["gene"], categories=gene_u, ordered=True)
-    row = df.cell.cat.codes
-    col = df.gene.cat.codes
-    sparse_matrix = csr_matrix((data, (row, col)), shape=(len(cell_u), len(gene_u)))
-
-    return anndata.AnnData(
-        X=sparse_matrix,
-        var=pd.DataFrame(index=gene_u),
-        obs=pd.DataFrame(index=cell_u),
-    )
+    return result, tx_geo_df

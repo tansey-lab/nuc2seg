@@ -119,14 +119,15 @@ def test_read_baysor_results(test_baysor_shapefile, test_baysor_output_table):
 
     test_baysor_output_table.to_csv(csv_fn, index=False)
     try:
-        gdf = read_baysor_results(geojson_fn, csv_fn)
+        shape_gdf, tx_gdf = read_baysor_results(geojson_fn, csv_fn)
 
-        assert len(gdf) == 2
-        assert gdf["cell"].nunique() == 2
-        assert gdf["cell"].iloc[0] == 7568
-        assert gdf["cluster"].iloc[0] == 3
-        assert gdf["cell"].iloc[1] == 7834
-        assert gdf["cluster"].iloc[1] == 1
+        assert len(shape_gdf) == 2
+        assert shape_gdf["cell"].nunique() == 2
+        assert shape_gdf["cell"].iloc[0] == 7568
+        assert shape_gdf["cluster"].iloc[0] == 3
+        assert shape_gdf["cell"].iloc[1] == 7834
+        assert shape_gdf["cluster"].iloc[1] == 1
+        assert len(tx_gdf) == 2
     finally:
         shutil.rmtree(tmpdir)
 

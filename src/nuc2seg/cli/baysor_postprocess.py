@@ -1,15 +1,16 @@
 import argparse
 import logging
+import pandas as pd
 import geopandas as gpd
 import pandas
 import math
 import os.path
 
-
 from nuc2seg import log_config
 from nuc2seg.postprocess import stitch_shapes, read_baysor_results
 from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
 from nuc2seg.xenium import load_nuclei
+from nuc2seg.segment import convert_transcripts_to_anndata
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +116,19 @@ def main():
 
     gdfs = [read_baysor_results(*args) for args in zipped_fns]
 
+    shape_gdfs = [x[0] for x in gdfs]
+    transcript_gdfs = [x[1] for x in gdfs]
+
+    ad = convert_transcripts_to_anndata(
+        transcript_gdf=gpd.GeoDataFrame(pd.concat(shape_gdfs)),
+        segmentation_gdf=gpd.GeoDataFrame(pd.concat(transcript_gdfs)),
+        gene_name_column="gene",
+    )
+
+    ad.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5"))
+
     stitched_shapes = stitch_shapes(
-        shapes=gdfs,
+        shapes=shape_gdfs,
         tile_size=(args.tile_width, args.tile_height),
         base_size=(x_extent, y_extent),
         overlap=args.overlap_percentage,
