@@ -29,11 +29,11 @@ workflow BAYSOR_SEGMENTATION {
     BAYSOR_PREPROCESS_TRANSCRIPTS.out.transcripts.transpose()
         .combine( baysor_param_sweep )
         .map { tuple([id: it[0].id,
-                      baysor_min_molecules_per_cell_values: it[2],
-                      prior_segmentation_confidence_values: it[3],
-                      baysor_scale_values: it[4],
-                      baysor_scale_std_values: it[5],
-                      baysor_n_clusters_values: it[6]], it[1]) }
+                      baysor_min_molecules_per_cell: it[2],
+                      prior_segmentation_confidence: it[3],
+                      baysor_scale: it[4],
+                      baysor_scale_std: it[5],
+                      baysor_n_clusters: it[6]], it[1]) }
         .tap { baysor_input }
 
     BAYSOR( baysor_input )
