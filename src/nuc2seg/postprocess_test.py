@@ -42,6 +42,16 @@ def test_baysor_shapefile():
             "type": "Polygon",
             "cell": 7834,
         },
+        {
+            "coordinates": [
+                [
+                    [77, 77],
+                    [88, 88],
+                ]
+            ],
+            "type": "Polygon",
+            "cell": 7834,
+        },
     ]
 
     return {"geometries": geometries, "type": "FeatureCollection"}
