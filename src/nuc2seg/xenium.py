@@ -37,11 +37,10 @@ def filter_gdf_to_inside_polygon(gdf, polygon=None):
     if polygon is None:
         return gdf
 
-    selection_vector = gdf.geometry.apply(lambda x: polygon.contains(x))
-    logging.info(
-        f"Filtering {len(gdf)} points to {selection_vector.sum()} inside polygon"
-    )
-    return gdf[selection_vector]
+    gdf_filtered = gdf[gdf.geometry.within(polygon)]
+
+    logging.info(f"Filtering {len(gdf)} points to {len(gdf_filtered)} inside polygon")
+    return gdf_filtered
 
 
 def read_boundaries_into_polygons(
@@ -106,7 +105,7 @@ def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None)
 
 
 def load_and_filter_transcripts(
-    transcripts_file: str, sample_area: shapely.Polygon, min_qv=20.0
+    transcripts_file: str, sample_area: Optional[shapely.Polygon] = None, min_qv=20.0
 ):
     transcripts_df = read_transcripts_into_points(transcripts_file)
 
@@ -140,14 +139,26 @@ def load_and_filter_transcripts(
         f"{original_count-count_after_bbox} tx filtered after bounding to {sample_area}"
     )
 
+    all_feature_names = transcripts_df["feature_name"].unique()
+
+    to_include_features = set()
+
+    for feature_name in all_feature_names:
+        if feature_name.startswith("NegControlProbe_"):
+            continue
+        if feature_name.startswith("antisense_"):
+            continue
+        if feature_name.startswith("NegControlCodeword_"):
+            continue
+        if feature_name.startswith("BLANK_"):
+            continue
+        to_include_features.add(feature_name)
+
     # Filter out controls and low quality transcripts
     transcripts_df = transcripts_df[
-        (transcripts_df["qv"] >= min_qv)
-        & (~transcripts_df["feature_name"].str.startswith("NegControlProbe_"))
-        & (~transcripts_df["feature_name"].str.startswith("antisense_"))
-        & (~transcripts_df["feature_name"].str.startswith("NegControlCodeword_"))
-        & (~transcripts_df["feature_name"].str.startswith("BLANK_"))
+        transcripts_df["feature_name"].isin(to_include_features)
     ]
+    transcripts_df = transcripts_df[(transcripts_df["qv"] >= min_qv)]
 
     count_after_quality_filtering = len(transcripts_df)
 
