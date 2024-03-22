@@ -80,7 +80,7 @@ def read_baysor_results(
     transcripts_df = pd.read_csv(
         transcripts_fn,
         usecols=["cell", "cluster", "gene", "assignment_confidence", "x", "y"],
-    )
+    ).dropna()
     tx_geo_df = gpd.GeoDataFrame(
         transcripts_df,
         geometry=gpd.points_from_xy(
