@@ -71,6 +71,7 @@ def read_baysor_results(
             logger.debug(
                 f"Skipping cell with {len(geometry['coordinates'][0])} vertices"
             )
+            continue
         polygon = shapely.Polygon(geometry["coordinates"][0])
         records.append({"geometry": polygon, "cell": geometry["cell"]})
 
