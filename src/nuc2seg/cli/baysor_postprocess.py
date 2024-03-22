@@ -5,6 +5,7 @@ import geopandas as gpd
 import pandas
 import math
 import os.path
+import tqdm
 
 from nuc2seg import log_config
 from nuc2seg.postprocess import stitch_shapes, read_baysor_results
@@ -112,20 +113,35 @@ def main():
             "Number of shapefiles and transcript assignment files must be the same."
         )
 
-    zipped_fns = zip(shapefiles, transcript_assignment_files)
+    zipped_fns = list(enumerate(zip(shapefiles, transcript_assignment_files)))
 
-    gdfs = [read_baysor_results(*args) for args in zipped_fns]
+    logger.info("Reading baysor results")
+    all_shapes = None
+    all_tx = None
 
-    shape_gdfs = [x[0] for x in gdfs]
-    transcript_gdfs = [x[1] for x in gdfs]
+    for tile_idx, (shapefile_fn, tx_fn) in tqdm.tqdm(zipped_fns):
+        shape_gdf, tx_gdf = read_baysor_results(
+            shapes_fn=shapefile_fn,
+            transcripts_fn=tx_fn,
+            tile_idx=tile_idx,
+            tile_size=(args.tile_width, args.tile_height),
+            base_size=(x_extent, y_extent),
+            overlap=args.overlap_percentage,
+        )
 
-    ad = convert_transcripts_to_anndata(
-        transcript_gdf=gpd.GeoDataFrame(pd.concat(shape_gdfs)),
-        segmentation_gdf=gpd.GeoDataFrame(pd.concat(transcript_gdfs)),
-        gene_name_column="gene",
-    )
+        if all_shapes is None:
+            all_shapes = shape_gdf
+        else:
+            all_shapes = gpd.GeoDataFrame(
+                pd.concat([all_shapes, shape_gdf], ignore_index=True)
+            )
 
-    ad.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5"))
+        if all_tx is None:
+            all_tx = tx_gdf
+        else:
+            all_tx = pd.concat([all_tx, tx_gdf], ignore_index=True)
+
+    logger.info("Done loading baysor results.")
 
     stitched_shapes = stitch_shapes(
         shapes=shape_gdfs,

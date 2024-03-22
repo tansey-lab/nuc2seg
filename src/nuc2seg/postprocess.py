@@ -15,6 +15,53 @@ from shapely import box
 logger = logging.getLogger(__name__)
 
 
+def filter_gdf_to_tile_boundary(
+    gdf: gpd.GeoDataFrame, tile_idx: int, tile_size, base_size, overlap
+):
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=(overlap, overlap),
+        base_size=base_size,
+    )
+    tile_masks = tiler.get_tile_masks()[:, 0, :, :]
+    bboxes = generate_tiles(
+        tiler,
+        x_extent=base_size[0],
+        y_extent=base_size[1],
+        tile_size=tile_size,
+        overlap_fraction=overlap,
+    )
+
+    masks_and_bboxes = list(zip(tile_masks, bboxes))
+
+    mask = masks_and_bboxes[tile_idx][0].detach().cpu().numpy()
+    bbox = masks_and_bboxes[tile_idx][1]
+
+    mask = (mask > 0.5).astype(bool)
+    x, y = np.where(mask)
+    x_min, x_max = x.min(), x.max()
+    y_min, y_max = y.min(), y.max()
+
+    offset_x = bbox[0]
+    offset_y = bbox[1]
+
+    selection_box = box(
+        x_min + offset_x,
+        y_min + offset_y,
+        x_max + offset_x + 1,
+        y_max + offset_y + 1,
+    )
+
+    gdf["intersection_area"] = gdf.geometry.apply(
+        lambda g: g.intersection(selection_box).area
+    )
+
+    # Step 2: Calculate the percentage of the intersection area relative to the polygon's own area
+    gdf["intersection_percentage"] = gdf["intersection_area"] / gdf.geometry.area
+
+    return gdf[gdf["intersection_percentage"] > 0.5]
+
+
 def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap):
     tiler = TilingModule(
         tile_size=tile_size,
@@ -60,13 +107,20 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
 
 
 def read_baysor_results(
-    shapes_fn, transcripts_fn, x_column_name="x", y_column_name="y"
+    shapes_fn,
+    transcripts_fn,
+    tile_idx: int,
+    tile_size,
+    base_size,
+    overlap,
+    x_column_name="x",
+    y_column_name="y",
 ) -> gpd.GeoDataFrame:
     with open(shapes_fn) as f:
         geojson_data = json.load(f)
 
     records = []
-    for geometry in tqdm.tqdm(geojson_data["geometries"]):
+    for geometry in geojson_data["geometries"]:
         if len(geometry["coordinates"][0]) <= 3:
             logger.debug(
                 f"Skipping cell with {len(geometry['coordinates'][0])} vertices"
@@ -77,10 +131,19 @@ def read_baysor_results(
 
     gdf = gpd.GeoDataFrame(records)
 
+    gdf = filter_gdf_to_tile_boundary(
+        gdf,
+        tile_idx=tile_idx,
+        tile_size=tile_size,
+        base_size=base_size,
+        overlap=overlap,
+    )
+
     transcripts_df = pd.read_csv(
         transcripts_fn,
         usecols=["cell", "cluster", "gene", "assignment_confidence", "x", "y"],
     ).dropna()
+
     tx_geo_df = gpd.GeoDataFrame(
         transcripts_df,
         geometry=gpd.points_from_xy(
@@ -95,4 +158,5 @@ def read_baysor_results(
 
     result = gdf.merge(cell_to_cluster, left_on="cell", right_on="cell_id")
     del result["cell_id"]
+
     return result, tx_geo_df
