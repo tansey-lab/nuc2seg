@@ -24,7 +24,7 @@ workflow NUC2SEG {
         tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true), params.celltyping_n_chains)
     ])
 
-    if (params.weights == null || params.dataset == null) {
+    if (params.weights == null && params.dataset == null) {
         ch_input.flatMap { create_parallel_sequence(it[0], it[1], it[2]) }.tap { cell_typing_input }
         CELLTYPING( cell_typing_input )
 
@@ -37,15 +37,25 @@ workflow NUC2SEG {
             .join(TRAIN.out.weights)
             .tap { predict_input }
     } else {
-        predict_input = Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
-          file(params.dataset, checkIfExists: true),
-          file(params.weights, checkIfExists: true)
-        )])
+        if (params.dataset != null && params.weights == null) {
+            train_input = Channel.fromList([tuple( [ id: name, single_end:false ],
+                  file(params.dataset, checkIfExists: true)
+            )])
+            TRAIN( PREPROCESS.out.dataset )
+            train_input
+                .join(TRAIN.out.weights)
+                .tap { predict_input }
+        } else {
+            predict_input = Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
+              file(params.dataset, checkIfExists: true),
+              file(params.weights, checkIfExists: true)
+            )])
+        }
     }
 
     PREDICT( predict_input )
 
-    if (params.weights == null || params.dataset == null) {
+    if (params.dataset == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
             .join(ch_input.map { tuple(it[0], it[1]) })
@@ -68,7 +78,7 @@ workflow NUC2SEG {
 
     CREATE_SPATIALDATA( create_spatialdata_input )
 
-    if (params.weights == null || params.dataset == null) {
+    if (params.dataset == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
             .join(SEGMENT.out.segmentation)
