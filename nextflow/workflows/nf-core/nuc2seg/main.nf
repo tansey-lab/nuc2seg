@@ -41,7 +41,7 @@ workflow NUC2SEG {
             train_input = Channel.fromList([tuple( [ id: name, single_end:false ],
                   file(params.dataset, checkIfExists: true)
             )])
-            TRAIN( PREPROCESS.out.dataset )
+            TRAIN( train_input )
             train_input
                 .join(TRAIN.out.weights)
                 .tap { predict_input }
