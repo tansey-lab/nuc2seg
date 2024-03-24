@@ -105,7 +105,6 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         results.append(filtered_shapes)
 
     result_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))
-    result_gdf = result_gdf.drop_duplicates(subset=["cell"])
 
     if "index_right" in result_gdf:
         del result_gdf["index_right"]
