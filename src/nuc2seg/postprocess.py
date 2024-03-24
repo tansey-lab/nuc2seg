@@ -109,7 +109,6 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         ]
 
         results.append(filtered_shapes)
-
     logger.info(f"Loaded {raw_baysor_segments} raw baysor segments")
 
     result_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))
