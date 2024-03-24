@@ -83,7 +83,9 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         centroids.append(
             {
                 "tile_idx": idx,
-                "geometry": shapely.Point((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2),
+                "geometry": shapely.Point(
+                    (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+                ),
             }
         )
     logger.info(f"Loaded {len(centroids)} tile centroids")
@@ -105,9 +107,6 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         filtered_shapes = joined_to_centroids[
             joined_to_centroids["tile_idx"] == tile_idx
         ]
-        import pdb
-
-        pdb.set_trace()
 
         results.append(filtered_shapes)
 
