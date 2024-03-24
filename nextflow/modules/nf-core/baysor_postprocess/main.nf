@@ -10,6 +10,7 @@ process BAYSOR_POSTPROCESS {
 
     output:
     tuple val(meta), path("${prefix}/baysor/segmentation.parquet"), emit: segmentation
+    tuple val(meta), path("${prefix}/baysor/anndata.h5ad"), emit: anndata
     tuple val(meta), path("${prefix}/baysor/*.png"), emit: plots
 
     script:
@@ -40,5 +41,6 @@ process BAYSOR_POSTPROCESS {
         ${args}
     touch ${prefix}/baysor/segmentation.parquet
     touch ${prefix}/baysor/segmentation.png
+    touch ${prefix}/baysor/anndata.h5ad
     """
 }

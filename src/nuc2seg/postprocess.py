@@ -69,8 +69,6 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         base_size=base_size,
     )
 
-    tile_masks = tiler.get_tile_masks()[:, 0, :, :]
-
     bboxes = generate_tiles(
         tiler,
         x_extent=base_size[0],
@@ -79,43 +77,42 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         overlap_fraction=overlap,
     )
 
-    all_shapes = []
-    for (mask, shapes), bbox in zip(zip(tile_masks, shapes), bboxes):
-        mask = mask.detach().cpu().numpy()
-        mask = ~(mask < 1).astype(bool)
+    centroids = []
 
-        # get the index of the upper left most true value
-        x, y = np.where(mask)
-        x_min, x_max = x.min(), x.max()
-        y_min, y_max = y.min(), y.max()
-
-        offset_x = bbox[0]
-        offset_y = bbox[1]
-
-        selection_box = box(
-            x_min + offset_x,
-            y_min + offset_y,
-            x_max + offset_x + 1,
-            y_max + offset_y + 1,
+    for idx, bbox in enumerate(bboxes):
+        centroids.append(
+            {
+                "tile_idx": idx,
+                "geometry": shapely.Point(bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2),
+            }
         )
+    centroid_gdf = gpd.GeoDataFrame(centroids, geometry="geometry")
 
-        # select only rows where box contains the shapes
-        selection_vector = shapes.geometry.within(selection_box)
-        all_shapes.append(shapes[selection_vector])
+    results = []
 
-    return gpd.GeoDataFrame(pd.concat(all_shapes, ignore_index=True))
+    for tile_idx, shapefile in enumerate(shapes):
+        joined_to_centroids = gpd.sjoin_nearest(
+            shapefile,
+            centroid_gdf,
+        )
+        # dedupe joined_to_centroids
+        joined_to_centroids = joined_to_centroids.drop_duplicates(subset=["tile_idx"])
+
+        filtered_shapes = joined_to_centroids[
+            joined_to_centroids["tile_idx"] == tile_idx
+        ]
+
+        results.append(filtered_shapes)
+
+    result_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))
+    if "index_right" in result_gdf:
+        del result_gdf["index_right"]
+    if "index_left" in result_gdf:
+        del result_gdf["index_left"]
+    return result_gdf
 
 
-def read_baysor_results(
-    shapes_fn,
-    transcripts_fn,
-    tile_idx: int,
-    tile_size,
-    base_size,
-    overlap,
-    x_column_name="x",
-    y_column_name="y",
-) -> gpd.GeoDataFrame:
+def read_baysor_shapefile(shapes_fn):
     with open(shapes_fn) as f:
         geojson_data = json.load(f)
 
@@ -129,21 +126,31 @@ def read_baysor_results(
         polygon = shapely.Polygon(geometry["coordinates"][0])
         records.append({"geometry": polygon, "cell": geometry["cell"]})
 
-    gdf = gpd.GeoDataFrame(records)
+    return gpd.GeoDataFrame(records, geometry="geometry")
 
-    gdf = filter_gdf_to_tile_boundary(
-        gdf,
-        tile_idx=tile_idx,
-        tile_size=tile_size,
-        base_size=base_size,
-        overlap=overlap,
-    )
+
+def read_baysor_shapes_with_cluster_assignment(
+    shapes_fn, transcripts_fn, x_column_name="x", y_column_name="y"
+) -> gpd.GeoDataFrame:
+    with open(shapes_fn) as f:
+        geojson_data = json.load(f)
+
+    records = []
+    for geometry in tqdm.tqdm(geojson_data["geometries"]):
+        if len(geometry["coordinates"][0]) <= 3:
+            logger.debug(
+                f"Skipping cell with {len(geometry['coordinates'][0])} vertices"
+            )
+            continue
+        polygon = shapely.Polygon(geometry["coordinates"][0])
+        records.append({"geometry": polygon, "cell": geometry["cell"]})
+
+    gdf = gpd.GeoDataFrame(records)
 
     transcripts_df = pd.read_csv(
         transcripts_fn,
         usecols=["cell", "cluster", "gene", "assignment_confidence", "x", "y"],
-    ).dropna()
-
+    )
     tx_geo_df = gpd.GeoDataFrame(
         transcripts_df,
         geometry=gpd.points_from_xy(
@@ -158,5 +165,4 @@ def read_baysor_results(
 
     result = gdf.merge(cell_to_cluster, left_on="cell", right_on="cell_id")
     del result["cell_id"]
-
     return result, tx_geo_df
