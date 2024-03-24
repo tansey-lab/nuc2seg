@@ -96,7 +96,7 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
             centroid_gdf,
         )
         # dedupe joined_to_centroids
-        joined_to_centroids = joined_to_centroids.drop_duplicates(subset=["tile_idx"])
+        joined_to_centroids = joined_to_centroids.drop_duplicates(subset=["cell"])
 
         filtered_shapes = joined_to_centroids[
             joined_to_centroids["tile_idx"] == tile_idx
@@ -105,6 +105,8 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         results.append(filtered_shapes)
 
     result_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))
+    result_gdf = result_gdf.drop_duplicates(subset=["cell"])
+
     if "index_right" in result_gdf:
         del result_gdf["index_right"]
     if "index_left" in result_gdf:

@@ -42,9 +42,11 @@ def test_read_baysor_shapes_with_cluster_assignment(
 
 
 def test_stitch_shapes():
-    upper_left_shape = gpd.GeoDataFrame({"geometry": [box(3, 3, 4, 4)]})
-    bottom_right_shape = gpd.GeoDataFrame({"geometry": [box(18, 18, 19, 19)]})
-    empty_shape = gpd.GeoDataFrame({"geometry": []})
+    upper_left_shape = gpd.GeoDataFrame({"cell": [1], "geometry": [box(3, 3, 4, 4)]})
+    bottom_right_shape = gpd.GeoDataFrame(
+        {"cell": [2], "geometry": [box(18, 18, 19, 19)]}
+    )
+    empty_shape = gpd.GeoDataFrame({"geometry": [], "cell": []})
 
     shapes = [
         upper_left_shape,
