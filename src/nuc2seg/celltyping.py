@@ -257,6 +257,8 @@ def select_best_celltyping_chain(results: list[CelltypingResults]):
     best_chain = best_chain.item()
     best_k = best_k.item()
 
+    logger.info(f"Best chain: {best_chain}, best k: {best_k}")
+
     best_result = results[best_chain]
 
     return (best_result, np.stack(aic_scores), np.stack(bic_scores), best_k)

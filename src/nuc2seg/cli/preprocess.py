@@ -164,6 +164,8 @@ def main():
                 os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
                 f"rank_genes_groups_k={k}.pdf",
             ),
+            n_genes=10,
+            sharey=False,
         )
 
     ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results, best_k)

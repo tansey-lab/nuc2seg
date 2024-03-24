@@ -25,10 +25,22 @@ workflow NUC2SEG {
     ])
 
     if (params.weights == null && params.dataset == null) {
-        ch_input.flatMap { create_parallel_sequence(it[0], it[1], it[2]) }.tap { cell_typing_input }
-        CELLTYPING( cell_typing_input )
 
-        ch_input.map { tuple(it[0], it[1]) }.join(CELLTYPING.out.cell_typing_results.groupTuple()).tap { preprocess_input }
+        if (params.celltyping_results == null) {
+            ch_input.flatMap { create_parallel_sequence(it[0], it[1], it[2]) }.tap { cell_typing_input }
+            CELLTYPING( cell_typing_input )
+            ch_input.map { tuple(it[0], it[1]) }.join(CELLTYPING.out.cell_typing_results.groupTuple()).tap { preprocess_input }
+        } else {
+            preprocess_input = Channel.fromList(
+                [
+                    tuple(
+                        [ id: name, single_end:false ],
+                        file(params.xenium_dir, checkIfExists: true),
+                        file(params.celltyping_results, checkIfExists: true)
+                    )
+                ]
+            )
+        }
 
         PREPROCESS ( preprocess_input )
         TRAIN( PREPROCESS.out.dataset )

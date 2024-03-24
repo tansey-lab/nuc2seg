@@ -286,7 +286,7 @@ def plot_celltype_estimation_results(
 
     ax.errorbar(
         n_components,
-        bic_scores.mean(axis=0),
+        bic_scores.min(axis=0),
         yerr=error,
         label="BIC",
         alpha=0.5,
@@ -482,6 +482,10 @@ def rank_genes_groups_plot(
     for celltype_idx in range(k):
         gene_names = celltyping_results.gene_names
         scores = celltyping_results.relative_expression[k_idx][celltype_idx, :]
+        sorted_order = np.argsort(scores)[::-1]
+
+        scores = scores[sorted_order][:n_genes]
+        gene_names = gene_names[sorted_order][:n_genes]
 
         # Setting up axis, calculating y bounds
         if sharey:
