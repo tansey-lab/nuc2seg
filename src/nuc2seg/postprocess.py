@@ -105,6 +105,9 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         filtered_shapes = joined_to_centroids[
             joined_to_centroids["tile_idx"] == tile_idx
         ]
+        import pdb
+
+        pdb.set_trace()
 
         results.append(filtered_shapes)
 
