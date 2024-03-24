@@ -10,6 +10,7 @@ process BAYSOR_POSTPROCESS {
 
     output:
     tuple val(meta), path("${prefix}/baysor/segmentation.parquet"), emit: segmentation
+    tuple val(meta), path("${prefix}/baysor/anndata.h5ad"), emit: anndata
     tuple val(meta), path("${prefix}/baysor/*.png"), emit: plots
 
     script:
@@ -20,9 +21,11 @@ process BAYSOR_POSTPROCESS {
     baysor_postprocess \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
-        --baysor-transcript-assignments ${transcript_assignments} \
         --output ${prefix}/baysor/segmentation.parquet \
         --baysor-shapefiles ${shapefiles} \
+        --tile-width ${params.tile_width} \
+        --tile-height ${params.tile_height} \
+        --overlap-percentage ${params.overlap_percentage} \
         ${args}
     """
 
@@ -34,11 +37,14 @@ process BAYSOR_POSTPROCESS {
     echo baysor_postprocess \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
-        --baysor-transcript-assignments ${transcript_assignments} \
         --output ${prefix}/baysor/segmentation.parquet \
         --baysor-shapefiles ${shapefiles} \
+        --tile-width ${params.tile_width} \
+        --tile-height ${params.tile_height} \
+        --overlap-percentage ${params.overlap_percentage} \
         ${args}
     touch ${prefix}/baysor/segmentation.parquet
     touch ${prefix}/baysor/segmentation.png
+    touch ${prefix}/baysor/anndata.h5ad
     """
 }

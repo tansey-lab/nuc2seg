@@ -20,6 +20,9 @@ process BAYSOR_PREPROCESS_TRANSCRIPTS {
     baysor_preprocess_transcripts \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --output-dir ${prefix}/baysor/input \
+        --tile-width ${params.tile_width} \
+        --tile-height ${params.tile_height} \
+        --overlap-percentage ${params.overlap_percentage} \
         ${args}
     """
 }

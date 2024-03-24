@@ -5,11 +5,17 @@ import geopandas as gpd
 import pandas
 import math
 import os.path
+import tqdm
+import re
 
 from nuc2seg import log_config
-from nuc2seg.postprocess import stitch_shapes, read_baysor_results
+from nuc2seg.postprocess import (
+    stitch_shapes,
+    read_baysor_shapes_with_cluster_assignment,
+    read_baysor_shapefile,
+)
 from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
-from nuc2seg.xenium import load_nuclei
+from nuc2seg.xenium import load_nuclei, read_transcripts_into_points
 from nuc2seg.segment import convert_transcripts_to_anndata
 
 logger = logging.getLogger(__name__)
@@ -23,13 +29,6 @@ def get_parser():
     parser.add_argument(
         "--baysor-shapefiles",
         help="One or more shapefiles output by baysor.",
-        type=str,
-        required=True,
-        nargs="+",
-    )
-    parser.add_argument(
-        "--baysor-transcript-assignments",
-        help="One or more transcript assignment files output by baysor.",
         type=str,
         required=True,
         nargs="+",
@@ -88,44 +87,32 @@ def get_args():
     return args
 
 
+def get_tile_idx(fn):
+    fn_clean = os.path.splitext(os.path.basename(fn))[0]
+    # search for `tile_{number}` and extract number with regex
+    return int(re.search(r"tile_(\d+)", fn_clean).group(1))
+
+
 def main():
     args = get_args()
 
     log_config.configure_logging(args)
 
-    transcript_df = pandas.read_parquet(args.transcripts)
+    transcript_df = read_transcripts_into_points(args.transcripts)
 
     x_extent = math.ceil(transcript_df["x_location"].astype(float).max())
     y_extent = math.ceil(transcript_df["y_location"].astype(float).max())
 
-    shapefiles = sorted(
-        args.baysor_shapefiles, key=lambda x: int(x.split("_")[1].split(".")[0])
-    )
+    shapefiles_fns = sorted(args.baysor_shapefiles, key=get_tile_idx)
 
-    transcript_assignment_files = sorted(
-        args.baysor_transcript_assignments,
-        key=lambda x: int(x.split("_")[1].split(".")[0]),
-    )
+    logger.info("Reading baysor results")
+    shape_gdfs = []
 
-    if len(shapefiles) != len(transcript_assignment_files):
-        raise ValueError(
-            "Number of shapefiles and transcript assignment files must be the same."
-        )
+    for tile_idx, shapefile_fn in tqdm.tqdm(enumerate(shapefiles_fns)):
+        shape_gdf = read_baysor_shapefile(shapes_fn=shapefile_fn)
+        shape_gdfs.append(shape_gdf)
 
-    zipped_fns = zip(shapefiles, transcript_assignment_files)
-
-    gdfs = [read_baysor_results(*args) for args in zipped_fns]
-
-    shape_gdfs = [x[0] for x in gdfs]
-    transcript_gdfs = [x[1] for x in gdfs]
-
-    ad = convert_transcripts_to_anndata(
-        transcript_gdf=gpd.GeoDataFrame(pd.concat(shape_gdfs)),
-        segmentation_gdf=gpd.GeoDataFrame(pd.concat(transcript_gdfs)),
-        gene_name_column="gene",
-    )
-
-    ad.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5"))
+    logger.info("Done loading baysor results.")
 
     stitched_shapes = stitch_shapes(
         shapes=shape_gdfs,
@@ -144,10 +131,11 @@ def main():
         segmentation_gdf=stitched_shapes,
         output_path=os.path.join(os.path.dirname(args.output), "segmentation.png"),
     )
-    plot_segmentation_class_assignment(
-        segmentation_gdf=stitched_shapes,
-        output_path=os.path.join(os.path.dirname(args.output), "class_assignment.png"),
-        cat_column="cluster",
+
+    adata = convert_transcripts_to_anndata(
+        transcript_gdf=transcript_df, segmentation_gdf=stitched_shapes
     )
+
+    adata.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5ad"))
 
     stitched_shapes.to_parquet(args.output)

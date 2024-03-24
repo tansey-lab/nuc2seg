@@ -167,6 +167,16 @@ def main():
             n_genes=10,
             sharey=False,
         )
+        rank_genes_groups_plot(
+            celltyping_results=celltyping_results,
+            k=k,
+            output_path=os.path.join(
+                os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
+                f"rank_genes_groups_sharey_k={k}.pdf",
+            ),
+            n_genes=10,
+            sharey=True,
+        )
 
     ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results, best_k)
 

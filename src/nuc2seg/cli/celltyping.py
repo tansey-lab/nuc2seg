@@ -111,11 +111,7 @@ def main():
         )
 
     else:
-        df = pandas.read_parquet(args.transcripts_file)
-        y_max = df["y_location"].max()
-        x_max = df["x_location"].max()
-
-        sample_area = create_shapely_rectangle(0, 0, x_max, y_max)
+        sample_area = None
 
     nuclei_geo_df = load_nuclei(
         nuclei_file=args.nuclei_file,
