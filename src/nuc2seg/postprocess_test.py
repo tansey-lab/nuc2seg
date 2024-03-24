@@ -44,24 +44,27 @@ def test_read_baysor_shapes_with_cluster_assignment(
 def test_stitch_shapes():
     upper_left_shape = gpd.GeoDataFrame({"cell": [1], "geometry": [box(3, 3, 4, 4)]})
     bottom_right_shape = gpd.GeoDataFrame(
-        {"cell": [2], "geometry": [box(18, 18, 19, 19)]}
+        {"cell": [1], "geometry": [box(18, 18, 19, 19)]}
+    )
+    middle_shape = gpd.GeoDataFrame(
+        {"cell": [1, 2], "geometry": [box(10, 10, 11, 11), box(12, 12, 13, 13)]}
     )
     empty_shape = gpd.GeoDataFrame({"geometry": [], "cell": []})
 
     shapes = [
         upper_left_shape,
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
+        middle_shape,
+        middle_shape,
+        middle_shape,
+        middle_shape,
+        middle_shape,
+        middle_shape,
+        middle_shape,
         bottom_right_shape,
     ]
     result = stitch_shapes(shapes, (10, 10), (20, 20), 0.5)
 
-    assert len(result) == 2
+    assert len(result) == 4
 
     shapes = [
         empty_shape.copy(),
