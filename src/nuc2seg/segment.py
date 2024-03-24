@@ -302,14 +302,10 @@ def convert_segmentation_to_shapefile(
     segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
 ):
     x1, y1, x2, y2 = dataset.bbox
-
-    nuclei_id = np.setdiff1d(np.unique(segmentation), [-1, 0])
-
-    gdf = geopandas.GeoDataFrame(
-        index=nuclei_id,
-    )
+    records = []
 
     for value in tqdm.tqdm(np.unique(segmentation)):
+        record = {}
         if value in [-1, 0]:
             continue
         mask = segmentation == value
@@ -323,17 +319,18 @@ def convert_segmentation_to_shapefile(
 
         translated_poly = affinity.translate(poly, xoff=x1, yoff=y1)
 
-        gdf.loc[value, "geometry"] = translated_poly
+        record["geometry"] = translated_poly
 
         mean_probs = predictions.classes.transpose(1, 2, 0)[mask, :].mean(axis=0)
         mean_probs = mean_probs / mean_probs.sum()
         class_assignment = int(np.argmax(mean_probs))
 
-        gdf.loc[value, "class_assignment"] = class_assignment
+        record["class_assignment"] = class_assignment
         for i, val in enumerate(mean_probs):
-            gdf.loc[value, f"class_{i}_prob"] = val
+            record[f"class_{i}_prob"] = val
+        records.append(record)
 
-    gdf.set_geometry("geometry", inplace=True)
+    gdf = geopandas.GeoDataFrame(records, geometry="geometry")
 
     return gdf
 
