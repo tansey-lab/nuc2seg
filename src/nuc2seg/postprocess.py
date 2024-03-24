@@ -86,11 +86,15 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
                 "geometry": shapely.Point(bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2),
             }
         )
+    logger.info(f"Loaded {len(centroids)} tile centroids")
+
     centroid_gdf = gpd.GeoDataFrame(centroids, geometry="geometry")
 
     results = []
+    raw_baysor_segments = 0
 
     for tile_idx, shapefile in enumerate(shapes):
+        raw_baysor_segments += len(shapefile)
         joined_to_centroids = gpd.sjoin_nearest(
             shapefile,
             centroid_gdf,
@@ -104,7 +108,11 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
 
         results.append(filtered_shapes)
 
+    logger.info(f"Loaded {raw_baysor_segments} raw baysor segments")
+
     result_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))
+
+    logger.info(f"After stitching, {len(result_gdf)} segments remain")
 
     if "index_right" in result_gdf:
         del result_gdf["index_right"]
