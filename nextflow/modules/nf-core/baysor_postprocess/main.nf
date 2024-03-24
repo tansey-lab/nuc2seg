@@ -21,9 +21,11 @@ process BAYSOR_POSTPROCESS {
     baysor_postprocess \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
-        --baysor-transcript-assignments ${transcript_assignments} \
         --output ${prefix}/baysor/segmentation.parquet \
         --baysor-shapefiles ${shapefiles} \
+        --tile-width ${params.tile_width} \
+        --tile-height ${params.tile_height} \
+        --overlap-percentage ${params.overlap_percentage} \
         ${args}
     """
 
@@ -35,9 +37,11 @@ process BAYSOR_POSTPROCESS {
     echo baysor_postprocess \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
-        --baysor-transcript-assignments ${transcript_assignments} \
         --output ${prefix}/baysor/segmentation.parquet \
         --baysor-shapefiles ${shapefiles} \
+        --tile-width ${params.tile_width} \
+        --tile-height ${params.tile_height} \
+        --overlap-percentage ${params.overlap_percentage} \
         ${args}
     touch ${prefix}/baysor/segmentation.parquet
     touch ${prefix}/baysor/segmentation.png
