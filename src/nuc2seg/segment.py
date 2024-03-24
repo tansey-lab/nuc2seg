@@ -356,6 +356,17 @@ def convert_transcripts_to_anndata(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
     )
 
+    before_dedupe = len(sjoined_gdf)
+
+    # if more than one row has the same index_right value, drop until index_right is unique
+    sjoined_gdf = sjoined_gdf.drop_duplicates(subset="index_right")
+
+    after_dedupe = len(sjoined_gdf)
+
+    logger.info(
+        f"Dropped {before_dedupe - after_dedupe} transcripts assigned to multiple segments"
+    )
+
     cell_u = list(sorted(sjoined_gdf.index_right.unique()))
     gene_u = list(sorted(sjoined_gdf[gene_name_column].unique()))
 

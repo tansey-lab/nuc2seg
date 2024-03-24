@@ -292,7 +292,7 @@ def test_convert_transcripts_to_anndata():
     boundaries = geopandas.GeoDataFrame(
         [
             [Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
-            [Polygon([(1, 1), (1, 3), (3, 3), (3, 1)])],
+            [Polygon([(0, 0), (0, 1), (3, 1), (3, 0)])],
         ],
         columns=["geometry"],
     )
@@ -300,7 +300,7 @@ def test_convert_transcripts_to_anndata():
     transcripts = geopandas.GeoDataFrame(
         [
             ["a", Point(0.5, 0.5)],
-            ["b", Point(2, 2)],
+            ["b", Point(2, 0.5)],
         ],
         columns=["feature_name", "geometry"],
     )
@@ -315,17 +315,19 @@ def test_convert_transcripts_to_anndata():
         assert adata.n_vars == 2
         assert adata.n_obs == 2
         np.testing.assert_array_equal(
-            adata.obsm["spatial"], np.array([[0.5, 0.5], [2.0, 2.0]])
+            adata.obsm["spatial"], np.array([[0.5, 0.5], [1.5, 0.5]])
         )
-        np.testing.assert_array_equal(
-            adata.X.todense(),
-            np.array(
-                [
-                    [1, 0],
-                    [0, 1],
-                ]
-            ),
-        )
+
+        results = adata.X.todense()
+
+        assert results[0, :].tolist()[0] == [1, 0] or results[0, :].tolist()[0] == [
+            0,
+            0,
+        ]
+        assert results[1, :].tolist()[0] == [0, 1] or results[0, :].tolist()[0] == [
+            1,
+            1,
+        ]
         assert adata.var_names.tolist() == ["a", "b"]
     finally:
         shutil.rmtree(tmpdir)
