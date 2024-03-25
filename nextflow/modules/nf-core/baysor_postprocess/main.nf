@@ -9,9 +9,9 @@ process BAYSOR_POSTPROCESS {
     tuple val(meta), path(xenium_dir), path(shapefiles)
 
     output:
-    tuple val(meta), path("${prefix}/baysor/segmentation.parquet"), emit: segmentation
-    tuple val(meta), path("${prefix}/baysor/anndata.h5ad"), emit: anndata
-    tuple val(meta), path("${prefix}/baysor/*.png"), emit: plots
+    tuple val(meta), path("${output_dir_name}/segmentation.parquet"), emit: segmentation
+    tuple val(meta), path("${output_dir_name}/anndata.h5ad"), emit: anndata
+    tuple val(meta), path("${output_dir_name}/*.png"), emit: plots
 
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
