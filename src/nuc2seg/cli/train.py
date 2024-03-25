@@ -164,7 +164,7 @@ def get_parser():
         "--angle-loss-factor",
         help="Multiply angle loss by this factor before backpropagation.",
         type=float,
-        default=10.0,
+        default=1.0,
     )
     return parser
 
