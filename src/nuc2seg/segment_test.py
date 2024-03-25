@@ -329,6 +329,14 @@ def test_convert_transcripts_to_anndata():
             1,
         ]
         assert adata.var_names.tolist() == ["a", "b"]
+
+        adata = convert_transcripts_to_anndata(
+            transcript_gdf=transcripts,
+            segmentation_gdf=boundaries,
+            min_molecules_per_cell=10,
+        )
+
+        assert adata.n_obs == 0
     finally:
         shutil.rmtree(tmpdir)
 

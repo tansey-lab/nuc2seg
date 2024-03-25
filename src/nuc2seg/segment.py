@@ -344,7 +344,10 @@ def spatial_join_polygons_and_transcripts(
 
 
 def convert_transcripts_to_anndata(
-    transcript_gdf, segmentation_gdf, gene_name_column="feature_name"
+    transcript_gdf,
+    segmentation_gdf,
+    gene_name_column="feature_name",
+    min_molecules_per_cell=None,
 ):
     segmentation_gdf["area"] = segmentation_gdf.geometry.area
     segmentation_gdf["centroid_x"] = segmentation_gdf.geometry.centroid.x
@@ -352,6 +355,7 @@ def convert_transcripts_to_anndata(
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
     )
+    sjoined_gdf.reset_index(inplace=True)
 
     before_dedupe = len(sjoined_gdf)
 
@@ -363,6 +367,22 @@ def convert_transcripts_to_anndata(
     logger.info(
         f"Dropped {before_dedupe - after_dedupe} transcripts assigned to multiple segments"
     )
+
+    # filter transcripts mapped to cell where the total number of transcripts for that cell is less than
+    # min_molecules_per_cell
+    if min_molecules_per_cell is not None:
+        before_min_molecules = len(sjoined_gdf)
+
+        sjoined_gdf = sjoined_gdf.groupby("index").filter(
+            lambda x: len(x) >= min_molecules_per_cell
+        )
+
+        after_min_molecules = len(sjoined_gdf)
+        logger.info(
+            f"Dropped {before_min_molecules - after_min_molecules} cells with fewer than {min_molecules_per_cell} transcripts"
+        )
+
+    del sjoined_gdf["index"]
 
     cell_u = list(sorted(sjoined_gdf.index_right.unique()))
     gene_u = list(sorted(sjoined_gdf[gene_name_column].unique()))

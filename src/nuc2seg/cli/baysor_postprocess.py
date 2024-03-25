@@ -75,6 +75,12 @@ def get_parser():
         type=float,
         default=0.5,
     )
+    parser.add_argument(
+        "--min-molecules-per-cell",
+        help="Dont output cells with less than this many gene counts.",
+        type=int,
+        default=None,
+    )
 
     return parser
 
@@ -133,7 +139,9 @@ def main():
     )
 
     adata = convert_transcripts_to_anndata(
-        transcript_gdf=transcript_df, segmentation_gdf=stitched_shapes
+        transcript_gdf=transcript_df,
+        segmentation_gdf=stitched_shapes,
+        min_molecules_per_cell=args.min_molecules_per_cell,
     )
 
     adata.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5ad"))
