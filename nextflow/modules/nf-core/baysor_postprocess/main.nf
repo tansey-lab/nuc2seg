@@ -17,7 +17,7 @@ process BAYSOR_POSTPROCESS {
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
     output_dir_name = "${prefix}/baysor/min_molecules_per_cell=${meta.baysor_min_molecules_per_cell}/prior_segmentation_confidence=${meta.prior_segmentation_confidence}/baysor_scale=${meta.baysor_scale}/baysor_scale_std=${meta.baysor_scale_std}/baysor_n_clusters=${meta.baysor_n_clusters}"
-
+    def baysor_min_molecules_per_cell_arg = meta.baysor_min_molecules_per_cell == null ? "" : "--min-molecules-per-cell ${meta.baysor_min_molecules_per_cell}"
     """
     mkdir -p "${output_dir_name}"
     baysor_postprocess \
@@ -28,6 +28,7 @@ process BAYSOR_POSTPROCESS {
         --tile-width ${params.tile_width} \
         --tile-height ${params.tile_height} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${baysor_min_molecules_per_cell_arg} \
         ${args}
     """
 
@@ -35,7 +36,7 @@ process BAYSOR_POSTPROCESS {
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
     output_dir_name = "${prefix}/baysor/min_molecules_per_cell=${meta.baysor_min_molecules_per_cell}/prior_segmentation_confidence=${meta.prior_segmentation_confidence}/baysor_scale=${meta.baysor_scale}/baysor_scale_std=${meta.baysor_scale_std}/baysor_n_clusters=${meta.baysor_n_clusters}"
-
+    def baysor_min_molecules_per_cell_arg = meta.baysor_min_molecules_per_cell == null ? "" : "--min-molecules-per-cell ${meta.baysor_min_molecules_per_cell}"
     """
     mkdir -p "${output_dir_name}"
     echo baysor_postprocess \
@@ -46,6 +47,7 @@ process BAYSOR_POSTPROCESS {
         --tile-width ${params.tile_width} \
         --tile-height ${params.tile_height} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${baysor_min_molecules_per_cell_arg} \
         ${args}
     touch ${output_dir_name}/segmentation.parquet
     touch ${output_dir_name}/segmentation.png
