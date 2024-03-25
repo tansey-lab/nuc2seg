@@ -256,10 +256,30 @@ def collinear(p1, p2, p3):
     )
 
 
+def get_boolean_true_bbox(boolean_array):
+    rows_with_true = np.any(boolean_array, axis=1)
+    cols_with_true = np.any(boolean_array, axis=0)
+
+    # Find the min and max y coordinates (row indices)
+    min_x = np.where(rows_with_true)[0].min()
+    max_x = np.where(rows_with_true)[0].max()
+
+    # Find the min and max x coordinates (column indices)
+    min_y = np.where(cols_with_true)[0].min()
+    max_y = np.where(cols_with_true)[0].max()
+
+    bbox = (min_x, min_y, max_x, max_y)
+    return bbox
+
+
 def raster_to_polygon(raster):
+    bbox = get_boolean_true_bbox(raster)
+
+    raster_sliced = raster[bbox[0] : bbox[2] + 1, bbox[1] : bbox[3] + 1]
+
     # Find contours in the binary image
     contours, hierarchy = cv2.findContours(
-        raster.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        raster_sliced.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
 
     # Initialize lists to hold outer contours and holes
@@ -295,7 +315,9 @@ def raster_to_polygon(raster):
             else:
                 seen.append(pt)
 
-        return Polygon(seen, holes=[])
+        return affinity.translate(
+            Polygon(seen, holes=[]), xoff=bbox[0] - 1, yoff=bbox[1] - 1
+        )
 
 
 def convert_segmentation_to_shapefile(
