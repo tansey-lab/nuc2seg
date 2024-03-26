@@ -71,7 +71,7 @@ def calculate_even_weights(values):
 
     result = []
     for val in values:
-        result.append(total / val * n_classes)
+        result.append(total / (val * n_classes))
     return tuple(result)
 
 

@@ -203,12 +203,12 @@ def test_calculate_even_weights():
     x, y, z = (torch.tensor([1.0]), torch.tensor([1.0]), torch.tensor([1.0]))
     a, b, c = calculate_even_weights([x, y, z])
 
-    assert (a * x).item() == (b * y).item() == (c * z).item()
+    assert (a * x).item() == (b * y).item() == (c * z).item() == 1.0
 
     x, y, z = (torch.tensor([1.0]), torch.tensor([2.0]), torch.tensor([3.0]))
     a, b, c = calculate_even_weights([x, y, z])
 
-    assert (a * x).item() == (b * y).item() == (c * z).item()
+    assert (a * x).item() == (b * y).item() == (c * z).item() == 2.0
 
     x, y, z = (torch.tensor([1e-7]), torch.tensor([1e-2]), torch.tensor([3.0]))
     a, b, c = calculate_even_weights([x, y, z])
