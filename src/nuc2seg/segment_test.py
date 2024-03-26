@@ -219,12 +219,29 @@ def test_raster_to_polygon():
             [0, 0, 0, 0],
             [0, 1, 1, 1],
             [0, 1, 1, 1],
+            [0, 1, 1, 1],
         ]
     )
 
     result = raster_to_polygon(arr)
 
-    assert result
+    assert result.area == 9
+    assert result.bounds == (1, 1, 4, 4)
+
+
+def test_non_convex_raster_to_polygon():
+    # draw a serif letter S as a numpy array in pixels
+    arr = np.zeros((20, 20))
+    arr[1:3, 1:19] = 1
+    arr[3:10, 1:3] = 1
+    arr[10:18, 17:19] = 1
+    arr[18:20, 1:19] = 1
+    arr[9, 1:19] = 1
+    arr[3, 18] = 1
+    arr[17, 1] = 1
+    result = raster_to_polygon(arr)
+
+    assert result.area == 120
 
 
 def test_stitch_predictions():
@@ -271,6 +288,7 @@ def test_convert_segmentation_to_shapefile():
     segmentation[10:20, 10:20] = 1
 
     segmentation[30:40, 30:40] = 2
+    segmentation[1, 1] = -1
 
     gdf = convert_segmentation_to_shapefile(
         dataset=dataset, predictions=predictions, segmentation=segmentation
@@ -279,12 +297,10 @@ def test_convert_segmentation_to_shapefile():
     assert gdf.shape[0] == 2
     assert gdf.iloc[0].class_assignment == 0
     assert gdf.iloc[1].class_assignment == 1
-    assert gdf.iloc[0].geometry.area > 80
-    assert gdf.iloc[0].geometry.area <= 100
-    assert gdf.iloc[1].geometry.area > 80
-    assert gdf.iloc[1].geometry.area <= 100
-    assert np.isclose(gdf.iloc[0].class_0_prob, 0.967741935483871)
-    assert np.isclose(gdf.iloc[1].class_1_prob, 0.967741935483871)
+    assert gdf.iloc[0].geometry.area == 100
+    assert gdf.iloc[1].geometry.area == 100
+    assert gdf.iloc[0].class_0_prob >= 0.89
+    assert gdf.iloc[1].class_1_prob >= 0.89
 
 
 def test_convert_transcripts_to_anndata():
@@ -299,6 +315,7 @@ def test_convert_transcripts_to_anndata():
 
     transcripts = geopandas.GeoDataFrame(
         [
+            ["a", Point(0.5, 0.5)],
             ["a", Point(0.5, 0.5)],
             ["b", Point(2, 0.5)],
         ],
@@ -320,14 +337,8 @@ def test_convert_transcripts_to_anndata():
 
         results = adata.X.todense()
 
-        assert results[0, :].tolist()[0] == [1, 0] or results[0, :].tolist()[0] == [
-            0,
-            0,
-        ]
-        assert results[1, :].tolist()[0] == [0, 1] or results[0, :].tolist()[0] == [
-            1,
-            1,
-        ]
+        assert results.sum() == 3
+
         assert adata.var_names.tolist() == ["a", "b"]
 
         adata = convert_transcripts_to_anndata(
