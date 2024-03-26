@@ -6,6 +6,7 @@ import numpy as np
 import anndata
 import tqdm
 import pandas as pd
+import numpy_groupies as npg
 
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import (
@@ -268,25 +269,60 @@ def raster_to_polygon(raster):
     return shapely.union_all(shapes)
 
 
+def pixel_coords_to_polygon(coords):
+    shapes = []
+    for x1, y1 in coords:
+        shapes.append(box(x1, y1, x1 + 1, y1 + 1))
+
+    return shapely.union_all(shapes)
+
+
 def convert_segmentation_to_shapefile(
     segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
 ):
-    x1, y1, x2, y2 = dataset.bbox
     records = []
     classes = predictions.classes.transpose(1, 2, 0)
-    for value in tqdm.tqdm(np.unique(segmentation)):
+    segmentation_raveled = segmentation.ravel().astype(int)
+    y, x = np.meshgrid(
+        np.arange(segmentation.shape[0]), np.arange(segmentation.shape[1])
+    )
+    y = y.ravel()
+    x = x.ravel()
+
+    segmentation_df = pd.DataFrame(
+        {
+            "x": x,
+            "y": y,
+            "segmentation": segmentation_raveled,
+        }
+    )
+
+    segmentation_df = segmentation_df[~segmentation_df["segmentation"].isin([-1, 0])]
+
+    coordinate_bags = segmentation_df.groupby("segmentation").apply(
+        lambda x: list(zip(x["x"], x["y"]))
+    )
+    coordinates = coordinate_bags.tolist()
+    cell_ids = coordinate_bags.index.tolist()
+    uniq = np.unique(segmentation).astype(int)
+    groupby_idx_lookup = dict(zip(np.arange(len(uniq)), uniq))
+
+    mean_class_prob_per_cell = np.zeros((len(uniq), classes.shape[2]))
+
+    for i in range(classes.shape[2]):
+        class_raveled = classes[:, :, i].ravel()
+        mean_per_cell = npg.aggregate(
+            segmentation_raveled, class_raveled, func="mean", fill_value=0
+        )
+        mean_class_prob_per_cell[:, i] = mean_per_cell
+
+    for cell_id, coords in tqdm.tqdm(zip(cell_ids, coordinates)):
         record = {}
-        if value in [-1, 0]:
-            continue
-        mask = segmentation == value
-        poly = raster_to_polygon(mask)
+        poly = pixel_coords_to_polygon(coords)
+        record["geometry"] = poly
+        gb_idx = groupby_idx_lookup[cell_id]
 
-        translated_poly = affinity.translate(poly, xoff=x1, yoff=y1)
-
-        record["geometry"] = translated_poly
-
-        mean_probs = classes[mask, :].mean(axis=0)
-        mean_probs = mean_probs / mean_probs.sum()
+        mean_probs = mean_class_prob_per_cell[gb_idx, :]
         class_assignment = int(np.argmax(mean_probs))
 
         record["class_assignment"] = class_assignment

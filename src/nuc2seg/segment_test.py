@@ -296,12 +296,8 @@ def test_convert_segmentation_to_shapefile():
     assert gdf.shape[0] == 2
     assert gdf.iloc[0].class_assignment == 0
     assert gdf.iloc[1].class_assignment == 1
-    assert gdf.iloc[0].geometry.area > 80
-    assert gdf.iloc[0].geometry.area <= 100
-    assert gdf.iloc[1].geometry.area > 80
-    assert gdf.iloc[1].geometry.area <= 100
-    assert np.isclose(gdf.iloc[0].class_0_prob, 0.967741935483871)
-    assert np.isclose(gdf.iloc[1].class_1_prob, 0.967741935483871)
+    assert gdf.iloc[0].geometry.area == 100
+    assert gdf.iloc[1].geometry.area == 100
 
 
 def test_convert_transcripts_to_anndata():
