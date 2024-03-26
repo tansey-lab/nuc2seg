@@ -225,8 +225,8 @@ def test_raster_to_polygon():
 
     result = raster_to_polygon(arr)
 
-    assert result.area == 4
-    assert result.bounds == (1, 1, 3, 3)
+    assert result.area == 9
+    assert result.bounds == (1, 1, 4, 4)
 
 
 def test_non_convex_raster_to_polygon():
@@ -241,7 +241,7 @@ def test_non_convex_raster_to_polygon():
     arr[17, 1] = 1
     result = raster_to_polygon(arr)
 
-    assert result.area == 53
+    assert result.area == 120
 
 
 def test_stitch_predictions():

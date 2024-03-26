@@ -1,3 +1,4 @@
+import shapely
 import torch
 import tqdm
 import logging
@@ -15,7 +16,7 @@ from nuc2seg.data import (
     SegmentationResults,
 )
 from scipy.sparse import csr_matrix
-from shapely import Polygon, affinity
+from shapely import Polygon, affinity, box
 from blended_tiling import TilingModule
 
 logger = logging.getLogger(__name__)
@@ -275,47 +276,16 @@ def get_boolean_true_bbox(boolean_array):
 def raster_to_polygon(raster):
     bbox = get_boolean_true_bbox(raster)
 
-    raster_sliced = raster[bbox[0] : bbox[2] + 1, bbox[1] : bbox[3] + 1]
+    # get coordinates of true values in nparray
+    x1, y1 = np.where(raster)
+    x2 = x1 + 1
+    y2 = y1 + 1
 
-    # Find contours in the binary image
-    contours, hierarchy = cv2.findContours(
-        raster_sliced.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
+    shapes = []
+    for x1, y1, x2, y2 in zip(x1, y1, x2, y2):
+        shapes.append(box(x1, y1, x2, y2))
 
-    # Initialize lists to hold outer contours and holes
-    outer_contours = []
-    holes = []
-
-    for i, contour in enumerate(contours):
-        # The contour points are in (row, column) format, so we flip them to (x, y)
-        coords = contour.squeeze(axis=1)
-        xy = [(p[1], p[0]) for p in coords]
-
-        # Check if this contour has a parent
-        if hierarchy[0][i][3] == -1:
-            # No parent, so it's an external contour
-            outer_contours.append(xy)
-        else:
-            # Has a parent, so it's a hole
-            holes.append(xy)
-
-    # Assuming single polygon, we take the first outer contour
-    # You can loop over outer_contours to create multiple polygons if needed
-    if outer_contours:
-        exterior = outer_contours[0]
-
-        # remove duplicate points without changing order
-        seen = []
-        for pt in exterior:
-            if pt in seen:
-                continue
-            # detect if last 3 points are collinear
-            if len(seen) > 2 and collinear(seen[-2], seen[-1], pt):
-                continue
-            else:
-                seen.append(pt)
-
-        return affinity.translate(Polygon(seen, holes=[]), xoff=bbox[0], yoff=bbox[1])
+    return shapely.union_all(shapes)
 
 
 def convert_segmentation_to_shapefile(
