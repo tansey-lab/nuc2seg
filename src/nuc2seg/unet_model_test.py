@@ -1,4 +1,9 @@
-from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule, training_step
+from nuc2seg.unet_model import (
+    SparseUNet,
+    Nuc2SegDataModule,
+    training_step,
+    calculate_even_weights,
+)
 import torch
 import shutil
 import numpy as np
@@ -37,9 +42,10 @@ def test_model():
         tile_width=64,
         tile_overlap=0.0,
         celltype_criterion_weights=torch.tensor([1, 1, 1]).float(),
+        moving_average_size=1,
     )
 
-    trainer = Trainer(fast_dev_run=True, accelerator="cpu")
+    trainer = Trainer(accelerator="cpu", max_epochs=3)
 
     labels = np.zeros((100, 100))
 
@@ -110,7 +116,6 @@ def test_training_step():
     classes = classes.long()
 
     (
-        perfect_train_loss,
         perfect_foreground_loss,
         perfect_angle_loss,
         perfect_celltype_loss,
@@ -124,8 +129,10 @@ def test_training_step():
         nucleus_mask=nucleus_mask,
         angles=angles,
     )
+    perfect_train_loss = (
+        perfect_foreground_loss + perfect_angle_loss + perfect_celltype_loss
+    )
 
-    assert torch.isclose(perfect_train_loss, torch.tensor(0.0), atol=1e-3)
     assert torch.isclose(perfect_foreground_loss, torch.tensor(0.0), atol=1e-3)
     assert torch.isclose(perfect_angle_loss, torch.tensor(0.0), atol=1e-3)
     assert torch.isclose(perfect_celltype_loss, torch.tensor(0.0), atol=1e-3)
@@ -139,7 +146,7 @@ def test_training_step():
 
     angles = (angles + np.pi) / (2 * np.pi)
 
-    train_loss_worse_1, _, bad_angle_loss, _ = training_step(
+    bad_foreground_loss, bad_angle_loss, bad_celltype_loss = training_step(
         prediction=predictions,
         foreground_criterion=foreground_criterion,
         celltype_criterion=celltype_criterion,
@@ -149,13 +156,13 @@ def test_training_step():
         nucleus_mask=nucleus_mask,
         angles=angles,
     )
+    train_loss_worse_1 = bad_foreground_loss + bad_angle_loss + bad_celltype_loss
 
     assert bad_angle_loss > perfect_angle_loss
-    assert train_loss_worse_1 > perfect_train_loss
 
     predictions[:, :, 2:] = torch.logit(torch.tensor([0.33, 0.33, 0.33]))
 
-    train_loss_worse_2, _, _, bad_celltype_loss = training_step(
+    bad_foreground_loss, bad_angle_loss, bad_celltype_loss = training_step(
         prediction=predictions,
         foreground_criterion=foreground_criterion,
         celltype_criterion=celltype_criterion,
@@ -165,13 +172,13 @@ def test_training_step():
         nucleus_mask=nucleus_mask,
         angles=angles,
     )
+    train_loss_worse_2 = bad_foreground_loss + bad_angle_loss + bad_celltype_loss
 
     assert bad_celltype_loss > perfect_celltype_loss
-    assert train_loss_worse_2 > train_loss_worse_1 > perfect_train_loss
 
     predictions[3:8, 3:8, 0] = torch.logit(torch.tensor(0.5))
 
-    train_loss_worse_3, bad_foreground_loss, _, _ = training_step(
+    bad_foreground_loss, bad_angle_loss, bad_celltype_loss = training_step(
         prediction=predictions,
         foreground_criterion=foreground_criterion,
         celltype_criterion=celltype_criterion,
@@ -181,6 +188,7 @@ def test_training_step():
         nucleus_mask=nucleus_mask,
         angles=angles,
     )
+    train_loss_worse_3 = bad_foreground_loss + bad_angle_loss + bad_celltype_loss
 
     assert bad_foreground_loss > perfect_foreground_loss
     assert (
@@ -189,3 +197,20 @@ def test_training_step():
         > train_loss_worse_1
         > perfect_train_loss
     )
+
+
+def test_calculate_even_weights():
+    x, y, z = (torch.tensor([1.0]), torch.tensor([1.0]), torch.tensor([1.0]))
+    a, b, c = calculate_even_weights([x, y, z])
+
+    assert (a * x).item() == (b * y).item() == (c * z).item() == 1.0
+
+    x, y, z = (torch.tensor([1.0]), torch.tensor([2.0]), torch.tensor([3.0]))
+    a, b, c = calculate_even_weights([x, y, z])
+
+    assert (a * x).item() == (b * y).item() == (c * z).item() == 2.0
+
+    x, y, z = (torch.tensor([1e-7]), torch.tensor([1e-2]), torch.tensor([3.0]))
+    a, b, c = calculate_even_weights([x, y, z])
+
+    assert (a * x).item() == (b * y).item() == (c * z).item()

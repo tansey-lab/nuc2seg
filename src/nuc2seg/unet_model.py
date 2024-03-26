@@ -64,6 +64,17 @@ def angle_loss(predictions, targets):
     return squared_angle_difference(torch.sigmoid(predictions), targets)
 
 
+def calculate_even_weights(values):
+    n_classes = float(len(values))
+
+    total = sum(values)
+
+    result = []
+    for val in values:
+        result.append(total / (val * n_classes))
+    return tuple(result)
+
+
 def training_step(
     labels,
     angles,
@@ -73,9 +84,6 @@ def training_step(
     prediction,
     foreground_criterion,
     celltype_criterion,
-    foreground_loss_factor=1.0,
-    celltype_loss_factor=1.0,
-    angle_loss_factor=10.0,
 ):
     label_mask = label_mask.type(torch.bool)
 
@@ -100,15 +108,9 @@ def training_step(
             class_pred[nucleus_mask], classes[nucleus_mask] - 1
         )
 
-        train_loss = (
-            (foreground_loss * foreground_loss_factor)
-            + (angle_loss_val * angle_loss_factor)
-            + (celltype_loss * celltype_loss_factor)
-        )
-        return train_loss, foreground_loss, angle_loss_val, celltype_loss
+        return foreground_loss, angle_loss_val, celltype_loss
     else:
-        train_loss = foreground_loss * foreground_loss_factor
-        return train_loss, foreground_loss, None, None
+        return foreground_loss, None, None
 
 
 class SparseUNet(LightningModule):
@@ -125,9 +127,10 @@ class SparseUNet(LightningModule):
         lr: float = 1e-5,
         weight_decay: float = 0,
         betas: float = (0.9, 0.999),
-        angle_loss_factor: float = 10.0,
+        angle_loss_factor: float = 1.0,
         foreground_loss_factor: float = 1.0,
         celltype_loss_factor: float = 1.0,
+        moving_average_size: int = 100,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -136,6 +139,18 @@ class SparseUNet(LightningModule):
             tile_height,
             n_filters,
         )
+        self.foreground_loss_history = torch.zeros(
+            (moving_average_size,), device=self.device, dtype=torch.float
+        )
+        self.foreground_loss_history[:] = torch.nan
+        self.angle_loss_history = torch.zeros(
+            (moving_average_size,), device=self.device, dtype=torch.float
+        )
+        self.angle_loss_history[:] = torch.nan
+        self.celltype_loss_history = torch.zeros(
+            (moving_average_size,), device=self.device, dtype=torch.float
+        )
+        self.celltype_loss_history[:] = torch.nan
         self.filters = Embedding(n_channels, n_filters)
         self.n_classes = n_classes + 2
         self.unet = UNet(
@@ -148,6 +163,34 @@ class SparseUNet(LightningModule):
             weight=celltype_criterion_weights,
         )
         self.validation_step_outputs = []
+
+    def update_moving_average(self, foreground_loss, angle_loss, celltype_loss):
+        self.foreground_loss_history = torch.roll(self.foreground_loss_history, 1)
+        self.foreground_loss_history[0] = foreground_loss
+        self.angle_loss_history = torch.roll(self.angle_loss_history, 1)
+        self.angle_loss_history[0] = angle_loss
+        self.celltype_loss_history = torch.roll(self.celltype_loss_history, 1)
+        self.celltype_loss_history[0] = celltype_loss
+
+    def get_weighted_losses(self, foreground_loss, angle_loss, celltype_loss):
+        avg_foreground_loss = self.foreground_loss_history.nanmean()
+        avg_angle_loss = self.angle_loss_history.nanmean()
+        avg_celltype_loss = self.celltype_loss_history.nanmean()
+
+        foreground_weight, angle_weight, celltype_weight = calculate_even_weights(
+            [avg_foreground_loss, avg_angle_loss, avg_celltype_loss]
+        )
+
+        # remove gradient from weights
+        foreground_weight = foreground_weight.detach()
+        angle_weight = angle_weight.detach()
+        celltype_weight = celltype_weight.detach()
+
+        return (
+            foreground_loss * foreground_weight,
+            angle_loss * angle_weight,
+            celltype_loss * celltype_weight,
+        )
 
     def forward(self, x, y, z):
         mask = z > -1
@@ -192,7 +235,7 @@ class SparseUNet(LightningModule):
 
         prediction = self.forward(x, y, z)
 
-        train_loss, foreground_loss, angle_loss_val, celltype_loss = training_step(
+        foreground_loss, angle_loss_val, celltype_loss = training_step(
             labels=labels,
             angles=angles,
             classes=classes,
@@ -201,10 +244,24 @@ class SparseUNet(LightningModule):
             prediction=prediction,
             foreground_criterion=self.foreground_criterion,
             celltype_criterion=self.celltype_criterion,
-            foreground_loss_factor=self.hparams.foreground_loss_factor,
-            celltype_loss_factor=self.hparams.celltype_loss_factor,
-            angle_loss_factor=self.hparams.angle_loss_factor,
         )
+
+        self.update_moving_average(foreground_loss, angle_loss_val, celltype_loss)
+
+        # if greater than n steps
+        if self.global_step > self.hparams.moving_average_size:
+            foreground_loss, angle_loss_val, celltype_loss = self.get_weighted_losses(
+                foreground_loss, angle_loss_val, celltype_loss
+            )
+
+        if angle_loss_val is not None and celltype_loss is not None:
+            train_loss = (
+                (foreground_loss * self.hparams.foreground_loss_factor)
+                + (angle_loss_val * self.hparams.angle_loss_factor)
+                + (celltype_loss * self.hparams.celltype_loss_factor)
+            )
+        else:
+            train_loss = foreground_loss * self.hparams.foreground_loss_factor
 
         self.log("foreground_loss", foreground_loss)
 
