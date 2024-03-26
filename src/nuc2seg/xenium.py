@@ -1,12 +1,10 @@
 import logging
-import os
 
 import shapely
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import zarr
-import cv2
 from skimage.transform import resize
 from matplotlib import pyplot as plt
 from shapely import Polygon

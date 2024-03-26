@@ -1,8 +1,6 @@
 import shapely
 import torch
-import tqdm
 import logging
-import cv2
 import geopandas
 import numpy as np
 import anndata
@@ -257,25 +255,7 @@ def collinear(p1, p2, p3):
     )
 
 
-def get_boolean_true_bbox(boolean_array):
-    rows_with_true = np.any(boolean_array, axis=1)
-    cols_with_true = np.any(boolean_array, axis=0)
-
-    # Find the min and max y coordinates (row indices)
-    min_x = np.where(rows_with_true)[0].min()
-    max_x = np.where(rows_with_true)[0].max()
-
-    # Find the min and max x coordinates (column indices)
-    min_y = np.where(cols_with_true)[0].min()
-    max_y = np.where(cols_with_true)[0].max()
-
-    bbox = (min_x, min_y, max_x, max_y)
-    return bbox
-
-
 def raster_to_polygon(raster):
-    bbox = get_boolean_true_bbox(raster)
-
     # get coordinates of true values in nparray
     x1, y1 = np.where(raster)
     x2 = x1 + 1
@@ -293,25 +273,19 @@ def convert_segmentation_to_shapefile(
 ):
     x1, y1, x2, y2 = dataset.bbox
     records = []
-
+    classes = predictions.classes.transpose(1, 2, 0)
     for value in tqdm.tqdm(np.unique(segmentation)):
         record = {}
         if value in [-1, 0]:
             continue
         mask = segmentation == value
-        try:
-            poly = raster_to_polygon(mask)
-        except ValueError:
-            logger.exception(
-                "Failed to convert segmentation to poly (probably too small)"
-            )
-            continue
+        poly = raster_to_polygon(mask)
 
         translated_poly = affinity.translate(poly, xoff=x1, yoff=y1)
 
         record["geometry"] = translated_poly
 
-        mean_probs = predictions.classes.transpose(1, 2, 0)[mask, :].mean(axis=0)
+        mean_probs = classes[mask, :].mean(axis=0)
         mean_probs = mean_probs / mean_probs.sum()
         class_assignment = int(np.argmax(mean_probs))
 
