@@ -246,6 +246,13 @@ class SparseUNet(LightningModule):
             celltype_criterion=self.celltype_criterion,
         )
 
+        self.log("foreground_loss", foreground_loss)
+        if angle_loss_val is not None:
+            self.log("angle_loss", angle_loss_val)
+
+        if celltype_loss is not None:
+            self.log("celltype_loss", celltype_loss)
+
         self.update_moving_average(foreground_loss, angle_loss_val, celltype_loss)
 
         # if greater than n steps
@@ -263,13 +270,13 @@ class SparseUNet(LightningModule):
         else:
             train_loss = foreground_loss * self.hparams.foreground_loss_factor
 
-        self.log("foreground_loss", foreground_loss)
+        self.log("foreground_loss_weighted", foreground_loss)
 
         if angle_loss_val is not None:
-            self.log("angle_loss", angle_loss_val)
+            self.log("angle_loss_weighted", angle_loss_val)
 
         if celltype_loss is not None:
-            self.log("celltype_loss", celltype_loss)
+            self.log("celltype_loss_weighted", celltype_loss)
         self.log("train_loss", train_loss)
 
         return train_loss
