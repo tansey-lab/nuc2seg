@@ -219,12 +219,29 @@ def test_raster_to_polygon():
             [0, 0, 0, 0],
             [0, 1, 1, 1],
             [0, 1, 1, 1],
+            [0, 1, 1, 1],
         ]
     )
 
     result = raster_to_polygon(arr)
 
-    assert result
+    assert result.area == 4
+    assert result.bounds == (1, 1, 3, 3)
+
+
+def test_non_convex_raster_to_polygon():
+    # draw a serif letter S as a numpy array in pixels
+    arr = np.zeros((20, 20))
+    arr[1:3, 1:19] = 1
+    arr[3:10, 1:3] = 1
+    arr[10:18, 17:19] = 1
+    arr[18:20, 1:19] = 1
+    arr[9, 1:19] = 1
+    arr[3, 18] = 1
+    arr[17, 1] = 1
+    result = raster_to_polygon(arr)
+
+    assert result.area == 53
 
 
 def test_stitch_predictions():
@@ -300,6 +317,7 @@ def test_convert_transcripts_to_anndata():
     transcripts = geopandas.GeoDataFrame(
         [
             ["a", Point(0.5, 0.5)],
+            ["a", Point(0.5, 0.5)],
             ["b", Point(2, 0.5)],
         ],
         columns=["feature_name", "geometry"],
@@ -320,14 +338,8 @@ def test_convert_transcripts_to_anndata():
 
         results = adata.X.todense()
 
-        assert results[0, :].tolist()[0] == [1, 0] or results[0, :].tolist()[0] == [
-            0,
-            0,
-        ]
-        assert results[1, :].tolist()[0] == [0, 1] or results[0, :].tolist()[0] == [
-            1,
-            1,
-        ]
+        assert results.sum() == 3
+
         assert adata.var_names.tolist() == ["a", "b"]
 
         adata = convert_transcripts_to_anndata(

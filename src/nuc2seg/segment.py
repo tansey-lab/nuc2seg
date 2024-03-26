@@ -315,9 +315,7 @@ def raster_to_polygon(raster):
             else:
                 seen.append(pt)
 
-        return affinity.translate(
-            Polygon(seen, holes=[]), xoff=bbox[0] - 1, yoff=bbox[1] - 1
-        )
+        return affinity.translate(Polygon(seen, holes=[]), xoff=bbox[0], yoff=bbox[1])
 
 
 def convert_segmentation_to_shapefile(
@@ -404,33 +402,45 @@ def convert_transcripts_to_anndata(
             f"Dropped {before_min_molecules - after_min_molecules} cells with fewer than {min_molecules_per_cell} transcripts"
         )
 
-    del sjoined_gdf["index"]
-
-    cell_u = list(sorted(sjoined_gdf.index_right.unique()))
-    gene_u = list(sorted(sjoined_gdf[gene_name_column].unique()))
-
-    sjoined_gdf["index_right"] = pd.Categorical(
-        sjoined_gdf["index_right"], categories=cell_u, ordered=True
+    summed_counts_per_cell = (
+        sjoined_gdf.groupby(["index", gene_name_column])
+        .size()
+        .reset_index(name="count")
     )
 
-    sjoined_gdf.set_index("index_right", inplace=True)
-
-    sjoined_gdf["count"] = 1
-
-    data = sjoined_gdf["count"].tolist()
-
-    sjoined_gdf["gene"] = pd.Categorical(
-        sjoined_gdf[gene_name_column], categories=gene_u, ordered=True
+    summed_counts_per_cell = pd.merge(
+        summed_counts_per_cell,
+        segmentation_gdf[["area", "centroid_x", "centroid_y"]],
+        left_on="index",
+        right_index=True,
     )
-    row = sjoined_gdf.index.codes
-    col = sjoined_gdf.gene.cat.codes
+
+    del summed_counts_per_cell["index"]
+    summed_counts_per_cell.reset_index(inplace=True)
+
+    cell_u = list(sorted(summed_counts_per_cell.index.unique()))
+    gene_u = list(sorted(summed_counts_per_cell[gene_name_column].unique()))
+
+    summed_counts_per_cell["index"] = pd.Categorical(
+        summed_counts_per_cell["index"], categories=cell_u, ordered=True
+    )
+
+    summed_counts_per_cell.set_index("index", inplace=True)
+
+    data = summed_counts_per_cell["count"].tolist()
+
+    summed_counts_per_cell["gene"] = pd.Categorical(
+        summed_counts_per_cell[gene_name_column], categories=gene_u, ordered=True
+    )
+    row = summed_counts_per_cell.index.codes
+    col = summed_counts_per_cell.gene.cat.codes
 
     sparse_matrix = csr_matrix((data, (row, col)), shape=(len(cell_u), len(gene_u)))
 
     adata = anndata.AnnData(
         X=sparse_matrix,
-        obsm={"spatial": sjoined_gdf[["centroid_x", "centroid_y"]].values},
-        obs=sjoined_gdf[["area"]],
+        obsm={"spatial": summed_counts_per_cell[["centroid_x", "centroid_y"]].values},
+        obs=summed_counts_per_cell[["area"]],
         var=pd.DataFrame(index=gene_u),
     )
 
