@@ -283,6 +283,7 @@ def convert_segmentation_to_shapefile(
     records = []
     classes = predictions.classes.transpose(1, 2, 0)
     segmentation_raveled = segmentation.ravel().astype(int)
+    segmentation_raveled[segmentation_raveled == -1] = 0
     y, x = np.meshgrid(
         np.arange(segmentation.shape[0]), np.arange(segmentation.shape[1])
     )
@@ -304,7 +305,7 @@ def convert_segmentation_to_shapefile(
     )
     coordinates = coordinate_bags.tolist()
     cell_ids = coordinate_bags.index.tolist()
-    uniq = np.unique(segmentation).astype(int)
+    uniq = np.unique(segmentation_raveled).astype(int)
     groupby_idx_lookup = dict(zip(np.arange(len(uniq)), uniq))
 
     mean_class_prob_per_cell = np.zeros((len(uniq), classes.shape[2]))

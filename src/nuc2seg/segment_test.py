@@ -288,6 +288,7 @@ def test_convert_segmentation_to_shapefile():
     segmentation[10:20, 10:20] = 1
 
     segmentation[30:40, 30:40] = 2
+    segmentation[1, 1] = -1
 
     gdf = convert_segmentation_to_shapefile(
         dataset=dataset, predictions=predictions, segmentation=segmentation
@@ -298,6 +299,8 @@ def test_convert_segmentation_to_shapefile():
     assert gdf.iloc[1].class_assignment == 1
     assert gdf.iloc[0].geometry.area == 100
     assert gdf.iloc[1].geometry.area == 100
+    assert gdf.iloc[0].class_0_prob >= 0.89
+    assert gdf.iloc[1].class_1_prob >= 0.89
 
 
 def test_convert_transcripts_to_anndata():
