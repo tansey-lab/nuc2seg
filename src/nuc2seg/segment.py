@@ -317,7 +317,7 @@ def convert_segmentation_to_shapefile(
         )
         mean_class_prob_per_cell[:, i] = mean_per_cell
 
-    for cell_id, coords in tqdm.tqdm(zip(cell_ids, coordinates)):
+    for cell_id, coords in tqdm.tqdm(list(zip(cell_ids, coordinates))):
         record = {}
         poly = pixel_coords_to_polygon(coords)
         record["geometry"] = poly
