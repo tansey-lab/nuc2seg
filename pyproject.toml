@@ -47,7 +47,8 @@ dependencies = [
     "rasterio",
     "zarr",
     "scikit-image",
-    "pyometiff"
+    "pyometiff",
+    "numpy_groupies"
 ]
 
 [project.optional-dependencies]
