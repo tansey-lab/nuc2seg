@@ -10,7 +10,11 @@ from nuc2seg.segment import (
 )
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
 from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
-from nuc2seg.xenium import read_transcripts_into_points
+from nuc2seg.xenium import (
+    read_transcripts_into_points,
+    load_nuclei,
+    create_shapely_rectangle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,12 @@ def get_parser():
     parser.add_argument(
         "--transcripts",
         help="Xenium transcripts file in parquet format.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--nuclei-file",
+        help="Path to the Xenium nuclei boundaries parquet file",
         type=str,
         required=True,
     )
@@ -67,13 +77,28 @@ def get_parser():
         type=float,
         default=0.5,
     )
+    parser.add_argument(
+        "--sample-area",
+        default=None,
+        type=str,
+        help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
+    )
     return parser
 
 
 def main():
     args = get_parser().parse_args()
 
+    if args.sample_area:
+        sample_area = create_shapely_rectangle(
+            *[float(x) for x in args.sample_area.split(",")]
+        )
+
+    else:
+        sample_area = None
+
     transcripts = read_transcripts_into_points(args.transcripts)
+    nuclei_gdf = load_nuclei(nuclei_file=args.nuclei_file, sample_area=sample_area)
 
     dataset = Nuc2SegDataset.load_h5(args.dataset)
     predictions = ModelPredictions.load_h5(args.predictions)
@@ -99,11 +124,6 @@ def main():
 
     logger.info(f"Saving anndata to {args.anndata_output}")
     ad.write_h5ad(args.anndata_output)
-
-    logger.info(f"Converting segmentation to shapefile")
-    nuclei_gdf = convert_segmentation_to_shapefile(
-        segmentation=dataset.labels, dataset=dataset, predictions=predictions
-    )
 
     logger.info(f"Plotting segmentation and class assignment.")
     plot_final_segmentation(

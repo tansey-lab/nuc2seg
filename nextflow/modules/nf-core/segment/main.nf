@@ -29,6 +29,7 @@ process SEGMENT {
         --shapefile-output ${prefix}/shapes.parquet \
         --anndata-output ${prefix}/anndata.h5ad \
         --transcripts ${xenium_dir}/transcripts.parquet \
+        --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
         --dataset ${dataset} \
         --predictions ${predictions} \
         ${args}

@@ -260,36 +260,36 @@ def test_stitch_predictions():
 
 
 def test_convert_segmentation_to_shapefile():
-    classes = np.zeros((64, 64, 4))
+
+    classes = np.zeros((64, 100, 4))
 
     classes[10:20, 10:20, :] = np.array([0.9, 0.01, 0.01, 0.01])
     classes[30:40, 30:40, :] = np.array([0.01, 0.9, 0.01, 0.01])
     classes = classes.transpose((2, 0, 1))
 
     predictions = ModelPredictions(
-        angles=np.zeros((64, 64)),
+        angles=np.zeros((64, 100)),
         classes=classes,
-        foreground=np.ones((64, 64)) * 0.5,
+        foreground=np.ones((64, 100)) * 0.5,
     )
 
     dataset = Nuc2SegDataset(
-        labels=np.zeros((64, 64)),
-        angles=np.zeros((64, 64)),
-        classes=np.zeros((64, 64, 4)),
+        labels=np.zeros((64, 100)),
+        angles=np.zeros((64, 100)),
+        classes=np.zeros((64, 100, 4)),
         transcripts=np.array([[0, 0, 0], [32, 32, 1], [35, 35, 2], [22, 22, 2]]),
-        bbox=np.array([0, 0, 64, 64]),
+        bbox=np.array([0, 0, 64, 100]),
         n_classes=3,
         n_genes=3,
         resolution=1,
     )
 
-    segmentation = np.zeros((64, 64))
+    segmentation = np.zeros((64, 100))
 
     segmentation[10:20, 10:20] = 1
 
     segmentation[30:40, 30:40] = 2
     segmentation[1, 1] = -1
-
     gdf = convert_segmentation_to_shapefile(
         dataset=dataset, predictions=predictions, segmentation=segmentation
     )

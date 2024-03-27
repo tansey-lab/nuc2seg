@@ -277,26 +277,31 @@ def pixel_coords_to_polygon(coords):
     return shapely.union_all(shapes)
 
 
+def raster_to_df(raster):
+    x, y = np.meshgrid(np.arange(raster.shape[0]), np.arange(raster.shape[1]))
+    y = y.ravel()
+    x = x.ravel()
+
+    return pd.DataFrame(
+        {
+            "x": x,
+            "y": y,
+            "segmentation": raster.ravel(),
+        }
+    )
+
+
 def convert_segmentation_to_shapefile(
     segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
 ):
     records = []
     classes = predictions.classes.transpose(1, 2, 0)
-    segmentation_raveled = segmentation.ravel().astype(int)
-    segmentation_raveled[segmentation_raveled == -1] = 0
-    y, x = np.meshgrid(
-        np.arange(segmentation.shape[0]), np.arange(segmentation.shape[1])
-    )
-    y = y.ravel()
-    x = x.ravel()
+    segmentation_flattened = segmentation.flatten().astype(int)
+    segmentation_flattened[segmentation_flattened == -1] = 0
+    x, y = np.indices(segmentation.shape)
+    data = {"x": x.flatten(), "y": y.flatten(), "segmentation": segmentation.flatten()}
 
-    segmentation_df = pd.DataFrame(
-        {
-            "x": x,
-            "y": y,
-            "segmentation": segmentation_raveled,
-        }
-    )
+    segmentation_df = pd.DataFrame(data)
 
     segmentation_df = segmentation_df[~segmentation_df["segmentation"].isin([-1, 0])]
 
@@ -305,7 +310,7 @@ def convert_segmentation_to_shapefile(
     )
     coordinates = coordinate_bags.tolist()
     cell_ids = coordinate_bags.index.tolist()
-    uniq = np.unique(segmentation_raveled).astype(int)
+    uniq = np.unique(segmentation_flattened).astype(int)
     groupby_idx_lookup = dict(zip(np.arange(len(uniq)), uniq))
 
     mean_class_prob_per_cell = np.zeros((len(uniq), classes.shape[2]))
@@ -313,7 +318,7 @@ def convert_segmentation_to_shapefile(
     for i in range(classes.shape[2]):
         class_raveled = classes[:, :, i].ravel()
         mean_per_cell = npg.aggregate(
-            segmentation_raveled, class_raveled, func="mean", fill_value=0
+            segmentation_flattened, class_raveled, func="mean", fill_value=0
         )
         mean_class_prob_per_cell[:, i] = mean_per_cell
 
