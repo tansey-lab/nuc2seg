@@ -1,5 +1,5 @@
 from nuc2seg.celltyping import (
-    estimate_cell_types,
+    fit_celltype_em_model,
     run_cell_type_estimation,
     select_best_celltyping_chain,
 )
@@ -12,7 +12,7 @@ def test_estimate_cell_types():
 
     gene_counts = np.random.poisson(10, size=(n_cells, n_genes))
 
-    celltyping_results = estimate_cell_types(
+    celltyping_results = fit_celltype_em_model(
         gene_counts,
         gene_names=[f"gene_{i}" for i in range(n_genes)],
         min_components=2,
@@ -63,7 +63,7 @@ def test_estimate_cell_types2():
     data[66:, 8:] = np.random.poisson(10, size=(33, 4))
     data[:66, 8:] = np.random.poisson(1, size=(66, 4))
 
-    celltyping_results = estimate_cell_types(
+    celltyping_results = fit_celltype_em_model(
         data,
         gene_names=[f"gene_{i}" for i in range(n_genes)],
         min_components=2,

@@ -109,20 +109,15 @@ def test_celltype_results():
     results = CelltypingResults(
         aic_scores=np.array([1, 2, 3]),
         bic_scores=np.array([1, 2, 3]),
-        final_expression_profiles=[
+        expression_profiles=[
             np.array([1, 2]),
             np.array([1, 2, 3]),
             np.array([1, 2, 3, 4]),
         ],
-        final_prior_probs=[
+        prior_probs=[
             np.array([[1, 2]]),
             np.array([[1, 2, 3]]),
             np.array([[1, 2, 3, 4]]),
-        ],
-        final_cell_types=[
-            np.array([1, 2]),
-            np.array([1, 2, 3]),
-            np.array([1, 2, 3, 4]),
         ],
         relative_expression=[
             np.array([1, 2]),

@@ -28,6 +28,25 @@ def aic_bic(gene_counts, expression_profiles, prior_probs):
 
 
 def estimate_cell_types(
+    prior_probs,
+    expression_profiles,
+    gene_counts,
+):
+    """
+    Estimate the cell types probabilities for each cell.
+
+    :param prior_probs: The prior probabilities of each cell type, shape (n_cell_types,)
+    :param expression_profiles: The expression profiles of each cell type, shape (n_cell_types, n_genes)
+    :param gene_counts: The gene counts for each cell, shape (n_cells, n_genes)
+    :return: Array of probabilities for each cell type, shape(n_cell, n_cell_types)
+    """
+    logits = np.log(prior_probs[None]) + (
+        gene_counts[:, None] * np.log(expression_profiles[None])
+    ).sum(axis=2)
+    return softmax(logits, axis=1)
+
+
+def fit_celltype_em_model(
     gene_counts,
     gene_names,
     min_components=2,
@@ -105,10 +124,11 @@ def estimate_cell_types(
         ):
 
             # E-step: estimate cell type assignments (posterior probabilities)
-            logits = np.log(cur_prior_probs[None]) + (
-                gene_counts[:, None] * np.log(cur_expression_profiles[None])
-            ).sum(axis=2)
-            cur_cell_types = softmax(logits, axis=1)
+            cur_cell_types = estimate_cell_types(
+                prior_probs=cur_prior_probs,
+                expression_profiles=cur_expression_profiles,
+                gene_counts=gene_counts,
+            )
 
             # M-step (part 1): estimate cell type profiles
             prev_expression_profiles = np.array(cur_expression_profiles)
@@ -156,9 +176,8 @@ def estimate_cell_types(
     return CelltypingResults(
         aic_scores=aic_scores,
         bic_scores=bic_scores,
-        final_expression_profiles=final_expression_profiles,
-        final_prior_probs=final_prior_probs,
-        final_cell_types=final_cell_types,
+        expression_profiles=final_expression_profiles,
+        prior_probs=final_prior_probs,
         relative_expression=relative_expression,
         min_n_components=min_components,
         max_n_components=max_components,
@@ -227,7 +246,7 @@ def run_cell_type_estimation(
 
     gene_names = np.array([gene_name_map[i] for i in range(n_genes)])
 
-    return estimate_cell_types(
+    return fit_celltype_em_model(
         nuclei_count_matrix,
         gene_names=gene_names,
         min_components=min_components,

@@ -4,7 +4,7 @@ from nuc2seg.plotting import (
     rank_genes_groups_plot,
 )
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
-from nuc2seg.celltyping import estimate_cell_types
+from nuc2seg.celltyping import fit_celltype_em_model
 from nuc2seg.preprocessing import cart2pol
 import numpy as np
 import tempfile
@@ -77,7 +77,7 @@ def test_plot_celltype_estimation_results():
     tmpdir = tempfile.mkdtemp()
 
     try:
-        celltyping_results = estimate_cell_types(
+        celltyping_results = fit_celltype_em_model(
             gene_counts,
             gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
             min_components=2,
@@ -126,7 +126,7 @@ def test_rank_genes_groups_plot():
     tmpdir = tempfile.mkdtemp()
 
     try:
-        celltyping_results = estimate_cell_types(
+        celltyping_results = fit_celltype_em_model(
             gene_counts,
             gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
             min_components=2,

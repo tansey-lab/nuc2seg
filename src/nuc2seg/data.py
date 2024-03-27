@@ -15,9 +15,8 @@ class CelltypingResults:
         self,
         aic_scores,
         bic_scores,
-        final_expression_profiles,
-        final_prior_probs,
-        final_cell_types,
+        expression_profiles,
+        prior_probs,
         relative_expression,
         min_n_components,
         max_n_components,
@@ -25,9 +24,8 @@ class CelltypingResults:
     ):
         self.aic_scores = aic_scores
         self.bic_scores = bic_scores
-        self.final_expression_profiles = final_expression_profiles
-        self.final_prior_probs = final_prior_probs
-        self.final_cell_types = final_cell_types
+        self.final_expression_profiles = expression_profiles
+        self.final_prior_probs = prior_probs
         self.relative_expression = relative_expression
         self.n_component_values = np.arange(min_n_components, max_n_components + 1)
         self.gene_names = gene_names
@@ -90,9 +88,8 @@ class CelltypingResults:
         return CelltypingResults(
             aic_scores=aic_scores,
             bic_scores=bic_scores,
-            final_expression_profiles=final_expression_profiles,
-            final_prior_probs=final_prior_probs,
-            final_cell_types=final_cell_types,
+            expression_profiles=final_expression_profiles,
+            prior_probs=final_prior_probs,
             relative_expression=relative_expression,
             min_n_components=min(n_component_values),
             max_n_components=max(n_component_values),
