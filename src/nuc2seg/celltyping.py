@@ -157,7 +157,6 @@ def fit_celltype_em_model(
 
         # Save the results
         final_expression_profiles.append(cur_expression_profiles)
-        final_cell_types.append(cur_cell_types)
         final_prior_probs.append(cur_prior_probs)
 
         # Calculate BIC and AIC

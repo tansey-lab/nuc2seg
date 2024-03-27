@@ -139,11 +139,8 @@ def test_celltype_results():
 
         np.testing.assert_array_equal(results.aic_scores, results2.aic_scores)
         np.testing.assert_array_equal(results.bic_scores, results2.bic_scores)
-        assert len(results.final_expression_profiles) == len(
-            results2.final_expression_profiles
-        )
-        assert len(results.final_prior_probs) == len(results2.final_prior_probs)
-        assert len(results.final_cell_types) == len(results2.final_cell_types)
+        assert len(results.expression_profiles) == len(results2.expression_profiles)
+        assert len(results.prior_probs) == len(results2.prior_probs)
         assert len(results.relative_expression) == len(results2.relative_expression)
     finally:
         shutil.rmtree(tmpdir)
