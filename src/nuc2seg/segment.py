@@ -277,20 +277,6 @@ def pixel_coords_to_polygon(coords):
     return shapely.union_all(shapes)
 
 
-def raster_to_df(raster):
-    x, y = np.meshgrid(np.arange(raster.shape[0]), np.arange(raster.shape[1]))
-    y = y.ravel()
-    x = x.ravel()
-
-    return pd.DataFrame(
-        {
-            "x": x,
-            "y": y,
-            "segmentation": raster.ravel(),
-        }
-    )
-
-
 def convert_segmentation_to_shapefile(
     segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
 ):
@@ -299,17 +285,19 @@ def convert_segmentation_to_shapefile(
     segmentation_flattened = segmentation.flatten().astype(int)
     segmentation_flattened[segmentation_flattened == -1] = 0
     x, y = np.indices(segmentation.shape)
-    data = {"x": x.flatten(), "y": y.flatten(), "segmentation": segmentation.flatten()}
 
-    segmentation_df = pd.DataFrame(data)
+    # segmentation raster but as a dataframe with one row per pixel
+    segmentation_df = pd.DataFrame(
+        {"x": x.flatten(), "y": y.flatten(), "segmentation": segmentation.flatten()}
+    )
 
     segmentation_df = segmentation_df[~segmentation_df["segmentation"].isin([-1, 0])]
 
-    coordinate_bags = segmentation_df.groupby("segmentation").apply(
+    bag_of_coordinates_for_each_segment = segmentation_df.groupby("segmentation").apply(
         lambda x: list(zip(x["x"], x["y"]))
     )
-    coordinates = coordinate_bags.tolist()
-    cell_ids = coordinate_bags.index.tolist()
+    coordinates = bag_of_coordinates_for_each_segment.tolist()
+    cell_ids = bag_of_coordinates_for_each_segment.index.tolist()
     uniq = np.unique(segmentation_flattened).astype(int)
     groupby_idx_lookup = dict(zip(np.arange(len(uniq)), uniq))
 
