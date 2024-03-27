@@ -1,7 +1,6 @@
 import argparse
 import logging
 import numpy as np
-import pandas
 
 from nuc2seg import log_config
 from nuc2seg.xenium import (
@@ -79,12 +78,17 @@ def get_parser():
         type=int,
         default=25,
     )
-
     parser.add_argument(
         "--min-n-celltypes",
         help="Minimum number of cell types to consider.",
         type=int,
         default=2,
+    )
+    parser.add_argument(
+        "--max-cells",
+        help="Maximum number of cells to sample from data for celltype estimation.",
+        type=int,
+        default=20_000,
     )
     return parser
 
@@ -117,6 +121,16 @@ def main():
         nuclei_file=args.nuclei_file,
         sample_area=sample_area,
     )
+
+    # randomly downsample nuclei_df if it's too big
+    if nuclei_geo_df.shape[0] > args.max_cells:
+        prior_size = len(nuclei_geo_df)
+        nuclei_geo_df = nuclei_geo_df.sample(
+            n=args.max_cells, replace=False, random_state=args.seed, ignore_index=True
+        )
+        nuclei_geo_df["nucleus_label"] = np.arange(1, nuclei_geo_df.shape[0] + 1)
+        after_size = len(nuclei_geo_df)
+        logger.info(f"Downsampled nuclei from {prior_size} to {after_size}")
 
     tx_geo_df = load_and_filter_transcripts(
         transcripts_file=args.transcripts_file,
