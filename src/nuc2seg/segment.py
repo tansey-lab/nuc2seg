@@ -282,30 +282,23 @@ def convert_segmentation_to_shapefile(
 ):
     records = []
     classes = predictions.classes.transpose(1, 2, 0)
-    segmentation_raveled = segmentation.ravel().astype(int)
-    segmentation_raveled[segmentation_raveled == -1] = 0
-    y, x = np.meshgrid(
-        np.arange(segmentation.shape[0]), np.arange(segmentation.shape[1])
-    )
-    y = y.ravel()
-    x = x.ravel()
+    segmentation_flattened = segmentation.flatten().astype(int)
+    segmentation_flattened[segmentation_flattened == -1] = 0
+    x, y = np.indices(segmentation.shape)
 
+    # segmentation raster but as a dataframe with one row per pixel
     segmentation_df = pd.DataFrame(
-        {
-            "x": x,
-            "y": y,
-            "segmentation": segmentation_raveled,
-        }
+        {"x": x.flatten(), "y": y.flatten(), "segmentation": segmentation.flatten()}
     )
 
     segmentation_df = segmentation_df[~segmentation_df["segmentation"].isin([-1, 0])]
 
-    coordinate_bags = segmentation_df.groupby("segmentation").apply(
+    bag_of_coordinates_for_each_segment = segmentation_df.groupby("segmentation").apply(
         lambda x: list(zip(x["x"], x["y"]))
     )
-    coordinates = coordinate_bags.tolist()
-    cell_ids = coordinate_bags.index.tolist()
-    uniq = np.unique(segmentation_raveled).astype(int)
+    coordinates = bag_of_coordinates_for_each_segment.tolist()
+    cell_ids = bag_of_coordinates_for_each_segment.index.tolist()
+    uniq = np.unique(segmentation_flattened).astype(int)
     groupby_idx_lookup = dict(zip(np.arange(len(uniq)), uniq))
 
     mean_class_prob_per_cell = np.zeros((len(uniq), classes.shape[2]))
@@ -313,7 +306,7 @@ def convert_segmentation_to_shapefile(
     for i in range(classes.shape[2]):
         class_raveled = classes[:, :, i].ravel()
         mean_per_cell = npg.aggregate(
-            segmentation_raveled, class_raveled, func="mean", fill_value=0
+            segmentation_flattened, class_raveled, func="mean", fill_value=0
         )
         mean_class_prob_per_cell[:, i] = mean_per_cell
 

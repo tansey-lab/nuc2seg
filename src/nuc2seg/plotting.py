@@ -228,6 +228,71 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
     plt.close()
 
 
+def plot_segmentation_comparison(
+    seg_a, seg_b, nuclei, output_path, seg_a_name="sega", seg_b_name="segb", bbox=None
+):
+
+    if bbox:
+        seg_a = seg_a[seg_a.geometry.within(bbox)]
+        seg_b = seg_b[seg_b.geometry.within(bbox)]
+        nuclei = nuclei[nuclei.geometry.within(bbox)]
+
+    fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
+    ax.invert_yaxis()
+    seg_a.plot(
+        ax=ax,
+        color="blue",
+        alpha=0.5,
+    )
+    seg_b.plot(
+        ax=ax,
+        color="red",
+        alpha=0.5,
+    )
+    nuclei.plot(
+        ax=ax,
+        color="black",
+        alpha=0.5,
+    )
+
+    ax.legend(
+        handles=[
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor="blue",
+                markersize=10,
+                label=seg_a_name,
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor="red",
+                markersize=10,
+                label=seg_b_name,
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor="black",
+                markersize=10,
+                label="Nucleus",
+            ),
+        ],
+        loc="upper right",
+        bbox_to_anchor=(1, 0.5),
+    )
+
+    fig.savefig(output_path)
+    plt.close()
+
+
 def plot_segmentation_class_assignment(
     segmentation_gdf, output_path, cat_column="class_assignment"
 ):
