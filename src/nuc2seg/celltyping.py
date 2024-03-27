@@ -265,7 +265,6 @@ def run_cell_type_estimation(
     max_components: int = 25,
     rng: np.random.Generator = None,
 ):
-
     # Create a nuclei x gene count matrix
     tx_nuclei_geo_df = geopandas.sjoin_nearest(
         tx_geo_df, nuclei_geo_df, distance_col="nucleus_distance"
@@ -355,7 +354,41 @@ def get_best_k(aic_scores, bic_scores):
 
 def estimate_celltypes(
     celltype_results: CelltypingResults,
+    k: int,
     segment_geo_df: geopandas.GeoDataFrame,
     transcript_geo_df: geopandas.GeoDataFrame,
+    chunk_size: int = 10_000,
+    gene_name_column: str = "feature_name",
 ):
-    pass
+    # gene_name to id map
+    gene_name_to_id = dict(
+        zip(
+            transcript_geo_df[gene_name_column].unique(),
+            range(len(transcript_geo_df[gene_name_column].nunique())),
+        )
+    )
+    transcript_geo_df["gene_id"] = transcript_geo_df[gene_name_column].map(
+        gene_name_to_id
+    )
+
+    results = []
+
+    # iterate segment_geo_df in chunks of chunk_size
+    current_index = 0
+    while current_index < len(segment_geo_df):
+        segment_chunk = segment_geo_df.iloc[current_index : current_index + chunk_size]
+        current_index += chunk_size
+
+        gene_counts = create_dense_gene_counts_matrix(
+            segment_chunk, transcript_geo_df, max_distance=0, gene_id_col="gene_id"
+        )
+
+        results.append(
+            estimate_cell_types(
+                expression_profiles=celltype_results.expression_profiles[k],
+                prior_probs=celltype_results.prior_probs[k],
+                gene_counts=gene_counts,
+            )
+        )
+
+    return np.concatenate(results)
