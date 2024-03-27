@@ -2,8 +2,11 @@ from nuc2seg.celltyping import (
     fit_celltype_em_model,
     run_cell_type_estimation,
     select_best_celltyping_chain,
+    create_dense_gene_counts_matrix,
 )
 import numpy as np
+import geopandas
+from shapely import Polygon, Point
 
 
 def test_estimate_cell_types():
@@ -142,3 +145,32 @@ def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
 
     assert best_k == 1
     assert final_result is results2
+
+
+def test_create_dense_gene_counts_matrix():
+    boundaries = geopandas.GeoDataFrame(
+        [
+            [Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+            [Polygon([(1, 0), (1, 1), (3, 1), (3, 0)])],
+        ],
+        columns=["geometry"],
+    )
+
+    transcripts = geopandas.GeoDataFrame(
+        [
+            ["a", Point(0.5, 0.5)],
+            ["a", Point(2, 0.5)],
+            ["b", Point(2, 0.5)],
+        ],
+        columns=["feature_name", "geometry"],
+    )
+
+    transcripts["gene_id"] = [0, 0, 1]
+
+    result = create_dense_gene_counts_matrix(
+        segmentation_geo_df=boundaries,
+        transcript_geo_df=transcripts,
+        gene_id_col="gene_id",
+    )
+
+    np.testing.assert_array_equal(result, np.array([[1, 0], [1, 1]]))

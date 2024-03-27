@@ -301,7 +301,6 @@ def plot_celltype_estimation_results(
     bic_scores,
     final_expression_profiles,
     final_prior_probs,
-    final_cell_types,
     relative_expression,
     n_components,
     output_dir,

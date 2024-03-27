@@ -148,9 +148,8 @@ def main():
     plot_celltype_estimation_results(
         aic_scores,
         bic_scores,
-        celltyping_results.final_expression_profiles,
-        celltyping_results.final_prior_probs,
-        celltyping_results.final_cell_types,
+        celltyping_results.expression_profiles,
+        celltyping_results.prior_probs,
         celltyping_results.relative_expression,
         celltyping_results.n_component_values,
         os.path.join(os.path.dirname(args.output), "cell_typing_plots"),

@@ -210,6 +210,53 @@ def calculate_celltype_relative_expression(gene_counts, final_cell_types):
     return results
 
 
+def create_dense_gene_counts_matrix(
+    segmentation_geo_df: geopandas.GeoDataFrame,
+    transcript_geo_df: geopandas.GeoDataFrame,
+    max_distance: float = 0,
+    gene_id_col: str = "gene_id",
+):
+    """
+    Create a dense gene counts matrix from segment polygons and transcript points
+
+    :param segmentation_geo_df: GeoDataFrame where the geometry column in polygons
+    :param transcript_geo_df: GeoDataFrame where the geometry column is points, should have column
+    gene_id_col, which is integer gene ids from 0 to n_genes
+    :param max_distance: Maximum distance to consider a transcript to be associated with a segment,
+    default 0 means will only include transcripts that are inside the segment boundary
+    :returns: A dense gene counts matrix, (n_segments, n_genes)
+    """
+    segmentation_geo_df = segmentation_geo_df.reset_index(names="segment_id")
+
+    # Create a nuclei x gene count matrix
+    joined_df = geopandas.sjoin_nearest(
+        transcript_geo_df, segmentation_geo_df, distance_col="nucleus_distance"
+    ).reset_index(drop=False, names="transcript_id")
+
+    # dedupe ties where transcript is equidistant to multiple nuclei
+    joined_df = joined_df.drop_duplicates(subset=["transcript_id"]).reset_index(
+        drop=True
+    )
+
+    n_genes = joined_df[gene_id_col].nunique()
+
+    nuclei_count_geo_df = joined_df[
+        joined_df["nucleus_distance"] <= max_distance
+    ].reset_index(drop=True)
+
+    nuclei_count_matrix = np.zeros((len(segmentation_geo_df), n_genes), dtype=int)
+    np.add.at(
+        nuclei_count_matrix,
+        (
+            nuclei_count_geo_df["segment_id"].values.astype(int),
+            nuclei_count_geo_df[gene_id_col].values.astype(int),
+        ),
+        1,
+    )
+
+    return nuclei_count_matrix
+
+
 def run_cell_type_estimation(
     nuclei_geo_df: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
@@ -304,3 +351,11 @@ def get_best_k(aic_scores, bic_scores):
         logger.info(f"BIC elbow to chose k: {best_k}")
 
         return best_k
+
+
+def estimate_celltypes(
+    celltype_results: CelltypingResults,
+    segment_geo_df: geopandas.GeoDataFrame,
+    transcript_geo_df: geopandas.GeoDataFrame,
+):
+    pass
