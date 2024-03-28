@@ -115,8 +115,9 @@ def estimate_cell_types(
             cur_expression_profiles = (
                 cur_cell_types[..., None] * gene_counts[:, None]
             ).sum(axis=0) + 1
-            cur_expression_profiles = (
-                cur_expression_profiles / (cur_cell_types.sum(axis=0) + 1)[:, None]
+            cur_expression_profiles = (cur_expression_profiles / 
+                                        cur_expression_profiles.sum(axis=1,
+                                                                    keepdims=True)
             )
 
             # M-step (part 2): estimate cell type probabilities
