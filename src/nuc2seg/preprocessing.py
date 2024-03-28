@@ -198,7 +198,9 @@ def create_nuc2seg_dataset(
     cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
     pixel_types = np.copy(rasterized_dataset.labels)
     nuclei_mask = rasterized_dataset.labels > 0
-    pixel_types[nuclei_mask] = cell_type_labels[rasterized_dataset.labels[nuclei_mask]]
+    pixel_types[nuclei_mask] = cell_type_labels[
+        rasterized_dataset.labels[nuclei_mask] - 1
+    ]
 
     ds = Nuc2SegDataset(
         labels=rasterized_dataset.labels,

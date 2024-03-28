@@ -232,7 +232,12 @@ def create_dense_gene_counts_matrix(
     # Create a nuclei x gene count matrix
     joined_df = geopandas.sjoin_nearest(
         transcript_geo_df, segmentation_geo_df, distance_col="nucleus_distance"
-    ).reset_index(drop=False, names="transcript_id")
+    )
+
+    if "transcript_id" in joined_df.columns:
+        del joined_df["transcript_id"]
+
+    joined_df = joined_df.reset_index(drop=False, names="transcript_id")
 
     # dedupe ties where transcript is equidistant to multiple nuclei
     joined_df = joined_df.drop_duplicates(subset=["transcript_id"]).reset_index(
