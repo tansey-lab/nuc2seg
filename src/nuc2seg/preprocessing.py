@@ -190,13 +190,9 @@ def create_rasterized_dataset(
 
 def create_nuc2seg_dataset(
     rasterized_dataset: RasterizedDataset,
-    celltyping_results: CelltypingResults,
-    best_k: int,
+    cell_type_probs: np.array,
 ):
-    n_classes = celltyping_results.n_component_values[best_k]
-
-    # Estimate the density of each cell type
-    cell_type_probs = celltyping_results.final_cell_types[best_k]
+    n_classes = cell_type_probs.shape[1]
 
     # Assign hard labels to nuclei
     cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1

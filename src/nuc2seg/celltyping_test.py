@@ -8,6 +8,7 @@ from nuc2seg.celltyping import (
 import numpy as np
 import geopandas
 from shapely import Polygon, Point
+from nuc2seg.data import CelltypingResults
 
 
 def test_fit_celltype_em_model():
@@ -186,19 +187,21 @@ def test_predict_celltypes_for_segments_and_transcripts():
     transcripts = geopandas.GeoDataFrame(
         [
             ["a", Point(0.5, 0.5)],
-            ["a", Point(2, 0.5)],
             ["b", Point(2, 0.5)],
         ],
         columns=["feature_name", "geometry"],
     )
 
-    transcripts["gene_id"] = [0, 0, 1]
+    transcripts["gene_id"] = [0, 1]
 
-    predict_celltypes_for_segments_and_transcripts(
-        celltype_results=None,
-        k=0,
+    result = predict_celltypes_for_segments_and_transcripts(
+        expression_profiles=np.array([[1, 1e-3], [1e-3, 1]]),
+        prior_probs=np.array([0.6, 0.4]),
         segment_geo_df=boundaries,
         transcript_geo_df=transcripts,
         chunk_size=1,
         gene_name_column="gene_id",
     )
+
+    assert result.argmax(axis=0).tolist() == [0, 1]
+    assert result[0][0] > result[1][1]

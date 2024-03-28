@@ -9,7 +9,10 @@ from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
-from nuc2seg.celltyping import select_best_celltyping_chain
+from nuc2seg.celltyping import (
+    select_best_celltyping_chain,
+    predict_celltypes_for_segments_and_transcripts,
+)
 from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
 from nuc2seg.data import CelltypingResults
 from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
@@ -145,6 +148,14 @@ def main():
         celltyping_chains
     )
 
+    celltype_predictions = predict_celltypes_for_segments_and_transcripts(
+        prior_probs=celltyping_results.prior_probs[best_k],
+        expression_profiles=celltyping_results.expression_profiles[best_k],
+        segment_geo_df=nuclei_geo_df,
+        transcript_geo_df=tx_geo_df,
+        max_distinace=args.foreground_nucleus_distance,
+    )
+
     plot_celltype_estimation_results(
         aic_scores,
         bic_scores,
@@ -177,6 +188,6 @@ def main():
             sharey=True,
         )
 
-    ds = create_nuc2seg_dataset(rasterized_dataset, celltyping_results, best_k)
+    ds = create_nuc2seg_dataset(rasterized_dataset, celltype_predictions)
 
     ds.save_h5(args.output)

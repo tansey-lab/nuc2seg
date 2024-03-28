@@ -354,18 +354,19 @@ def get_best_k(aic_scores, bic_scores):
 
 
 def predict_celltypes_for_segments_and_transcripts(
-    celltype_results: CelltypingResults,
-    k: int,
+    expression_profiles,
+    prior_probs,
     segment_geo_df: geopandas.GeoDataFrame,
     transcript_geo_df: geopandas.GeoDataFrame,
     chunk_size: int = 10_000,
     gene_name_column: str = "feature_name",
+    max_distinace: float = 0,
 ):
     # gene_name to id map
     gene_name_to_id = dict(
         zip(
             transcript_geo_df[gene_name_column].unique(),
-            range(len(transcript_geo_df[gene_name_column].nunique())),
+            range(transcript_geo_df[gene_name_column].nunique()),
         )
     )
     transcript_geo_df["gene_id"] = transcript_geo_df[gene_name_column].map(
@@ -377,17 +378,22 @@ def predict_celltypes_for_segments_and_transcripts(
     # iterate segment_geo_df in chunks of chunk_size
     current_index = 0
     while current_index < len(segment_geo_df):
-        segment_chunk = segment_geo_df.iloc[current_index : current_index + chunk_size]
+        segment_chunk = segment_geo_df.iloc[
+            current_index : current_index + chunk_size
+        ].reset_index(drop=True)
         current_index += chunk_size
 
         gene_counts = create_dense_gene_counts_matrix(
-            segment_chunk, transcript_geo_df, max_distance=0, gene_id_col="gene_id"
+            segment_chunk,
+            transcript_geo_df,
+            max_distance=max_distinace,
+            gene_id_col="gene_id",
         )
 
         results.append(
             estimate_cell_types(
-                expression_profiles=celltype_results.expression_profiles[k],
-                prior_probs=celltype_results.prior_probs[k],
+                expression_profiles=expression_profiles,
+                prior_probs=prior_probs,
                 gene_counts=gene_counts,
             )
         )
