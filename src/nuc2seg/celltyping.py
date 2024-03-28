@@ -136,7 +136,8 @@ def fit_celltype_em_model(
                 cur_cell_types[..., None] * gene_counts[:, None]
             ).sum(axis=0) + 1
             cur_expression_profiles = (
-                cur_expression_profiles / (cur_cell_types.sum(axis=0) + 1)[:, None]
+                cur_expression_profiles
+                / cur_expression_profiles.sum(axis=1, keepdims=True)
             )
 
             # M-step (part 2): estimate cell type probabilities
@@ -352,7 +353,7 @@ def get_best_k(aic_scores, bic_scores):
         return best_k
 
 
-def estimate_celltypes(
+def predict_celltypes_for_segments_and_transcripts(
     celltype_results: CelltypingResults,
     k: int,
     segment_geo_df: geopandas.GeoDataFrame,

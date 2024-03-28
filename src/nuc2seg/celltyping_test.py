@@ -3,13 +3,14 @@ from nuc2seg.celltyping import (
     run_cell_type_estimation,
     select_best_celltyping_chain,
     create_dense_gene_counts_matrix,
+    predict_celltypes_for_segments_and_transcripts,
 )
 import numpy as np
 import geopandas
 from shapely import Polygon, Point
 
 
-def test_estimate_cell_types():
+def test_fit_celltype_em_model():
     rng = np.random.default_rng(0)
     n_genes, n_cells = 10, 100
 
@@ -82,14 +83,12 @@ def test_estimate_cell_types2():
         bic_scores,
         final_expression_profiles,
         final_prior_probs,
-        final_cell_types,
         relative_expression,
     ) = (
         celltyping_results.aic_scores,
         celltyping_results.bic_scores,
-        celltyping_results.final_expression_profiles,
-        celltyping_results.final_prior_probs,
-        celltyping_results.final_cell_types,
+        celltyping_results.expression_profiles,
+        celltyping_results.prior_probs,
         celltyping_results.relative_expression,
     )
 
@@ -109,9 +108,8 @@ def test_run_cell_type_estimation(test_nuclei_df, test_transcripts_df):
         rng=rng,
     )
 
-    assert len(results.final_cell_types) == 2
-    assert len(results.final_expression_profiles) == 2
-    assert len(results.final_prior_probs) == 2
+    assert len(results.expression_profiles) == 2
+    assert len(results.prior_probs) == 2
     assert len(results.relative_expression) == 2
     assert len(results.aic_scores) == 2
     assert len(results.bic_scores) == 2
@@ -174,3 +172,33 @@ def test_create_dense_gene_counts_matrix():
     )
 
     np.testing.assert_array_equal(result, np.array([[1, 0], [1, 1]]))
+
+
+def test_predict_celltypes_for_segments_and_transcripts():
+    boundaries = geopandas.GeoDataFrame(
+        [
+            [Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+            [Polygon([(1, 0), (1, 1), (3, 1), (3, 0)])],
+        ],
+        columns=["geometry"],
+    )
+
+    transcripts = geopandas.GeoDataFrame(
+        [
+            ["a", Point(0.5, 0.5)],
+            ["a", Point(2, 0.5)],
+            ["b", Point(2, 0.5)],
+        ],
+        columns=["feature_name", "geometry"],
+    )
+
+    transcripts["gene_id"] = [0, 0, 1]
+
+    predict_celltypes_for_segments_and_transcripts(
+        celltype_results=None,
+        k=0,
+        segment_geo_df=boundaries,
+        transcript_geo_df=transcripts,
+        chunk_size=1,
+        gene_name_column="gene_id",
+    )
