@@ -263,7 +263,7 @@ def create_dense_gene_counts_matrix(
     return nuclei_count_matrix
 
 
-def run_cell_type_estimation(
+def fit_celltyping_on_segments_and_transcripts(
     nuclei_geo_df: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
     foreground_nucleus_distance: float = 1,

@@ -8,7 +8,7 @@ from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
-from nuc2seg.celltyping import run_cell_type_estimation
+from nuc2seg.celltyping import fit_celltyping_on_segments_and_transcripts
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,7 @@ def main():
         min_qv=args.min_qv,
     )
 
-    celltype_results = run_cell_type_estimation(
+    celltype_results = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=nuclei_geo_df,
         tx_geo_df=tx_geo_df,
         foreground_nucleus_distance=args.foreground_nucleus_distance,

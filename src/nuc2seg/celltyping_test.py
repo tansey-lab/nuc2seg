@@ -1,6 +1,6 @@
 from nuc2seg.celltyping import (
     fit_celltype_em_model,
-    run_cell_type_estimation,
+    fit_celltyping_on_segments_and_transcripts,
     select_best_celltyping_chain,
     create_dense_gene_counts_matrix,
     predict_celltypes_for_segments_and_transcripts,
@@ -94,7 +94,7 @@ def test_estimate_cell_types2():
 
 def test_run_cell_type_estimation(test_nuclei_df, test_transcripts_df):
     rng = np.random.default_rng(0)
-    results = run_cell_type_estimation(
+    results = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
         foreground_nucleus_distance=1,
@@ -113,7 +113,7 @@ def test_run_cell_type_estimation(test_nuclei_df, test_transcripts_df):
 
 def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
     rng = np.random.default_rng(0)
-    results = run_cell_type_estimation(
+    results = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
         foreground_nucleus_distance=1,
@@ -122,7 +122,7 @@ def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
         rng=rng,
     )
     rng = np.random.default_rng(1)
-    results2 = run_cell_type_estimation(
+    results2 = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
         foreground_nucleus_distance=1,
