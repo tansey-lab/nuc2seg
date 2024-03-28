@@ -33,14 +33,12 @@ def test_fit_celltype_em_model():
         bic_scores,
         final_expression_profiles,
         final_prior_probs,
-        final_cell_types,
         relative_expression,
     ) = (
         celltyping_results.aic_scores,
         celltyping_results.bic_scores,
-        celltyping_results.final_expression_profiles,
-        celltyping_results.final_prior_probs,
-        celltyping_results.final_cell_types,
+        celltyping_results.expression_profiles,
+        celltyping_results.prior_probs,
         celltyping_results.relative_expression,
     )
 
@@ -48,10 +46,6 @@ def test_fit_celltype_em_model():
     assert len(bic_scores) == 9
     assert len(final_expression_profiles) == 9
     assert len(final_prior_probs) == 9
-    assert len(final_cell_types) == 9
-    for i, x in enumerate(final_cell_types):
-        assert x.shape[0] == 100
-        assert x.shape[1] == i + 2
 
 
 def test_estimate_cell_types2():

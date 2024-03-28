@@ -92,14 +92,12 @@ def test_plot_celltype_estimation_results():
             bic_scores,
             final_expression_profiles,
             final_prior_probs,
-            final_cell_types,
             relative_expression,
         ) = (
             celltyping_results.aic_scores,
             celltyping_results.bic_scores,
-            celltyping_results.final_expression_profiles,
-            celltyping_results.final_prior_probs,
-            celltyping_results.final_cell_types,
+            celltyping_results.expression_profiles,
+            celltyping_results.prior_probs,
             celltyping_results.relative_expression,
         )
 
@@ -108,7 +106,6 @@ def test_plot_celltype_estimation_results():
             np.stack([bic_scores * 1.01, bic_scores, bic_scores * 0.99]),
             final_expression_profiles,
             final_prior_probs,
-            final_cell_types,
             relative_expression,
             celltyping_results.n_component_values,
             tmpdir,

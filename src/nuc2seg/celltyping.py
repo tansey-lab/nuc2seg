@@ -67,9 +67,6 @@ def fit_celltype_em_model(
     # Initialize probabilities to be uniform
     cur_prior_probs = np.ones(min_components) / min_components
 
-    # No need to initialize cell type assignments
-    cur_cell_types = None
-
     # Track BIC and AIC scores
     aic_scores = np.zeros(max_components - min_components + 1)
     bic_scores = np.zeros(max_components - min_components + 1)
@@ -116,6 +113,7 @@ def fit_celltype_em_model(
             cur_prior_probs = np.ones(n_components) / n_components
 
         converge = tol + 1
+        cur_cell_types = None
         for step in tqdm.trange(
             max_em_steps,
             desc=f"EM for n_components {n_components}",
@@ -159,6 +157,8 @@ def fit_celltype_em_model(
         # Save the results
         final_expression_profiles.append(cur_expression_profiles)
         final_prior_probs.append(cur_prior_probs)
+        if cur_cell_types is not None:
+            final_cell_types.append(cur_cell_types)
 
         # Calculate BIC and AIC
         aic_scores[idx], bic_scores[idx] = aic_bic(
