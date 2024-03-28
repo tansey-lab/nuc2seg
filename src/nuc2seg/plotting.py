@@ -218,10 +218,7 @@ def plot_model_predictions(
 def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
     fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     ax.invert_yaxis()
-    segmentation_gdf.plot(
-        ax=ax,
-        color="blue",
-    )
+    segmentation_gdf.plot(ax=ax, color="blue", edgecolor="white", linewidth=0.5)
     nuclei_gdf.plot(ax=ax, color="red")
 
     fig.savefig(output_path)
@@ -239,21 +236,9 @@ def plot_segmentation_comparison(
 
     fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     ax.invert_yaxis()
-    seg_a.plot(
-        ax=ax,
-        color="blue",
-        alpha=0.5,
-    )
-    seg_b.plot(
-        ax=ax,
-        color="red",
-        alpha=0.5,
-    )
-    nuclei.plot(
-        ax=ax,
-        color="black",
-        alpha=0.5,
-    )
+    seg_a.plot(ax=ax, color="blue", alpha=0.5, edgecolor="white", linewidth=0.5)
+    seg_b.plot(ax=ax, color="red", alpha=0.5, edgecolor="white", linewidth=0.5)
+    nuclei.plot(ax=ax, color="black", alpha=0.5, edgecolor="white", linewidth=0.5)
 
     ax.legend(
         handles=[
@@ -304,6 +289,8 @@ def plot_segmentation_class_assignment(
         column=cat_column,
         legend=True,
         cmap="tab20",
+        edgecolor="white",
+        linewidth=0.5,
     )
     fig.savefig(output_path)
     plt.close()
@@ -314,7 +301,6 @@ def plot_celltype_estimation_results(
     bic_scores,
     final_expression_profiles,
     final_prior_probs,
-    final_cell_types,
     relative_expression,
     n_components,
     output_dir,

@@ -15,9 +15,8 @@ class CelltypingResults:
         self,
         aic_scores,
         bic_scores,
-        final_expression_profiles,
-        final_prior_probs,
-        final_cell_types,
+        expression_profiles,
+        prior_probs,
         relative_expression,
         min_n_components,
         max_n_components,
@@ -25,9 +24,8 @@ class CelltypingResults:
     ):
         self.aic_scores = aic_scores
         self.bic_scores = bic_scores
-        self.final_expression_profiles = final_expression_profiles
-        self.final_prior_probs = final_prior_probs
-        self.final_cell_types = final_cell_types
+        self.expression_profiles = expression_profiles
+        self.prior_probs = prior_probs
         self.relative_expression = relative_expression
         self.n_component_values = np.arange(min_n_components, max_n_components + 1)
         self.gene_names = gene_names
@@ -47,18 +45,13 @@ class CelltypingResults:
             for idx, k in enumerate(self.n_component_values):
                 f.create_group(str(idx))
                 f[str(idx)].create_dataset(
-                    "final_expression_profiles",
-                    data=self.final_expression_profiles[idx],
+                    "expression_profiles",
+                    data=self.expression_profiles[idx],
                     compression="gzip",
                 )
                 f[str(idx)].create_dataset(
-                    "final_prior_probs",
-                    data=self.final_prior_probs[idx],
-                    compression="gzip",
-                )
-                f[str(idx)].create_dataset(
-                    "final_cell_types",
-                    data=self.final_cell_types[idx],
+                    "prior_probs",
+                    data=self.prior_probs[idx],
                     compression="gzip",
                 )
                 f[str(idx)].create_dataset(
@@ -73,26 +66,21 @@ class CelltypingResults:
         with h5py.File(path, "r") as f:
             aic_scores = f["aic_scores"][:]
             bic_scores = f["bic_scores"][:]
-            final_expression_profiles = []
-            final_prior_probs = []
-            final_cell_types = []
+            expression_profiles = []
+            prior_probs = []
             relative_expression = []
             n_component_values = []
             gene_names = np.char.decode(f["gene_names"][:], "utf-8")
             for idx, k in enumerate(f["n_component_values"][:]):
-                final_expression_profiles.append(
-                    f[str(idx)]["final_expression_profiles"][:]
-                )
-                final_prior_probs.append(f[str(idx)]["final_prior_probs"][:])
-                final_cell_types.append(f[str(idx)]["final_cell_types"][:])
+                expression_profiles.append(f[str(idx)]["expression_profiles"][:])
+                prior_probs.append(f[str(idx)]["prior_probs"][:])
                 relative_expression.append(f[str(idx)]["relative_expression"][:])
                 n_component_values.append(f[str(idx)].attrs["n_components"])
         return CelltypingResults(
             aic_scores=aic_scores,
             bic_scores=bic_scores,
-            final_expression_profiles=final_expression_profiles,
-            final_prior_probs=final_prior_probs,
-            final_cell_types=final_cell_types,
+            expression_profiles=expression_profiles,
+            prior_probs=prior_probs,
             relative_expression=relative_expression,
             min_n_components=min(n_component_values),
             max_n_components=max(n_component_values),

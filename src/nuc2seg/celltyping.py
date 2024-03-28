@@ -28,6 +28,25 @@ def aic_bic(gene_counts, expression_profiles, prior_probs):
 
 
 def estimate_cell_types(
+    prior_probs,
+    expression_profiles,
+    gene_counts,
+):
+    """
+    Estimate the cell types probabilities for each cell.
+
+    :param prior_probs: The prior probabilities of each cell type, shape (n_cell_types,)
+    :param expression_profiles: The expression profiles of each cell type, shape (n_cell_types, n_genes)
+    :param gene_counts: The gene counts for each cell, shape (n_cells, n_genes)
+    :return: Array of probabilities for each cell type, shape(n_cell, n_cell_types)
+    """
+    logits = np.log(prior_probs[None]) + (
+        gene_counts[:, None] * np.log(expression_profiles[None])
+    ).sum(axis=2)
+    return softmax(logits, axis=1)
+
+
+def fit_celltype_em_model(
     gene_counts,
     gene_names,
     min_components=2,
@@ -47,9 +66,6 @@ def estimate_cell_types(
 
     # Initialize probabilities to be uniform
     cur_prior_probs = np.ones(min_components) / min_components
-
-    # No need to initialize cell type assignments
-    cur_cell_types = None
 
     # Track BIC and AIC scores
     aic_scores = np.zeros(max_components - min_components + 1)
@@ -97,6 +113,7 @@ def estimate_cell_types(
             cur_prior_probs = np.ones(n_components) / n_components
 
         converge = tol + 1
+        cur_cell_types = None
         for step in tqdm.trange(
             max_em_steps,
             desc=f"EM for n_components {n_components}",
@@ -105,10 +122,11 @@ def estimate_cell_types(
         ):
 
             # E-step: estimate cell type assignments (posterior probabilities)
-            logits = np.log(cur_prior_probs[None]) + (
-                gene_counts[:, None] * np.log(cur_expression_profiles[None])
-            ).sum(axis=2)
-            cur_cell_types = softmax(logits, axis=1)
+            cur_cell_types = estimate_cell_types(
+                prior_probs=cur_prior_probs,
+                expression_profiles=cur_expression_profiles,
+                gene_counts=gene_counts,
+            )
 
             # M-step (part 1): estimate cell type profiles
             prev_expression_profiles = np.array(cur_expression_profiles)
@@ -116,7 +134,8 @@ def estimate_cell_types(
                 cur_cell_types[..., None] * gene_counts[:, None]
             ).sum(axis=0) + 1
             cur_expression_profiles = (
-                cur_expression_profiles / (cur_cell_types.sum(axis=0) + 1)[:, None]
+                cur_expression_profiles
+                / cur_expression_profiles.sum(axis=1, keepdims=True)
             )
 
             # M-step (part 2): estimate cell type probabilities
@@ -137,8 +156,9 @@ def estimate_cell_types(
 
         # Save the results
         final_expression_profiles.append(cur_expression_profiles)
-        final_cell_types.append(cur_cell_types)
         final_prior_probs.append(cur_prior_probs)
+        if cur_cell_types is not None:
+            final_cell_types.append(cur_cell_types)
 
         # Calculate BIC and AIC
         aic_scores[idx], bic_scores[idx] = aic_bic(
@@ -156,9 +176,8 @@ def estimate_cell_types(
     return CelltypingResults(
         aic_scores=aic_scores,
         bic_scores=bic_scores,
-        final_expression_profiles=final_expression_profiles,
-        final_prior_probs=final_prior_probs,
-        final_cell_types=final_cell_types,
+        expression_profiles=final_expression_profiles,
+        prior_probs=final_prior_probs,
         relative_expression=relative_expression,
         min_n_components=min_components,
         max_n_components=max_components,
@@ -192,7 +211,59 @@ def calculate_celltype_relative_expression(gene_counts, final_cell_types):
     return results
 
 
-def run_cell_type_estimation(
+def create_dense_gene_counts_matrix(
+    segmentation_geo_df: geopandas.GeoDataFrame,
+    transcript_geo_df: geopandas.GeoDataFrame,
+    max_distance: float = 0,
+    gene_id_col: str = "gene_id",
+):
+    """
+    Create a dense gene counts matrix from segment polygons and transcript points
+
+    :param segmentation_geo_df: GeoDataFrame where the geometry column in polygons
+    :param transcript_geo_df: GeoDataFrame where the geometry column is points, should have column
+    gene_id_col, which is integer gene ids from 0 to n_genes
+    :param max_distance: Maximum distance to consider a transcript to be associated with a segment,
+    default 0 means will only include transcripts that are inside the segment boundary
+    :returns: A dense gene counts matrix, (n_segments, n_genes)
+    """
+    segmentation_geo_df = segmentation_geo_df.reset_index(names="segment_id")
+
+    # Create a nuclei x gene count matrix
+    joined_df = geopandas.sjoin_nearest(
+        transcript_geo_df, segmentation_geo_df, distance_col="nucleus_distance"
+    )
+
+    if "transcript_id" in joined_df.columns:
+        del joined_df["transcript_id"]
+
+    joined_df = joined_df.reset_index(drop=False, names="transcript_id")
+
+    # dedupe ties where transcript is equidistant to multiple nuclei
+    joined_df = joined_df.drop_duplicates(subset=["transcript_id"]).reset_index(
+        drop=True
+    )
+
+    n_genes = joined_df[gene_id_col].nunique()
+
+    nuclei_count_geo_df = joined_df[
+        joined_df["nucleus_distance"] <= max_distance
+    ].reset_index(drop=True)
+
+    nuclei_count_matrix = np.zeros((len(segmentation_geo_df), n_genes), dtype=int)
+    np.add.at(
+        nuclei_count_matrix,
+        (
+            nuclei_count_geo_df["segment_id"].values.astype(int),
+            nuclei_count_geo_df[gene_id_col].values.astype(int),
+        ),
+        1,
+    )
+
+    return nuclei_count_matrix
+
+
+def fit_celltyping_on_segments_and_transcripts(
     nuclei_geo_df: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
     foreground_nucleus_distance: float = 1,
@@ -200,7 +271,6 @@ def run_cell_type_estimation(
     max_components: int = 25,
     rng: np.random.Generator = None,
 ):
-
     # Create a nuclei x gene count matrix
     tx_nuclei_geo_df = geopandas.sjoin_nearest(
         tx_geo_df, nuclei_geo_df, distance_col="nucleus_distance"
@@ -227,7 +297,7 @@ def run_cell_type_estimation(
 
     gene_names = np.array([gene_name_map[i] for i in range(n_genes)])
 
-    return estimate_cell_types(
+    return fit_celltype_em_model(
         nuclei_count_matrix,
         gene_names=gene_names,
         min_components=min_components,
@@ -286,3 +356,51 @@ def get_best_k(aic_scores, bic_scores):
         logger.info(f"BIC elbow to chose k: {best_k}")
 
         return best_k
+
+
+def predict_celltypes_for_segments_and_transcripts(
+    expression_profiles,
+    prior_probs,
+    segment_geo_df: geopandas.GeoDataFrame,
+    transcript_geo_df: geopandas.GeoDataFrame,
+    chunk_size: int = 10_000,
+    gene_name_column: str = "feature_name",
+    max_distinace: float = 0,
+):
+    # gene_name to id map
+    gene_name_to_id = dict(
+        zip(
+            transcript_geo_df[gene_name_column].unique(),
+            range(transcript_geo_df[gene_name_column].nunique()),
+        )
+    )
+    transcript_geo_df["gene_id"] = transcript_geo_df[gene_name_column].map(
+        gene_name_to_id
+    )
+
+    results = []
+
+    # iterate segment_geo_df in chunks of chunk_size
+    current_index = 0
+    while current_index < len(segment_geo_df):
+        segment_chunk = segment_geo_df.iloc[
+            current_index : current_index + chunk_size
+        ].reset_index(drop=True)
+        current_index += chunk_size
+
+        gene_counts = create_dense_gene_counts_matrix(
+            segment_chunk,
+            transcript_geo_df,
+            max_distance=max_distinace,
+            gene_id_col="gene_id",
+        )
+
+        results.append(
+            estimate_cell_types(
+                expression_profiles=expression_profiles,
+                prior_probs=prior_probs,
+                gene_counts=gene_counts,
+            )
+        )
+
+    return np.concatenate(results)

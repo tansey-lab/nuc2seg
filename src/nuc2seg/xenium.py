@@ -35,7 +35,7 @@ def filter_gdf_to_inside_polygon(gdf, polygon=None):
     if polygon is None:
         return gdf
 
-    gdf_filtered = gdf[gdf.geometry.within(polygon)]
+    gdf_filtered = gdf[gdf.geometry.intersects(polygon)]
 
     logging.info(f"Filtering {len(gdf)} points to {len(gdf_filtered)} inside polygon")
     return gdf_filtered

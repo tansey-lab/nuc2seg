@@ -4,7 +4,7 @@ from nuc2seg.plotting import (
     rank_genes_groups_plot,
 )
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
-from nuc2seg.celltyping import estimate_cell_types
+from nuc2seg.celltyping import fit_celltype_em_model
 from nuc2seg.preprocessing import cart2pol
 import numpy as np
 import tempfile
@@ -77,7 +77,7 @@ def test_plot_celltype_estimation_results():
     tmpdir = tempfile.mkdtemp()
 
     try:
-        celltyping_results = estimate_cell_types(
+        celltyping_results = fit_celltype_em_model(
             gene_counts,
             gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
             min_components=2,
@@ -92,14 +92,12 @@ def test_plot_celltype_estimation_results():
             bic_scores,
             final_expression_profiles,
             final_prior_probs,
-            final_cell_types,
             relative_expression,
         ) = (
             celltyping_results.aic_scores,
             celltyping_results.bic_scores,
-            celltyping_results.final_expression_profiles,
-            celltyping_results.final_prior_probs,
-            celltyping_results.final_cell_types,
+            celltyping_results.expression_profiles,
+            celltyping_results.prior_probs,
             celltyping_results.relative_expression,
         )
 
@@ -108,7 +106,6 @@ def test_plot_celltype_estimation_results():
             np.stack([bic_scores * 1.01, bic_scores, bic_scores * 0.99]),
             final_expression_profiles,
             final_prior_probs,
-            final_cell_types,
             relative_expression,
             celltyping_results.n_component_values,
             tmpdir,
@@ -126,7 +123,7 @@ def test_rank_genes_groups_plot():
     tmpdir = tempfile.mkdtemp()
 
     try:
-        celltyping_results = estimate_cell_types(
+        celltyping_results = fit_celltype_em_model(
             gene_counts,
             gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
             min_components=2,
