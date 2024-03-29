@@ -165,12 +165,15 @@ class SparseUNet(LightningModule):
         self.validation_step_outputs = []
 
     def update_moving_average(self, foreground_loss, angle_loss, celltype_loss):
-        self.foreground_loss_history = torch.roll(self.foreground_loss_history, 1)
-        self.foreground_loss_history[0] = foreground_loss
-        self.angle_loss_history = torch.roll(self.angle_loss_history, 1)
-        self.angle_loss_history[0] = angle_loss
-        self.celltype_loss_history = torch.roll(self.celltype_loss_history, 1)
-        self.celltype_loss_history[0] = celltype_loss
+        if foreground_loss is not None:
+            self.foreground_loss_history = torch.roll(self.foreground_loss_history, 1)
+            self.foreground_loss_history[0] = foreground_loss
+        if angle_loss is not None:
+            self.angle_loss_history = torch.roll(self.angle_loss_history, 1)
+            self.angle_loss_history[0] = angle_loss
+        if celltype_loss is not None:
+            self.celltype_loss_history = torch.roll(self.celltype_loss_history, 1)
+            self.celltype_loss_history[0] = celltype_loss
 
     def get_weighted_losses(self, foreground_loss, angle_loss, celltype_loss):
         avg_foreground_loss = self.foreground_loss_history.nanmean()
@@ -187,9 +190,13 @@ class SparseUNet(LightningModule):
         celltype_weight = celltype_weight.detach()
 
         return (
-            foreground_loss * foreground_weight,
-            angle_loss * angle_weight,
-            celltype_loss * celltype_weight,
+            (
+                foreground_loss * foreground_weight
+                if foreground_loss is not None
+                else None
+            ),
+            angle_loss * angle_weight if angle_loss is not None else None,
+            celltype_loss * celltype_weight if celltype_loss is not None else None,
         )
 
     def forward(self, x, y, z):

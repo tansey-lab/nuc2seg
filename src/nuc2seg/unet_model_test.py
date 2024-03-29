@@ -35,12 +35,16 @@ def test_model_predict():
 
 
 def test_model():
+    tile_height = 50
+    tile_width = 50
+    tile_overlap = 0.0
+
     model = SparseUNet(
         n_channels=3,
         n_classes=3,
-        tile_height=64,
-        tile_width=64,
-        tile_overlap=0.0,
+        tile_height=tile_height,
+        tile_width=tile_width,
+        tile_overlap=tile_overlap,
         celltype_criterion_weights=torch.tensor([1, 1, 1]).float(),
         moving_average_size=1,
     )
@@ -49,14 +53,27 @@ def test_model():
 
     labels = np.zeros((100, 100))
 
-    labels[25:75, 25:75] = -1
-    labels[40:60, 40:60] = 1
+    labels[0:5, 0:5] = -1
+    labels[2:3, 2:3] = 1
+
+    labels[70:75, 70:75] = -1
+    labels[72:73, 72:73] = 2
 
     ds = Nuc2SegDataset(
         labels=labels,
         angles=np.zeros((100, 100)),
         classes=labels.copy(),
-        transcripts=np.array([[49, 49, 0], [50, 50, 1], [50, 50, 2]]),
+        transcripts=np.array(
+            [
+                [49, 49, 0],
+                [50, 50, 1],
+                [50, 50, 2],
+                [0, 0, 0],
+                [99, 99, 0],
+                [99, 0, 0],
+                [0, 99, 0],
+            ]
+        ),
         bbox=np.array([100, 100, 200, 200]),
         n_classes=3,
         n_genes=3,
@@ -69,7 +86,13 @@ def test_model():
 
     ds.save_h5(output_path)
 
-    dm = Nuc2SegDataModule(preprocessed_data_path=output_path, val_percent=0.5)
+    dm = Nuc2SegDataModule(
+        preprocessed_data_path=output_path,
+        val_percent=0,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        tile_overlap=tile_overlap,
+    )
 
     try:
         trainer.fit(model, dm)
