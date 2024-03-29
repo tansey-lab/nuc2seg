@@ -380,41 +380,32 @@ def convert_transcripts_to_anndata(
         sjoined_gdf.groupby(["index", gene_name_column])
         .size()
         .reset_index(name="count")
-    )
+    ).rename(columns={"index": "cell_id"})
 
-    summed_counts_per_cell = pd.merge(
-        summed_counts_per_cell,
-        segmentation_gdf[["area", "centroid_x", "centroid_y"]],
-        left_on="index",
-        right_index=True,
-    )
-
-    del summed_counts_per_cell["index"]
-    summed_counts_per_cell.reset_index(inplace=True)
-
-    cell_u = list(sorted(summed_counts_per_cell.index.unique()))
+    cell_u = list(sorted(summed_counts_per_cell["cell_id"].unique()))
     gene_u = list(sorted(summed_counts_per_cell[gene_name_column].unique()))
 
-    summed_counts_per_cell["index"] = pd.Categorical(
-        summed_counts_per_cell["index"], categories=cell_u, ordered=True
+    summed_counts_per_cell["cell_id"] = pd.Categorical(
+        summed_counts_per_cell["cell_id"], categories=cell_u, ordered=True
     )
 
-    summed_counts_per_cell.set_index("index", inplace=True)
-
-    data = summed_counts_per_cell["count"].tolist()
-
-    summed_counts_per_cell["gene"] = pd.Categorical(
+    summed_counts_per_cell[gene_name_column] = pd.Categorical(
         summed_counts_per_cell[gene_name_column], categories=gene_u, ordered=True
     )
-    row = summed_counts_per_cell.index.codes
-    col = summed_counts_per_cell.gene.cat.codes
+
+    data = summed_counts_per_cell["count"].tolist()
+    row = summed_counts_per_cell["cell_id"].cat.codes
+    col = summed_counts_per_cell[gene_name_column].cat.codes
 
     sparse_matrix = csr_matrix((data, (row, col)), shape=(len(cell_u), len(gene_u)))
+    shapes_cut = segmentation_gdf[
+        segmentation_gdf.index.isin(summed_counts_per_cell["cell_id"].cat.codes)
+    ]
 
     adata = anndata.AnnData(
         X=sparse_matrix,
-        obsm={"spatial": summed_counts_per_cell[["centroid_x", "centroid_y"]].values},
-        obs=summed_counts_per_cell[["area"]],
+        obsm={"spatial": shapes_cut[["centroid_x", "centroid_y"]].values},
+        obs=shapes_cut[["area"]],
         var=pd.DataFrame(index=gene_u),
     )
 
