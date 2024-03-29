@@ -385,7 +385,7 @@ def convert_transcripts_to_anndata(
     cell_u = list(sorted(summed_counts_per_cell["cell_id"].unique()))
     gene_u = list(sorted(summed_counts_per_cell[gene_name_column].unique()))
 
-    summed_counts_per_cell["cell_id"] = pd.Categorical(
+    summed_counts_per_cell["cell_id_idx"] = pd.Categorical(
         summed_counts_per_cell["cell_id"], categories=cell_u, ordered=True
     )
 
@@ -394,18 +394,22 @@ def convert_transcripts_to_anndata(
     )
 
     data = summed_counts_per_cell["count"].tolist()
-    row = summed_counts_per_cell["cell_id"].cat.codes
+    row = summed_counts_per_cell["cell_id_idx"].cat.codes
     col = summed_counts_per_cell[gene_name_column].cat.codes
 
     sparse_matrix = csr_matrix((data, (row, col)), shape=(len(cell_u), len(gene_u)))
-    shapes_cut = segmentation_gdf[
-        segmentation_gdf.index.isin(summed_counts_per_cell["cell_id"].cat.codes)
-    ]
+
+    shapefile_index = summed_counts_per_cell["cell_id"].unique()
+    shapefile_index.sort()
 
     adata = anndata.AnnData(
         X=sparse_matrix,
-        obsm={"spatial": shapes_cut[["centroid_x", "centroid_y"]].values},
-        obs=shapes_cut[["area"]],
+        obsm={
+            "spatial": segmentation_gdf.iloc[shapefile_index][
+                ["centroid_x", "centroid_y"]
+            ].values
+        },
+        obs=segmentation_gdf.iloc[shapefile_index][["area"]],
         var=pd.DataFrame(index=gene_u),
     )
 
