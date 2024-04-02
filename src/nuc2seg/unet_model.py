@@ -131,6 +131,7 @@ class SparseUNet(LightningModule):
         foreground_loss_factor: float = 1.0,
         celltype_loss_factor: float = 1.0,
         moving_average_size: int = 100,
+        loss_reweighting: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -260,21 +261,25 @@ class SparseUNet(LightningModule):
         if celltype_loss is not None:
             self.log("celltype_loss", celltype_loss)
 
-        self.update_moving_average(foreground_loss, angle_loss_val, celltype_loss)
+        if self.hparams.loss_reweighting:
+            self.update_moving_average(foreground_loss, angle_loss_val, celltype_loss)
 
         # if greater than n steps
         if self.global_step > self.hparams.moving_average_size:
-            foreground_loss, angle_loss_val, celltype_loss = self.get_weighted_losses(
-                foreground_loss, angle_loss_val, celltype_loss
-            )
+            if self.hparams.loss_reweighting:
+                foreground_loss, angle_loss_val, celltype_loss = (
+                    self.get_weighted_losses(
+                        foreground_loss, angle_loss_val, celltype_loss
+                    )
+                )
 
         if angle_loss_val is not None and celltype_loss is not None:
-            train_loss = (
-                (foreground_loss * self.hparams.foreground_loss_factor)
-                + (angle_loss_val * self.hparams.angle_loss_factor)
-                + (celltype_loss * self.hparams.celltype_loss_factor)
-            )
+            foreground_loss = foreground_loss * self.hparams.foreground_loss_factor
+            angle_loss_val = angle_loss_val * self.hparams.angle_loss_factor
+            celltype_loss = celltype_loss * self.hparams.celltype_loss_factor
+            train_loss = foreground_loss + angle_loss_val + celltype_loss
         else:
+            foreground_loss = foreground_loss * self.hparams.foreground_loss_factor
             train_loss = foreground_loss * self.hparams.foreground_loss_factor
 
         self.log("foreground_loss_weighted", foreground_loss)
