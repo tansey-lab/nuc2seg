@@ -166,6 +166,12 @@ def get_parser():
         type=float,
         default=1.0,
     )
+    parser.add_argument(
+        "--loss-reweighting",
+        help="Reweight losses to be even.",
+        action="store_true",
+        default=False,
+    )
     return parser
 
 
@@ -219,6 +225,7 @@ def main():
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
         betas=args.betas,
+        loss_reweighting=args.loss_reweighting,
     )
 
     # save checkpoints based on "val_loss" metric
