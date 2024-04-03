@@ -7,7 +7,7 @@ process TRAIN {
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
 
     input:
-    tuple val(meta), path(dataset)
+    tuple val(meta), path(dataset), path(checkpoint)
 
     output:
     tuple val(meta), path("${prefix}/*/checkpoints/*.ckpt"), emit: weights
@@ -23,6 +23,7 @@ process TRAIN {
     def wandb_key = params.wandb_api_key == null ? "" : "${params.wandb_api_key}"
     def wandb_mode = params.wandb_api_key == null ? "disabled" : "online"
     def runid = workflow.runName
+    def checkpoint_flag = checkpoint ? "--checkpoint ${checkpoint}" : ""
     """
     export WANDB_DOCKER='jeffquinnmsk/nuc2seg:latest'
     mkdir -p "${prefix}"
@@ -42,6 +43,7 @@ process TRAIN {
         --tile-height ${params.tile_height} \
         --tile-width ${params.tile_width} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${checkpoint_flag} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml
