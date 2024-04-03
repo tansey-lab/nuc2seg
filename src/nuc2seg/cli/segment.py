@@ -135,6 +135,8 @@ def main():
         celltyping_chains
     )
 
+    logger.info("Predicting celltypes")
+
     celltype_predictions = predict_celltypes_for_segments_and_transcripts(
         prior_probs=celltyping_results.prior_probs[best_k],
         expression_profiles=celltyping_results.expression_profiles[best_k],
@@ -148,6 +150,10 @@ def main():
     for i in range(celltype_predictions.shape[1]):
         gdf[f"celltype_{i}_prob"] = celltype_predictions[:, i]
 
+    logger.info(f"Saving shapefile to {args.shapefile_output}")
+    gdf.to_parquet(args.shapefile_output)
+
+    logger.info("Creating anndata")
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
     )
@@ -166,6 +172,3 @@ def main():
         output_path=os.path.join(os.path.dirname(args.output), "class_assignment.png"),
         cat_column="celltype_assignment",
     )
-
-    logger.info(f"Saving shapefile to {args.shapefile_output}")
-    gdf.to_parquet(args.shapefile_output)

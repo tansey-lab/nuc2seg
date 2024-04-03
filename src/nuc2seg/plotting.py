@@ -296,6 +296,38 @@ def plot_segmentation_class_assignment(
     plt.close()
 
 
+def plot_gene_choropleth(segmentation_gdf, adata, gene_name, output_path, log=True):
+    segmentation_gdf = segmentation_gdf.reset_index(names="_index")
+    df = adata[:, gene_name].to_df()
+
+    df.reset_index(inplace=True, names="_index")
+    df["_index"] = df["_index"].astype(int)
+
+    joined_gdf = pandas.merge(
+        segmentation_gdf, df, left_on="_index", right_on="_index", how="left"
+    )
+
+    if (gene_name + "_y") in joined_gdf:
+        joined_gdf[gene_name] = joined_gdf[gene_name + "_y"]
+
+    if log:
+        joined_gdf[gene_name] = np.log(joined_gdf[gene_name] + 1)
+
+    fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
+    ax.invert_yaxis()
+    joined_gdf.plot(
+        ax=ax,
+        categorical=False,
+        column=gene_name,
+        legend=True,
+        cmap="coolwarm",
+        edgecolor="lightgray",
+        linewidth=0.1,
+    )
+    fig.savefig(output_path)
+    plt.close()
+
+
 def plot_celltype_estimation_results(
     aic_scores,
     bic_scores,
