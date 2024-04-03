@@ -244,7 +244,7 @@ def create_dense_gene_counts_matrix(
         drop=True
     )
 
-    n_genes = joined_df[gene_id_col].nunique()
+    n_genes = transcript_geo_df[gene_id_col].nunique()
 
     nuclei_count_geo_df = joined_df[
         joined_df["_sjoin_distance"] <= max_distance
@@ -278,7 +278,7 @@ def fit_celltyping_on_segments_and_transcripts(
         tx_geo_df, nuclei_geo_df, distance_col="nucleus_distance"
     )
 
-    n_genes = tx_nuclei_geo_df["gene_id"].max() + 1
+    n_genes = tx_geo_df["gene_id"].nunique()
 
     nuclei_count_geo_df = tx_nuclei_geo_df[
         tx_nuclei_geo_df["nucleus_distance"] <= foreground_nucleus_distance
