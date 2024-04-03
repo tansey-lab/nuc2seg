@@ -40,6 +40,10 @@ workflow NUC2SEG {
                     )
                 ]
             )
+
+            celltyping_results = Channel.fromList([tuple( [ id: name, single_end:false ],
+                    file(params.celltyping_results, checkIfExists: true)
+            )])
         }
 
         PREPROCESS ( preprocess_input )
@@ -67,17 +71,19 @@ workflow NUC2SEG {
 
     PREDICT( predict_input )
 
-    if (params.dataset == null) {
+    if (params.dataset == null || params.celltyping_results == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
             .join(ch_input.map { tuple(it[0], it[1]) })
+            .join(CELLTYPING.out.cell_typing_results.groupTuple())
             .tap { segment_input }
-    } else {
-        Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
+    } else if (params.dataset != null && params.celltyping_results != null) {
+        Channel.fromList([tuple( [ id: name, single_end:false ],
           file(params.dataset, checkIfExists: true)
         )])
             .join(PREDICT.out.predictions)
             .join(ch_input.map { tuple(it[0], it[1]) })
+            .join(celltyping_results)
             .tap { segment_input }
     }
 
@@ -96,7 +102,7 @@ workflow NUC2SEG {
             .join(SEGMENT.out.segmentation)
             .tap { plot_input }
     } else {
-        Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
+        Channel.fromList([tuple( [ id: name, single_end:false ],
           file(params.dataset, checkIfExists: true)
         )])
             .join(PREDICT.out.predictions)

@@ -218,7 +218,7 @@ def plot_model_predictions(
 def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
     fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     ax.invert_yaxis()
-    segmentation_gdf.plot(ax=ax, color="blue", edgecolor="white", linewidth=0.5)
+    segmentation_gdf.plot(ax=ax, color="blue", edgecolor="lightgray", linewidth=0.1)
     nuclei_gdf.plot(ax=ax, color="red")
 
     fig.savefig(output_path)
@@ -289,8 +289,8 @@ def plot_segmentation_class_assignment(
         column=cat_column,
         legend=True,
         cmap="tab20",
-        edgecolor="white",
-        linewidth=0.5,
+        edgecolor="lightgray",
+        linewidth=0.1,
     )
     fig.savefig(output_path)
     plt.close()

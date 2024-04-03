@@ -142,13 +142,15 @@ def load_and_filter_transcripts(
     to_include_features = set()
 
     for feature_name in all_feature_names:
-        if feature_name.startswith("NegControlProbe_"):
+        if feature_name.lower().startswith("negcontrolprobe_"):
             continue
-        if feature_name.startswith("antisense_"):
+        if feature_name.lower().startswith("antisense_"):
             continue
-        if feature_name.startswith("NegControlCodeword_"):
+        if feature_name.lower().startswith("negcontrolcodeword_"):
             continue
-        if feature_name.startswith("BLANK_"):
+        if feature_name.lower().startswith("blank_"):
+            continue
+        if feature_name.startswith("deprecatedcodeword_"):
             continue
         to_include_features.add(feature_name)
 
@@ -170,7 +172,7 @@ def load_and_filter_transcripts(
     # Assign a unique integer ID to each gene
     gene_ids = transcripts_df["feature_name"].unique()
     n_genes = len(gene_ids)
-    mapping = dict(zip(gene_ids, np.arange(len(gene_ids))))
+    mapping = dict(zip(sorted(gene_ids), np.arange(len(gene_ids))))
     transcripts_df["gene_id"] = transcripts_df["feature_name"].apply(
         lambda x: mapping.get(x, 0)
     )
