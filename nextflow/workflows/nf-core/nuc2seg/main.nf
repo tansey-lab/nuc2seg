@@ -61,6 +61,10 @@ workflow NUC2SEG {
             file(params.resume_weights, checkIfExists: true),
         )])
         TRAIN( train_input )
+        train_input
+          .map { tuple(it[0], it[1]) }
+          .join(TRAIN.out.weights)
+          .tap { predict_input }
     }
     else {
         if (params.dataset != null && params.weights == null) {
@@ -70,6 +74,7 @@ workflow NUC2SEG {
             )])
             TRAIN( train_input )
             train_input
+                .map { tuple(it[0], it[1]) }
                 .join(TRAIN.out.weights)
                 .tap { predict_input }
         } else {
