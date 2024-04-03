@@ -25,6 +25,12 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
+        "--weights",
+        help="Path to weights checkpoint to continue training.",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
         "--output-dir",
         help="Directory to save model checkpoints to.",
         type=str,
@@ -211,22 +217,36 @@ def main():
         num_workers=args.num_dataloader_workers,
     )
 
-    model = SparseUNet(
-        n_channels=600,
-        n_classes=ds.n_classes,
-        angle_loss_factor=args.angle_loss_factor,
-        foreground_loss_factor=args.foreground_loss_factor,
-        celltype_loss_factor=args.celltype_loss_factor,
-        celltype_criterion_weights=tiled_ds.celltype_criterion_weights,
-        tile_height=args.tile_height,
-        tile_width=args.tile_width,
-        tile_overlap=args.overlap_percentage,
-        n_filters=args.n_filters,
-        lr=args.learning_rate,
-        weight_decay=args.weight_decay,
-        betas=args.betas,
-        loss_reweighting=args.loss_reweighting,
-    )
+    if args.checkpoint is None:
+        logger.info("Training new model")
+        model = SparseUNet(
+            n_channels=600,
+            n_classes=ds.n_classes,
+            angle_loss_factor=args.angle_loss_factor,
+            foreground_loss_factor=args.foreground_loss_factor,
+            celltype_loss_factor=args.celltype_loss_factor,
+            celltype_criterion_weights=tiled_ds.celltype_criterion_weights,
+            tile_height=args.tile_height,
+            tile_width=args.tile_width,
+            tile_overlap=args.overlap_percentage,
+            n_filters=args.n_filters,
+            lr=args.learning_rate,
+            weight_decay=args.weight_decay,
+            betas=args.betas,
+            loss_reweighting=args.loss_reweighting,
+        )
+    else:
+        logger.info(f"Resuming from checkpoint {args.checkpoint}")
+        model = SparseUNet.load_from_checkpoint(
+            args.checkpoint,
+            angle_loss_factor=args.angle_loss_factor,
+            foreground_loss_factor=args.foreground_loss_factor,
+            celltype_loss_factor=args.celltype_loss_factor,
+            lr=args.learning_rate,
+            weight_decay=args.weight_decay,
+            betas=args.betas,
+            loss_reweighting=args.loss_reweighting,
+        )
 
     # save checkpoints based on "val_loss" metric
     checkpoint_callback = ModelCheckpoint(

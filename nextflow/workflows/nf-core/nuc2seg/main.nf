@@ -30,7 +30,7 @@ workflow NUC2SEG {
         ])
     }
 
-    if (params.weights == null && params.dataset == null) {
+    if (params.weights == null && params.dataset == null && params.resume_weights == null) {
 
         if (params.celltyping_results == null) {
             ch_input.flatMap { create_parallel_sequence(it[0], it[1], it[2]) }.tap { cell_typing_input }
@@ -49,15 +49,24 @@ workflow NUC2SEG {
         }
 
         PREPROCESS ( preprocess_input )
-        TRAIN( PREPROCESS.out.dataset )
+        TRAIN( PREPROCESS.out.dataset.map {tuple(it[0], it[1], [])} )
 
         PREPROCESS.out.dataset
             .join(TRAIN.out.weights)
             .tap { predict_input }
-    } else {
+    }
+    else if (params.resume_weights != null) {
+        train_input = Channel.fromList([tuple( [ id: name, single_end:false ],
+            file(params.dataset, checkIfExists: true),
+            file(params.resume_weights, checkIfExists: true),
+        )])
+        TRAIN( train_input )
+    }
+    else {
         if (params.dataset != null && params.weights == null) {
             train_input = Channel.fromList([tuple( [ id: name, single_end:false ],
-                  file(params.dataset, checkIfExists: true)
+                  file(params.dataset, checkIfExists: true),
+                  []
             )])
             TRAIN( train_input )
             train_input
