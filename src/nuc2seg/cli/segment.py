@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os.path
+import numpy as np
 
 from nuc2seg import log_config
 from nuc2seg.segment import (
@@ -8,12 +9,16 @@ from nuc2seg.segment import (
     convert_segmentation_to_shapefile,
     convert_transcripts_to_anndata,
 )
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions
+from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
 from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
 from nuc2seg.xenium import (
     read_transcripts_into_points,
     load_nuclei,
     create_shapely_rectangle,
+)
+from nuc2seg.celltyping import (
+    predict_celltypes_for_segments_and_transcripts,
+    select_best_celltyping_chain,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +44,13 @@ def get_parser():
         help="Path to the Xenium nuclei boundaries parquet file",
         type=str,
         required=True,
+    )
+    parser.add_argument(
+        "--celltyping-results",
+        help="Path to one or more celltyping results files.",
+        type=str,
+        required=True,
+        nargs="+",
     )
     parser.add_argument(
         "--shapefile-output",
@@ -118,6 +130,23 @@ def main():
     )
     logger.info(f"Creating anndata")
 
+    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
+    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
+        celltyping_chains
+    )
+
+    celltype_predictions = predict_celltypes_for_segments_and_transcripts(
+        prior_probs=celltyping_results.prior_probs[best_k],
+        expression_profiles=celltyping_results.expression_profiles[best_k],
+        segment_geo_df=gdf,
+        transcript_geo_df=transcripts,
+        max_distinace=0,
+    )
+    cell_type_labels = np.argmax(celltype_predictions, axis=1)
+    gdf["celltype_assignment"] = cell_type_labels
+    for i in range(cell_type_labels.shape[1]):
+        gdf[f"celltype_{i}_prob"] = cell_type_labels[:, i]
+
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
     )
@@ -134,6 +163,7 @@ def main():
     plot_segmentation_class_assignment(
         segmentation_gdf=gdf,
         output_path=os.path.join(os.path.dirname(args.output), "class_assignment.png"),
+        cat_column="celltype_assignment",
     )
 
     logger.info(f"Saving shapefile to {args.shapefile_output}")

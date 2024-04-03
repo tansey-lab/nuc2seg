@@ -142,13 +142,15 @@ def load_and_filter_transcripts(
     to_include_features = set()
 
     for feature_name in all_feature_names:
-        if feature_name.startswith("NegControlProbe_"):
+        if feature_name.lower().startswith("negcontrolprobe_"):
             continue
-        if feature_name.startswith("antisense_"):
+        if feature_name.lower().startswith("antisense_"):
             continue
-        if feature_name.startswith("NegControlCodeword_"):
+        if feature_name.lower().startswith("negcontrolcodeword_"):
             continue
-        if feature_name.startswith("BLANK_"):
+        if feature_name.lower().startswith("blank_"):
+            continue
+        if feature_name.startswith("deprecatedcodeword_"):
             continue
         to_include_features.add(feature_name)
 

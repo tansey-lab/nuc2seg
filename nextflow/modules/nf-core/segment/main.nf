@@ -6,7 +6,7 @@ process SEGMENT {
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
 
     input:
-    tuple val(meta), path(dataset), path(predictions), path(xenium_dir)
+    tuple val(meta), path(dataset), path(predictions), path(xenium_dir), path(cell_typing_results)
 
     output:
     tuple val(meta), path("${prefix}/segmentation.h5"), emit: segmentation
@@ -30,6 +30,7 @@ process SEGMENT {
         --anndata-output ${prefix}/anndata.h5ad \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
+        --celltyping-results ${cell_typing_results} \
         --dataset ${dataset} \
         --predictions ${predictions} \
         ${args}

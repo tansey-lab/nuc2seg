@@ -319,9 +319,9 @@ def convert_segmentation_to_shapefile(
         mean_probs = mean_class_prob_per_cell[gb_idx, :]
         class_assignment = int(np.argmax(mean_probs))
 
-        record["class_assignment"] = class_assignment
+        record["unet_celltype_assignment"] = class_assignment
         for i, val in enumerate(mean_probs):
-            record[f"class_{i}_prob"] = val
+            record[f"unet_celltype_{i}_prob"] = val
         records.append(record)
 
     gdf = geopandas.GeoDataFrame(records, geometry="geometry")
@@ -402,6 +402,8 @@ def convert_transcripts_to_anndata(
     shapefile_index = summed_counts_per_cell["cell_id"].unique()
     shapefile_index.sort()
 
+    additional_columns = [x for x in segmentation_gdf.columns if x != "geometry"]
+
     adata = anndata.AnnData(
         X=sparse_matrix,
         obsm={
@@ -409,7 +411,7 @@ def convert_transcripts_to_anndata(
                 ["centroid_x", "centroid_y"]
             ].values
         },
-        obs=segmentation_gdf.iloc[shapefile_index][["area"]],
+        obs=segmentation_gdf.iloc[shapefile_index][additional_columns],
         var=pd.DataFrame(index=gene_u),
     )
 

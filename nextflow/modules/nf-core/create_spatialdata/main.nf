@@ -24,6 +24,7 @@ process CREATE_SPATIALDATA {
     create_sd \
         --segmentation ${segmentation} \
         --xenium-dir ${xenium_dir} \
+        --anndata ${anndata} \
         --output ${prefix}/spatialdata.zarr \
         ${args}
 

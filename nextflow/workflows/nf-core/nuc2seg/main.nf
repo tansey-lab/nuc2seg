@@ -71,13 +71,19 @@ workflow NUC2SEG {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
             .join(ch_input.map { tuple(it[0], it[1]) })
+            .join(CELLTYPING.out.cell_typing_results.groupTuple())
             .tap { segment_input }
     } else {
-        Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
+        Channel.fromList([tuple( [ id: name, single_end:false ]
           file(params.dataset, checkIfExists: true)
         )])
             .join(PREDICT.out.predictions)
             .join(ch_input.map { tuple(it[0], it[1]) })
+            .join(
+                Channel.fromList([tuple( [ id: name, single_end:false ],
+                    file(params.celltyping_results, checkIfExists: true)
+                )])
+            )
             .tap { segment_input }
     }
 
