@@ -383,7 +383,7 @@ def convert_transcripts_to_anndata(
     ).rename(columns={"index": "cell_id"})
 
     cell_u = list(sorted(summed_counts_per_cell["cell_id"].unique()))
-    gene_u = list(sorted(summed_counts_per_cell[gene_name_column].unique()))
+    gene_u = list(sorted(transcript_gdf[gene_name_column].unique()))
 
     summed_counts_per_cell["cell_id_idx"] = pd.Categorical(
         summed_counts_per_cell["cell_id"], categories=cell_u, ordered=True

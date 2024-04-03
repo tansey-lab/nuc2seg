@@ -231,7 +231,7 @@ def create_dense_gene_counts_matrix(
 
     # Create a nuclei x gene count matrix
     joined_df = geopandas.sjoin_nearest(
-        transcript_geo_df, segmentation_geo_df, distance_col="nucleus_distance"
+        transcript_geo_df, segmentation_geo_df, distance_col="_sjoin_distance"
     )
 
     if "transcript_id" in joined_df.columns:
@@ -247,8 +247,10 @@ def create_dense_gene_counts_matrix(
     n_genes = joined_df[gene_id_col].nunique()
 
     nuclei_count_geo_df = joined_df[
-        joined_df["nucleus_distance"] <= max_distance
+        joined_df["_sjoin_distance"] <= max_distance
     ].reset_index(drop=True)
+
+    del joined_df["_sjoin_distance"]
 
     nuclei_count_matrix = np.zeros((len(segmentation_geo_df), n_genes), dtype=int)
     np.add.at(
