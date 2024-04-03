@@ -102,7 +102,7 @@ workflow NUC2SEG {
             .join(SEGMENT.out.segmentation)
             .tap { plot_input }
     } else {
-        Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
+        Channel.fromList([tuple( [ id: name, single_end:false ],
           file(params.dataset, checkIfExists: true)
         )])
             .join(PREDICT.out.predictions)
