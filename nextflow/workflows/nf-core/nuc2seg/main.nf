@@ -24,6 +24,12 @@ workflow NUC2SEG {
         tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true), params.celltyping_n_chains)
     ])
 
+    if (params.celltyping_results != null) {
+        celltyping_results = Channel.fromList([
+            tuple( [ id: name, single_end:false ], file(params.celltyping_results, checkIfExists: true))
+        ])
+    }
+
     if (params.weights == null && params.dataset == null) {
 
         if (params.celltyping_results == null) {
@@ -40,10 +46,6 @@ workflow NUC2SEG {
                     )
                 ]
             )
-
-            celltyping_results = Channel.fromList([tuple( [ id: name, single_end:false ],
-                    file(params.celltyping_results, checkIfExists: true)
-            )])
         }
 
         PREPROCESS ( preprocess_input )
