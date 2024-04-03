@@ -6,7 +6,7 @@ import pandas
 from matplotlib import cm, gridspec
 from matplotlib import pyplot as plt
 from shapely import box
-
+import seaborn as sns
 from nuc2seg.data import (
     Nuc2SegDataset,
     ModelPredictions,
@@ -191,7 +191,6 @@ def plot_model_predictions(
     output_path=None,
     bbox=None,
 ):
-
     layout = """
     A
     B
@@ -228,7 +227,6 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
 def plot_segmentation_comparison(
     seg_a, seg_b, nuclei, output_path, seg_a_name="sega", seg_b_name="segb", bbox=None
 ):
-
     if bbox:
         seg_a = seg_a[seg_a.geometry.within(bbox)]
         seg_b = seg_b[seg_b.geometry.within(bbox)]
@@ -326,6 +324,63 @@ def plot_gene_choropleth(segmentation_gdf, adata, gene_name, output_path, log=Tr
     )
     fig.savefig(output_path)
     plt.close()
+
+
+def celltype_histogram(segmentation_gdf, output_path):
+    layout = "AB"
+
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(20, 8))
+
+    segmentation_gdf["celltype"] = pandas.Categorical(
+        segmentation_gdf.celltype_assignment,
+        categories=sorted(segmentation_gdf.celltype_assignment.unique()),
+        ordered=True,
+    )
+    sns.histplot(
+        ax=ax["A"],
+        data=segmentation_gdf,
+        x="celltype",
+        hue="celltype",
+        palette="tab20",
+        legend=False,
+    )
+    ax["A"].set_title("Number of Cells per Celltype")
+    ax["A"].set_xticks(range(segmentation_gdf["celltype"].nunique()))
+    ax["A"].set_ylabel("# Cells")
+
+    area_df = segmentation_gdf.groupby("celltype")["area"].sum().reset_index()
+
+    sns.barplot(
+        ax=ax["B"], data=area_df, x="celltype", y="area", palette="tab20", legend=False
+    )
+    ax["B"].set_title("Total Segmented Area per Celltype")
+    ax["B"].set_xticks(range(segmentation_gdf["celltype"].nunique()))
+    ax["B"].set_ylabel("Area (μm^2)")
+
+    plt.tight_layout()
+    fig.savefig(output_path)
+
+
+def celltype_area_violin(segmentation_gdf, output_path):
+    fig, ax = plt.subplots(figsize=(15, 8))
+    segmentation_gdf["celltype"] = pandas.Categorical(
+        segmentation_gdf.celltype_assignment,
+        categories=sorted(segmentation_gdf.celltype_assignment.unique()),
+        ordered=True,
+    )
+    ax.set_title("Distribution of Segmented Area per Celltype")
+    sns.violinplot(
+        ax=ax,
+        data=segmentation_gdf,
+        x="celltype",
+        y="area",
+        legend=False,
+        inner="quart",
+        palette=cm["tab20"],
+    )
+
+    plt.tight_layout()
+    fig.savefig(output_path)
 
 
 def plot_celltype_estimation_results(
