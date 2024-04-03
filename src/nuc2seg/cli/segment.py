@@ -140,12 +140,13 @@ def main():
         expression_profiles=celltyping_results.expression_profiles[best_k],
         segment_geo_df=gdf,
         transcript_geo_df=transcripts,
+        gene_names=celltyping_results.gene_names,
         max_distinace=0,
     )
     cell_type_labels = np.argmax(celltype_predictions, axis=1)
     gdf["celltype_assignment"] = cell_type_labels
-    for i in range(cell_type_labels.shape[1]):
-        gdf[f"celltype_{i}_prob"] = cell_type_labels[:, i]
+    for i in range(celltype_predictions.shape[1]):
+        gdf[f"celltype_{i}_prob"] = celltype_predictions[:, i]
 
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf

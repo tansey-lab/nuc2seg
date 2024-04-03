@@ -295,12 +295,12 @@ def test_convert_segmentation_to_shapefile():
     )
 
     assert gdf.shape[0] == 2
-    assert gdf.iloc[0].class_assignment == 0
-    assert gdf.iloc[1].class_assignment == 1
+    assert gdf.iloc[0].unet_celltype_assignment == 0
+    assert gdf.iloc[1].unet_celltype_assignment == 1
     assert gdf.iloc[0].geometry.area == 100
     assert gdf.iloc[1].geometry.area == 100
-    assert gdf.iloc[0].class_0_prob >= 0.89
-    assert gdf.iloc[1].class_1_prob >= 0.89
+    assert gdf.iloc[0].unet_celltype_0_prob >= 0.89
+    assert gdf.iloc[1].unet_celltype_1_prob >= 0.89
 
 
 def test_convert_transcripts_to_anndata():

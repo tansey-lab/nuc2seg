@@ -368,14 +368,27 @@ def predict_celltypes_for_segments_and_transcripts(
     chunk_size: int = 10_000,
     gene_name_column: str = "feature_name",
     max_distinace: float = 0,
+    gene_names: list[str] = None,
 ):
-    # gene_name to id map
-    gene_name_to_id = dict(
-        zip(
-            transcript_geo_df[gene_name_column].unique(),
-            range(transcript_geo_df[gene_name_column].nunique()),
+    if gene_names is not None:
+        # gene_name to id map
+        gene_name_to_id = dict(
+            zip(
+                gene_names,
+                range(len(gene_names)),
+            )
         )
-    )
+
+        selection_vector = transcript_geo_df[gene_name_column].isin(gene_names)
+        transcript_geo_df = transcript_geo_df[selection_vector]
+    else:
+        gene_name_to_id = dict(
+            zip(
+                sorted(transcript_geo_df[gene_name_column].unique()),
+                range(transcript_geo_df[gene_name_column].nunique()),
+            )
+        )
+
     transcript_geo_df["gene_id"] = transcript_geo_df[gene_name_column].map(
         gene_name_to_id
     )
