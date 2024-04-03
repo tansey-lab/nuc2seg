@@ -25,8 +25,8 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--weights",
-        help="Path to weights checkpoint to continue training.",
+        "--checkpoint",
+        help="Path to a checkpoint to continue training.",
         type=str,
         default=None,
     )
