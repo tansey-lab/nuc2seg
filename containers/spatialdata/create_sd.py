@@ -28,10 +28,14 @@ def main():
     shape_transform = get_transformation(sd.shapes["nucleus_boundaries"])
 
     # Load the segmentation shapefile
-    seg = geopandas.read_parquet(args.segmentation).set_geometry("geometry").dropna()
-    seg = ShapesModel.parse(seg, transformations={"global": shape_transform})
+    gdf = geopandas.read_parquet(args.segmentation).set_geometry("geometry").dropna()
+    gdf_parsed = ShapesModel.parse(gdf, transformations={"global": shape_transform})
 
-    sd.shapes["nuc2seg_cell_segmentation"] = seg
+    for colname in gdf.columns:
+        if colname not in gdf_parsed.columns:
+            gdf_parsed[colname] = gdf[colname]
+
+    sd.shapes["nuc2seg_cell_segmentation"] = gdf_parsed
 
     sd.tables["nuc2seg"] = ad
 

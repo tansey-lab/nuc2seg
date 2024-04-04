@@ -6,7 +6,7 @@ import pandas
 from matplotlib import cm, gridspec
 from matplotlib import pyplot as plt
 from shapely import box
-
+import seaborn as sns
 from nuc2seg.data import (
     Nuc2SegDataset,
     ModelPredictions,
@@ -191,7 +191,6 @@ def plot_model_predictions(
     output_path=None,
     bbox=None,
 ):
-
     layout = """
     A
     B
@@ -228,7 +227,6 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
 def plot_segmentation_comparison(
     seg_a, seg_b, nuclei, output_path, seg_a_name="sega", seg_b_name="segb", bbox=None
 ):
-
     if bbox:
         seg_a = seg_a[seg_a.geometry.within(bbox)]
         seg_b = seg_b[seg_b.geometry.within(bbox)]
@@ -294,6 +292,87 @@ def plot_segmentation_class_assignment(
     )
     fig.savefig(output_path)
     plt.close()
+
+
+def plot_gene_choropleth(segmentation_gdf, adata, gene_name, output_path, log=True):
+    segmentation_gdf = segmentation_gdf.reset_index(names="_index")
+    df = adata[:, gene_name].to_df()
+
+    df.reset_index(inplace=True, names="_index")
+    df["_index"] = df["_index"].astype(int)
+
+    joined_gdf = pandas.merge(
+        segmentation_gdf, df, left_on="_index", right_on="_index", how="left"
+    )
+
+    if (gene_name + "_y") in joined_gdf:
+        joined_gdf[gene_name] = joined_gdf[gene_name + "_y"]
+
+    if log:
+        joined_gdf[gene_name] = np.log(joined_gdf[gene_name] + 1)
+
+    fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
+    ax.invert_yaxis()
+    joined_gdf.plot(
+        ax=ax,
+        categorical=False,
+        column=gene_name,
+        legend=True,
+        cmap="coolwarm",
+        edgecolor="lightgray",
+        linewidth=0.1,
+    )
+    fig.savefig(output_path)
+    plt.close()
+
+
+def celltype_histogram(segmentation_gdf, output_path, cat_column="celltype_assignment"):
+    layout = "AB"
+
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(20, 8))
+
+    sns.histplot(
+        ax=ax["A"],
+        data=segmentation_gdf,
+        x=cat_column,
+        hue=cat_column,
+        palette="tab20",
+        legend=False,
+    )
+    ax["A"].set_title("Number of Cells per Celltype")
+    ax["A"].set_xticks(range(segmentation_gdf[cat_column].nunique()))
+    ax["A"].set_ylabel("# Cells")
+
+    area_df = segmentation_gdf.groupby(cat_column)["area"].sum().reset_index()
+
+    sns.barplot(
+        ax=ax["B"], data=area_df, x=cat_column, y="area", palette="tab20", legend=False
+    )
+    ax["B"].set_title("Total Segmented Area per Celltype")
+    ax["B"].set_xticks(range(segmentation_gdf[cat_column].nunique()))
+    ax["B"].set_ylabel("Area (μm^2)")
+
+    plt.tight_layout()
+    fig.savefig(output_path)
+
+
+def celltype_area_violin(
+    segmentation_gdf, output_path, cat_column="celltype_assignment"
+):
+    fig, ax = plt.subplots(figsize=(15, 8))
+    ax.set_title("Distribution of Segmented Area per Celltype")
+    sns.violinplot(
+        ax=ax,
+        data=segmentation_gdf,
+        x=cat_column,
+        y="area",
+        legend=False,
+        inner="quart",
+        palette=cm["tab20"],
+    )
+
+    plt.tight_layout()
+    fig.savefig(output_path)
 
 
 def plot_celltype_estimation_results(
