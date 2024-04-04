@@ -119,6 +119,9 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
         del result_gdf["index_right"]
     if "index_left" in result_gdf:
         del result_gdf["index_left"]
+
+    result_gdf.reset_index(drop=False, names="segment_id", inplace=True)
+
     return result_gdf
 
 
@@ -176,3 +179,21 @@ def read_baysor_shapes_with_cluster_assignment(
     result = gdf.merge(cell_to_cluster, left_on="cell", right_on="cell_id")
     del result["cell_id"]
     return result, tx_geo_df
+
+
+def filter_baysor_shapes_to_most_significant_nucleus_overlap(
+    baysor_shapes,
+    nuclei_shapes,
+    overlap_area_threshold=2.0,
+    id_col="segment_id",
+    nucleus_overlap_area_col="nucleus_overlap_area",
+):
+    overlay_gdf = gpd.overlay(baysor_shapes, nuclei_shapes, how="intersection")
+    overlay_gdf[nucleus_overlap_area_col] = overlay_gdf.geometry.area
+
+    overlay_gdf = overlay_gdf[
+        overlay_gdf[nucleus_overlap_area_col] > overlap_area_threshold
+    ]
+    gb = overlay_gdf.groupby(id_col)[[nucleus_overlap_area_col]].max()
+
+    return baysor_shapes.merge(gb, left_on=id_col, right_index=True)
