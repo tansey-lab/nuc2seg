@@ -326,53 +326,45 @@ def plot_gene_choropleth(segmentation_gdf, adata, gene_name, output_path, log=Tr
     plt.close()
 
 
-def celltype_histogram(segmentation_gdf, output_path):
+def celltype_histogram(segmentation_gdf, output_path, cat_column="celltype_assignment"):
     layout = "AB"
 
     fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(20, 8))
 
-    segmentation_gdf["celltype"] = pandas.Categorical(
-        segmentation_gdf.celltype_assignment,
-        categories=sorted(segmentation_gdf.celltype_assignment.unique()),
-        ordered=True,
-    )
     sns.histplot(
         ax=ax["A"],
         data=segmentation_gdf,
-        x="celltype",
-        hue="celltype",
+        x=cat_column,
+        hue=cat_column,
         palette="tab20",
         legend=False,
     )
     ax["A"].set_title("Number of Cells per Celltype")
-    ax["A"].set_xticks(range(segmentation_gdf["celltype"].nunique()))
+    ax["A"].set_xticks(range(segmentation_gdf[cat_column].nunique()))
     ax["A"].set_ylabel("# Cells")
 
-    area_df = segmentation_gdf.groupby("celltype")["area"].sum().reset_index()
+    area_df = segmentation_gdf.groupby(cat_column)["area"].sum().reset_index()
 
     sns.barplot(
-        ax=ax["B"], data=area_df, x="celltype", y="area", palette="tab20", legend=False
+        ax=ax["B"], data=area_df, x=cat_column, y="area", palette="tab20", legend=False
     )
     ax["B"].set_title("Total Segmented Area per Celltype")
-    ax["B"].set_xticks(range(segmentation_gdf["celltype"].nunique()))
+    ax["B"].set_xticks(range(segmentation_gdf[cat_column].nunique()))
     ax["B"].set_ylabel("Area (μm^2)")
 
     plt.tight_layout()
     fig.savefig(output_path)
 
 
-def celltype_area_violin(segmentation_gdf, output_path):
+def celltype_area_violin(
+    segmentation_gdf, output_path, cat_column="celltype_assignment"
+):
     fig, ax = plt.subplots(figsize=(15, 8))
-    segmentation_gdf["celltype"] = pandas.Categorical(
-        segmentation_gdf.celltype_assignment,
-        categories=sorted(segmentation_gdf.celltype_assignment.unique()),
-        ordered=True,
-    )
     ax.set_title("Distribution of Segmented Area per Celltype")
     sns.violinplot(
         ax=ax,
         data=segmentation_gdf,
-        x="celltype",
+        x=cat_column,
         y="area",
         legend=False,
         inner="quart",

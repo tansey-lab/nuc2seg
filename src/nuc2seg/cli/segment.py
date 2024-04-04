@@ -2,6 +2,7 @@ import argparse
 import logging
 import os.path
 import numpy as np
+import pandas
 
 from nuc2seg import log_config
 from nuc2seg.segment import (
@@ -10,7 +11,12 @@ from nuc2seg.segment import (
     convert_transcripts_to_anndata,
 )
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
-from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
+from nuc2seg.plotting import (
+    plot_final_segmentation,
+    plot_segmentation_class_assignment,
+    celltype_histogram,
+    celltype_area_violin,
+)
 from nuc2seg.xenium import (
     read_transcripts_into_points,
     load_nuclei,
@@ -147,6 +153,13 @@ def main():
     )
     cell_type_labels = np.argmax(celltype_predictions, axis=1)
     gdf["celltype_assignment"] = cell_type_labels
+
+    gdf["celltype_assignment"] = pandas.Categorical(
+        gdf["celltype_assignment"],
+        categories=sorted(gdf["celltype_assignment"].unique()),
+        ordered=True,
+    )
+
     for i in range(celltype_predictions.shape[1]):
         gdf[f"celltype_{i}_prob"] = celltype_predictions[:, i]
 
@@ -170,5 +183,19 @@ def main():
     plot_segmentation_class_assignment(
         segmentation_gdf=gdf,
         output_path=os.path.join(os.path.dirname(args.output), "class_assignment.png"),
+        cat_column="celltype_assignment",
+    )
+    celltype_area_violin(
+        segmentation_gdf=gdf,
+        output_path=os.path.join(
+            os.path.dirname(args.output), "celltype_area_violin.pdf"
+        ),
+        cat_column="celltype_assignment",
+    )
+    celltype_histogram(
+        segmentation_gdf=gdf,
+        output_path=os.path.join(
+            os.path.dirname(args.output), "celltype_histograms.pdf"
+        ),
         cat_column="celltype_assignment",
     )

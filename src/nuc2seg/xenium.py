@@ -152,6 +152,8 @@ def load_and_filter_transcripts(
             continue
         if feature_name.startswith("deprecatedcodeword_"):
             continue
+        if feature_name.startswith("unassignedcodeword_"):
+            continue
         to_include_features.add(feature_name)
 
     # Filter out controls and low quality transcripts
