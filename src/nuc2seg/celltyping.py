@@ -437,4 +437,4 @@ def predict_celltypes_for_anndata(
         expression_profiles=expression_profiles,
         prior_probs=prior_probs,
         gene_counts=gene_counts,
-    )
+    )[0]
