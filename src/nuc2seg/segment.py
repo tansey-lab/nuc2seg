@@ -8,6 +8,7 @@ import tqdm
 import pandas as pd
 import numpy_groupies as npg
 
+from shapely import affinity
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import (
     ModelPredictions,
@@ -313,6 +314,12 @@ def convert_segmentation_to_shapefile(
     for cell_id, coords in tqdm.tqdm(list(zip(cell_ids, coordinates))):
         record = {}
         poly = pixel_coords_to_polygon(coords)
+        poly = affinity.translate(
+            poly,
+            xoff=dataset.bbox[0],
+            yoff=dataset.bbox[1],
+        )
+
         record["geometry"] = poly
         gb_idx = groupby_idx_lookup[cell_id]
 
@@ -346,6 +353,11 @@ def convert_transcripts_to_anndata(
     segmentation_gdf["area"] = segmentation_gdf.geometry.area
     segmentation_gdf["centroid_x"] = segmentation_gdf.geometry.centroid.x
     segmentation_gdf["centroid_y"] = segmentation_gdf.geometry.centroid.y
+    if "index" in transcript_gdf.columns:
+        del transcript_gdf["index"]
+    if "index" in segmentation_gdf.columns:
+        del segmentation_gdf["index"]
+
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
     )

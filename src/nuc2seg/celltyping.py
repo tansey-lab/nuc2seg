@@ -1,6 +1,8 @@
 import tqdm
 import numpy as np
 import geopandas
+import anndata
+
 from kneed import KneeLocator
 
 from scipy.special import softmax
@@ -419,3 +421,20 @@ def predict_celltypes_for_segments_and_transcripts(
         )
 
     return np.concatenate(results)
+
+
+def predict_celltypes_for_anndata(
+    expression_profiles,
+    prior_probs,
+    ad: anndata.AnnData,
+    gene_names: list[str] = None,
+):
+    ad = ad[:, gene_names]
+
+    gene_counts = ad.to_df().values
+
+    return estimate_cell_types(
+        expression_profiles=expression_profiles,
+        prior_probs=prior_probs,
+        gene_counts=gene_counts,
+    )

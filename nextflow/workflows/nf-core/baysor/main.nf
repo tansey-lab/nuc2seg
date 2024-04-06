@@ -7,7 +7,8 @@ workflow BAYSOR_SEGMENTATION {
     def name = params.name == null ? "nuc2seg" : params.name
 
     ch_input = Channel.fromList([
-        tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true))
+        tuple( [ id: name, single_end:false ],
+        file(params.xenium_dir, checkIfExists: true))
     ])
 
     BAYSOR_PREPROCESS_TRANSCRIPTS( ch_input )
@@ -39,7 +40,7 @@ workflow BAYSOR_SEGMENTATION {
     BAYSOR( baysor_input )
 
     BAYSOR.out.shapes.groupTuple()
-        .map { tuple([id: it[0].id], file(params.xenium_dir, checkIfExists: true), it[1])}
+        .map { tuple([id: it[0].id], file(params.xenium_dir, checkIfExists: true), file(params.celltyping_results, checkIfExists: true), it[1])}
         .tap { postprocess_input }
 
     BAYSOR_POSTPROCESS( postprocess_input )

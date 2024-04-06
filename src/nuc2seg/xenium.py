@@ -75,6 +75,7 @@ def read_transcripts_into_points(
             transcripts[x_column_name], transcripts[y_column_name]
         ),
     )
+
     return tx_geo_df
 
 

@@ -1,30 +1,40 @@
 import argparse
 import logging
-import pandas as pd
-import geopandas as gpd
-import pandas
 import math
 import os.path
-import tqdm
 import re
 
+import numpy as np
+import pandas
+import tqdm
+
 from nuc2seg import log_config
+from nuc2seg.celltyping import (
+    predict_celltypes_for_anndata,
+    select_best_celltyping_chain,
+)
+from nuc2seg.data import CelltypingResults
+from nuc2seg.plotting import (
+    plot_final_segmentation,
+)
 from nuc2seg.postprocess import (
     stitch_shapes,
-    read_baysor_shapes_with_cluster_assignment,
+    filter_baysor_shapes_to_most_significant_nucleus_overlap,
     read_baysor_shapefile,
 )
-from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
-from nuc2seg.xenium import load_nuclei, read_transcripts_into_points
-from nuc2seg.segment import convert_transcripts_to_anndata
+from nuc2seg.segment import (
+    convert_transcripts_to_anndata,
+)
+from nuc2seg.xenium import (
+    read_transcripts_into_points,
+    load_nuclei,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(
-        description="Benchmark cell segmentation given post-Xenium IF data that includes an autofluorescence marker."
-    )
+    parser = argparse.ArgumentParser(description="Post process tiled baysor results.")
     log_config.add_logging_args(parser)
     parser.add_argument(
         "--baysor-shapefiles",
@@ -44,6 +54,13 @@ def get_parser():
         help="Xenium transcripts in parquet format.",
         type=str,
         required=True,
+    )
+    parser.add_argument(
+        "--celltyping-results",
+        help="Path to one or more celltyping results files.",
+        type=str,
+        required=True,
+        nargs="+",
     )
     parser.add_argument(
         "--output",
@@ -75,6 +92,13 @@ def get_parser():
         type=float,
         default=0.5,
     )
+    parser.add_argument(
+        "--nucleus-overlap-threshold",
+        help="Min amount of area overlapping nucleus for keeping the baysor segment.",
+        type=float,
+        default=2.0,
+    )
+
     parser.add_argument(
         "--min-molecules-per-cell",
         help="Dont output cells with less than this many gene counts.",
@@ -120,6 +144,7 @@ def main():
 
     logger.info("Done loading baysor results.")
 
+    logger.info("Stitching shapes")
     stitched_shapes = stitch_shapes(
         shapes=shape_gdfs,
         tile_size=(args.tile_width, args.tile_height),
@@ -127,23 +152,68 @@ def main():
         overlap=args.overlap_percentage,
     )
 
+    logger.info("Loading nuclei shapes")
     nuclei_geo_df = load_nuclei(
         nuclei_file=args.nuclei_file,
         sample_area=None,
     )
 
-    plot_final_segmentation(
-        nuclei_gdf=nuclei_geo_df,
-        segmentation_gdf=stitched_shapes,
-        output_path=os.path.join(os.path.dirname(args.output), "segmentation.png"),
+    stitched_shapes.to_parquet(args.output)
+
+    logger.info("Filtering baysor shapes to most significant nucleus overlap")
+    baysor_nucleus_intersection = (
+        filter_baysor_shapes_to_most_significant_nucleus_overlap(
+            baysor_shapes=stitched_shapes,
+            nuclei_shapes=nuclei_geo_df,
+            overlap_area_threshold=args.nucleus_overlap_threshold,
+        )
     )
 
+    logger.info("Creating anndata")
     adata = convert_transcripts_to_anndata(
         transcript_gdf=transcript_df,
-        segmentation_gdf=stitched_shapes,
+        segmentation_gdf=baysor_nucleus_intersection,
         min_molecules_per_cell=args.min_molecules_per_cell,
     )
 
+    logger.info("Predicting celltypes")
+    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
+    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
+        celltyping_chains
+    )
+    celltype_predictions = predict_celltypes_for_anndata(
+        prior_probs=celltyping_results.prior_probs[best_k],
+        expression_profiles=celltyping_results.expression_profiles[best_k],
+        ad=adata,
+        gene_names=celltyping_results.gene_names,
+    )
+    cell_type_labels = np.argmax(celltype_predictions, axis=1)
+    cell_type_labels = pandas.Categorical(
+        cell_type_labels,
+        categories=sorted(np.unique(cell_type_labels)),
+        ordered=True,
+    )
+
+    baysor_nucleus_intersection["celltype_assignment"] = cell_type_labels
+    adata.obs["celltype_assignment"] = cell_type_labels
+
+    for i in range(celltype_predictions.shape[1]):
+        baysor_nucleus_intersection[f"celltype_{i}_prob"] = celltype_predictions[:, i]
+        adata.obs[f"celltype_{i}_prob"] = celltype_predictions[:, i]
+
+    logger.info("Saving anndata")
     adata.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5ad"))
 
-    stitched_shapes.to_parquet(args.output)
+    logger.info("Saving shapefile")
+    baysor_nucleus_intersection.to_parquet(
+        os.path.join(
+            os.path.dirname(args.output), "baysor_nucleus_intersecting_shapes.parquet"
+        )
+    )
+
+    logger.info("Plotting final segmentation")
+    plot_final_segmentation(
+        nuclei_gdf=nuclei_geo_df,
+        segmentation_gdf=baysor_nucleus_intersection,
+        output_path=os.path.join(os.path.dirname(args.output), "segmentation.png"),
+    )
