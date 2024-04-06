@@ -8,6 +8,7 @@ import tqdm
 import pandas as pd
 import numpy_groupies as npg
 
+from shapely import affinity
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import (
     ModelPredictions,
@@ -313,6 +314,12 @@ def convert_segmentation_to_shapefile(
     for cell_id, coords in tqdm.tqdm(list(zip(cell_ids, coordinates))):
         record = {}
         poly = pixel_coords_to_polygon(coords)
+        poly = affinity.translate(
+            poly,
+            xoff=dataset.bbox[0],
+            yoff=dataset.bbox[1],
+        )
+
         record["geometry"] = poly
         gb_idx = groupby_idx_lookup[cell_id]
 
