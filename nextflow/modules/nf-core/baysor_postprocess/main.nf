@@ -6,7 +6,7 @@ process BAYSOR_POSTPROCESS {
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
 
     input:
-    tuple val(meta), path(xenium_dir), path(shapefiles)
+    tuple val(meta), path(xenium_dir), path(cell_typing_results), path(shapefiles)
 
     output:
     tuple val(meta), path("${output_dir_name}/segmentation.parquet"), emit: segmentation
@@ -23,6 +23,7 @@ process BAYSOR_POSTPROCESS {
     baysor_postprocess \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
+        --celltyping-results ${cell_typing_results} \
         --output ${output_dir_name}/segmentation.parquet \
         --baysor-shapefiles ${shapefiles} \
         --tile-width ${params.tile_width} \
