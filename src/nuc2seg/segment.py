@@ -353,6 +353,11 @@ def convert_transcripts_to_anndata(
     segmentation_gdf["area"] = segmentation_gdf.geometry.area
     segmentation_gdf["centroid_x"] = segmentation_gdf.geometry.centroid.x
     segmentation_gdf["centroid_y"] = segmentation_gdf.geometry.centroid.y
+    if "index" in transcript_gdf.columns:
+        del transcript_gdf["index"]
+    if "index" in segmentation_gdf.columns:
+        del segmentation_gdf["index"]
+
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
     )
