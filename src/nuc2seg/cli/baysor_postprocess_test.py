@@ -64,9 +64,9 @@ def test_baysor_postprocess(
             np.random.random((4, 2)),
         ],
         prior_probs=[
-            np.array([[0.5, 0.5]]),
-            np.array([[0.33, 0.33, 0.33]]),
-            np.array([[0.25, 0.25, 0.25, 0.25]]),
+            np.array([0.5, 0.5]),
+            np.array([0.33, 0.33, 0.33]),
+            np.array([0.25, 0.25, 0.25, 0.25]),
         ],
         relative_expression=[
             np.random.random((2, 2)),

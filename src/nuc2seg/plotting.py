@@ -368,7 +368,7 @@ def celltype_area_violin(
         y="area",
         legend=False,
         inner="quart",
-        palette=cm["tab20"],
+        palette="tab20",
     )
 
     plt.tight_layout()

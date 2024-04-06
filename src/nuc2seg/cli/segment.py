@@ -154,7 +154,7 @@ def main():
     cell_type_labels = np.argmax(celltype_predictions, axis=1)
     cell_type_labels = pandas.Categorical(
         cell_type_labels,
-        categories=sorted(cell_type_labels.unique()),
+        categories=sorted(np.unique(cell_type_labels)),
         ordered=True,
     )
 
