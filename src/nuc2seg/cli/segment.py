@@ -23,7 +23,7 @@ from nuc2seg.xenium import (
     create_shapely_rectangle,
 )
 from nuc2seg.celltyping import (
-    predict_celltypes_for_segments_and_transcripts,
+    predict_celltypes_for_anndata,
     select_best_celltyping_chain,
 )
 
@@ -134,45 +134,42 @@ def main():
     gdf = convert_segmentation_to_shapefile(
         segmentation=result.segmentation, dataset=dataset, predictions=predictions
     )
-    logger.info(f"Creating anndata")
-
-    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
-    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
-        celltyping_chains
-    )
-
-    logger.info("Predicting celltypes")
-
-    celltype_predictions = predict_celltypes_for_segments_and_transcripts(
-        prior_probs=celltyping_results.prior_probs[best_k],
-        expression_profiles=celltyping_results.expression_profiles[best_k],
-        segment_geo_df=gdf,
-        transcript_geo_df=transcripts,
-        gene_names=celltyping_results.gene_names,
-        max_distinace=0,
-    )
-    cell_type_labels = np.argmax(celltype_predictions, axis=1)
-    gdf["celltype_assignment"] = cell_type_labels
-
-    gdf["celltype_assignment"] = pandas.Categorical(
-        gdf["celltype_assignment"],
-        categories=sorted(gdf["celltype_assignment"].unique()),
-        ordered=True,
-    )
-
-    for i in range(celltype_predictions.shape[1]):
-        gdf[f"celltype_{i}_prob"] = celltype_predictions[:, i]
-
-    logger.info(f"Saving shapefile to {args.shapefile_output}")
-    gdf.to_parquet(args.shapefile_output)
 
     logger.info("Creating anndata")
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
     )
 
+    logger.info("Predicting celltypes")
+    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
+    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
+        celltyping_chains
+    )
+    celltype_predictions = predict_celltypes_for_anndata(
+        prior_probs=celltyping_results.prior_probs[best_k],
+        expression_profiles=celltyping_results.expression_profiles[best_k],
+        ad=ad,
+        gene_names=celltyping_results.gene_names,
+    )
+    cell_type_labels = np.argmax(celltype_predictions, axis=1)
+    cell_type_labels = pandas.Categorical(
+        cell_type_labels,
+        categories=sorted(cell_type_labels.unique()),
+        ordered=True,
+    )
+
+    gdf["celltype_assignment"] = cell_type_labels
+    ad.obs["celltype_assignment"] = cell_type_labels
+
+    for i in range(celltype_predictions.shape[1]):
+        gdf[f"celltype_{i}_prob"] = celltype_predictions[:, i]
+        ad.obs[f"celltype_{i}_prob"] = celltype_predictions[:, i]
+
     logger.info(f"Saving anndata to {args.anndata_output}")
     ad.write_h5ad(args.anndata_output)
+
+    logger.info(f"Saving shapefile to {args.shapefile_output}")
+    gdf.to_parquet(args.shapefile_output)
 
     logger.info(f"Plotting segmentation and class assignment.")
     plot_final_segmentation(

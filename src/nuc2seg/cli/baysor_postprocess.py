@@ -1,23 +1,34 @@
 import argparse
 import logging
-import pandas as pd
-import geopandas as gpd
-import pandas
 import math
 import os.path
-import tqdm
 import re
 
+import numpy as np
+import pandas
+import tqdm
+
 from nuc2seg import log_config
+from nuc2seg.celltyping import (
+    predict_celltypes_for_segments_and_transcripts,
+    select_best_celltyping_chain,
+)
+from nuc2seg.data import CelltypingResults
+from nuc2seg.plotting import (
+    plot_final_segmentation,
+)
 from nuc2seg.postprocess import (
     stitch_shapes,
-    read_baysor_shapes_with_cluster_assignment,
     filter_baysor_shapes_to_most_significant_nucleus_overlap,
     read_baysor_shapefile,
 )
-from nuc2seg.plotting import plot_final_segmentation, plot_segmentation_class_assignment
-from nuc2seg.xenium import load_nuclei, read_transcripts_into_points
-from nuc2seg.segment import convert_transcripts_to_anndata
+from nuc2seg.segment import (
+    convert_transcripts_to_anndata,
+)
+from nuc2seg.xenium import (
+    read_transcripts_into_points,
+    load_nuclei,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +54,13 @@ def get_parser():
         help="Xenium transcripts in parquet format.",
         type=str,
         required=True,
+    )
+    parser.add_argument(
+        "--celltyping-results",
+        help="Path to one or more celltyping results files.",
+        type=str,
+        required=True,
+        nargs="+",
     )
     parser.add_argument(
         "--output",
@@ -148,6 +166,32 @@ def main():
             os.path.dirname(args.output), "baysor_nucleus_intersecting_shapes.parquet"
         )
     )
+
+    logger.info("Predicting celltypes")
+    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
+    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
+        celltyping_chains
+    )
+
+    celltype_predictions = predict_celltypes_for_segments_and_transcripts(
+        prior_probs=celltyping_results.prior_probs[best_k],
+        expression_profiles=celltyping_results.expression_profiles[best_k],
+        segment_geo_df=baysor_nucleus_intersection,
+        transcript_geo_df=transcript_df,
+        gene_names=celltyping_results.gene_names,
+        max_distinace=0,
+    )
+    cell_type_labels = np.argmax(celltype_predictions, axis=1)
+    baysor_nucleus_intersection["celltype_assignment"] = cell_type_labels
+
+    baysor_nucleus_intersection["celltype_assignment"] = pandas.Categorical(
+        baysor_nucleus_intersection["celltype_assignment"],
+        categories=sorted(baysor_nucleus_intersection["celltype_assignment"].unique()),
+        ordered=True,
+    )
+
+    for i in range(celltype_predictions.shape[1]):
+        baysor_nucleus_intersection[f"celltype_{i}_prob"] = celltype_predictions[:, i]
 
     logger.info("Plotting final segmentation")
     plot_final_segmentation(
