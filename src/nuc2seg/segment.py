@@ -333,6 +333,9 @@ def convert_segmentation_to_shapefile(
 
     gdf = geopandas.GeoDataFrame(records, geometry="geometry")
 
+    gdf.reset_index(inplace=True, drop=True)
+    gdf.reset_index(inplace=True, drop=False, names="segment_id")
+
     return gdf
 
 
@@ -361,7 +364,7 @@ def convert_transcripts_to_anndata(
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
     )
-    sjoined_gdf.reset_index(inplace=True)
+    sjoined_gdf.reset_index(inplace=True, drop=False, names="index")
 
     before_dedupe = len(sjoined_gdf)
 

@@ -158,12 +158,17 @@ def main():
         ordered=True,
     )
 
-    gdf["celltype_assignment"] = cell_type_labels
-    ad.obs["celltype_assignment"] = cell_type_labels
+    columns = [f"celltype_{i}_prob" for i in range(celltype_predictions.shape[1])]
+    celltype_df = pandas.DataFrame(celltype_predictions, columns=columns)
+    celltype_df["celltype_assignment"] = cell_type_labels
+    celltype_df["segment_id"] = ad.obs["segment_id"].values
 
-    for i in range(celltype_predictions.shape[1]):
-        gdf[f"celltype_{i}_prob"] = celltype_predictions[:, i]
-        ad.obs[f"celltype_{i}_prob"] = celltype_predictions[:, i]
+    gdf = gdf.merge(
+        celltype_df, left_on="segment_id", right_on="segment_id", how="left"
+    )
+    ad.obs = ad.obs.merge(
+        celltype_df, left_on="segment_id", right_on="segment_id", how="left"
+    )
 
     logger.info(f"Saving anndata to {args.anndata_output}")
     ad.write_h5ad(args.anndata_output)
