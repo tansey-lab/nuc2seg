@@ -333,6 +333,9 @@ def convert_segmentation_to_shapefile(
 
     gdf = geopandas.GeoDataFrame(records, geometry="geometry")
 
+    gdf.reset_index(inplace=True, drop=True)
+    gdf.reset_index(inplace=True, drop=False, names="segment_id")
+
     return gdf
 
 
