@@ -256,7 +256,9 @@ def main():
     )
 
     # Init trainer
-    wandb_logger = WandbLogger(log_model="all")
+    wandb_logger = WandbLogger(
+        log_model=True,
+    )
     trainer = Trainer(
         max_epochs=args.epochs,
         accelerator=args.device,

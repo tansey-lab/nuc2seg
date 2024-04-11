@@ -24,6 +24,8 @@ process TRAIN {
     def wandb_mode = params.wandb_api_key == null ? "disabled" : "online"
     def runid = workflow.runName
     def checkpoint_flag = checkpoint ? "--checkpoint ${checkpoint}" : ""
+    def need_reweight_flag = !args.contains("--loss-reweighting")
+    def reweight_flag = need_reweight_flag ? "--loss-reweighting" : ""
     """
     export WANDB_DOCKER='jeffquinnmsk/nuc2seg:latest'
     mkdir -p "${prefix}"
@@ -43,6 +45,7 @@ process TRAIN {
         --tile-height ${params.tile_height} \
         --tile-width ${params.tile_width} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${reweight_flag} \
         ${checkpoint_flag} \
         ${args}
 

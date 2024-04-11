@@ -22,7 +22,8 @@ nuc2seg produces several output data files:
 - ``segmentation.h5``: A h5 file containing the rasterized segmentation of the cells.
 - ``shapes.parquet``: A parquet file containing the non-rasterized shapes of the cell segmentation.
 - ``anndata.h5ad``: Anndata file based on the cell segmentation (will only contain transcripts that fall within cell segments)
-- ``spatialdata.zarr``: SpatialData Zarr directory with the cell segmentation added as a new layer, can be used for visualization with ``napari-spatialdata``
+- ``spatialdata.zarr``: SpatialData Zarr directory with the cell segmentation added as a new layer, can be used for visualization with ``napari-spatialdata``,
+or for plotting with ``spatialdata_plot``
 
 And several plots:
 

@@ -23,10 +23,16 @@ Quickstart
 
         nextflow run tansey-lab/nuc2seg \
             -r main \
-            -profile <docker/singularity/mskcc_iris/...> \
+            -profile <docker/singularity/iris/...> \
             --xenium_dir <path to xenium output> \
             --outdir <path to output> \
-            --wandb_api_key <optional weights and bias api key for tracking UNet training>
+            --wandb_api_key <optional weights and bias api key for tracking UNet training> \
+            --max_memory 128G \
+	        --max_cpus 2 \
+	        --max_time 96h \
+            --outdir /some/outdir \
+            -w /some/outdir/nf
+
 
 
 
