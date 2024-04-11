@@ -67,23 +67,3 @@ jobs:
       - name: Run pytest-workflow
         working-directory: ./nextflow
         run: TMPDIR=~ PROFILE=docker pytest --symlink --kwdof --git-aware --color=yes
-
-  build-singularity:
-    needs:
-      - build-docker
-    runs-on: ubuntu-latest
-    name: Build singularity
-    steps:
-      - name: Delete huge unnecessary tools folder
-        run: rm -rf /opt/hostedtoolcache
-
-      - name: Build Container
-        uses: docker://quay.io/singularity/singularity:v3.8.1
-        env:
-          SINGULARITY_DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          SINGULARITY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-
-        run: |
-          singularity build image.sif docker://jeffquinnmsk/nuc2seg:latest
-          echo ${{ secrets.GITHUB_TOKEN }} | singularity remote login -u ${{ secrets.GHCR_USERNAME }} --password-stdin oras://ghcr.io
-          singularity push image.sif oras://ghcr.io/${GITHUB_REPOSITORY}:${tag}
