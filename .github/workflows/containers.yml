@@ -67,3 +67,31 @@ jobs:
       - name: Run pytest-workflow
         working-directory: ./nextflow
         run: TMPDIR=~ PROFILE=docker pytest --symlink --kwdof --git-aware --color=yes
+
+  build-singularity:
+    needs:
+      - build-docker
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/singularity/singularity:v3.8.1
+      options: --privileged
+
+    name: Build singularity
+    steps:
+
+      - name: Check out code for the container builds
+        uses: actions/checkout@v2
+
+      - name: Build Container
+        env:
+          SINGULARITY_DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SINGULARITY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          singularity build image.sif docker://jeffquinnmsk/nuc2seg:latest
+
+      - name: Login and Deploy Container
+        run: |
+            if [[ "${keepgoing}" == "true" ]]; then
+                echo ${{ secrets.GITHUB_TOKEN }} | singularity remote login -u ${{ secrets.GHCR_USERNAME }} --password-stdin oras://ghcr.io
+                singularity push image.sif oras://ghcr.io/${GITHUB_REPOSITORY}:${tag}
+            fi
