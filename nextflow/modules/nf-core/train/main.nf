@@ -10,7 +10,7 @@ process TRAIN {
     tuple val(meta), path(dataset), path(checkpoint)
 
     output:
-    tuple val(meta), path("${prefix}/*/checkpoints/*.ckpt"), emit: weights
+    tuple val(meta), path("${prefix}/weights.ckpt"), emit: weights
     path  "versions.yml"                , emit: versions
 
 
@@ -24,6 +24,8 @@ process TRAIN {
     def wandb_mode = params.wandb_api_key == null ? "disabled" : "online"
     def runid = workflow.runName
     def checkpoint_flag = checkpoint ? "--checkpoint ${checkpoint}" : ""
+    def need_reweight_flag = !args.contains("--loss-reweighting")
+    def reweight_flag = need_reweight_flag ? "--loss-reweighting" : ""
     """
     export WANDB_DOCKER='jeffquinnmsk/nuc2seg:latest'
     mkdir -p "${prefix}"
@@ -43,8 +45,11 @@ process TRAIN {
         --tile-height ${params.tile_height} \
         --tile-width ${params.tile_width} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${reweight_flag} \
         ${checkpoint_flag} \
         ${args}
+
+    find "${prefix}" -iname '*.ckpt' -exec cp {} "${prefix}/weights.ckpt" \\;
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

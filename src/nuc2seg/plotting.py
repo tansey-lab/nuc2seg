@@ -117,21 +117,46 @@ def plot_angles_quiver(
         labels = labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]
         segmentation = segmentation[bbox[0] : bbox[2], bbox[1] : bbox[3]]
         segmentation[segmentation == 0] = np.nan
+        segmentation[segmentation == -1] = np.nan
         nuclei = labels > 0
         mask = labels == -1
     else:
         segmentation[segmentation == 0] = np.nan
+        segmentation[segmentation == -1] = np.nan
         nuclei = labels > 0
         mask = labels == -1
 
-    ax.imshow(nuclei.T, vmin=0, vmax=1, cmap="binary", interpolation="none")
+    nuclei = nuclei.T
+    segmentation = segmentation.T
 
-    ax.imshow(
-        segmentation.T,
-        cmap="tab10",
-        alpha=0.6,
-        interpolation="none",
-    )
+    imshow_data = np.zeros((nuclei.shape[0], nuclei.shape[1], 4)).astype(float)
+
+    unique_segments = np.unique(segmentation)
+    # filter nan from array
+    unique_segments = unique_segments[~np.isnan(unique_segments)]
+    n_unique_segments = unique_segments.shape[0]
+
+    palette = sns.color_palette("tab10")
+
+    for i in range(mask.T.shape[0]):
+        for j in range(mask.T.shape[1]):
+            if not mask.T[i, j]:
+                imshow_data[i, j, :] = np.array([0.45, 0.57, 0.70, 0.5]).astype(float)
+
+    for i in range(segmentation.shape[0]):
+        for j in range(segmentation.shape[1]):
+            if not np.isnan(segmentation[i, j]):
+                color_idx = np.where(unique_segments == segmentation[i, j])[0][0]
+                imshow_data[i, j, :] = np.concatenate(
+                    [palette[color_idx % n_unique_segments], [0.9]]
+                )
+
+    for i in range(nuclei.shape[0]):
+        for j in range(nuclei.shape[1]):
+            if nuclei[i, j]:
+                imshow_data[i, j, :] = np.array([0, 0, 0, 1]).astype(float)
+
+    ax.imshow(imshow_data)
 
     for xi in range(nuclei.shape[0]):
         for yi in range(nuclei.shape[1]):
@@ -140,27 +165,48 @@ def plot_angles_quiver(
                 ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07)
     ax.set_title("Predicted angles and segmentation")
 
+    legend_handles = []
+    legend_handles.append(
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="black",
+            markersize=10,
+            label="Nucleus",
+        )
+    )
+
+    legend_handles.append(
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=(0.45, 0.57, 0.70, 0.5),
+            markersize=10,
+            label="Background",
+        )
+    )
+
+    for idx, v in enumerate(unique_segments):
+        color_idx = np.where(unique_segments == v)[0][0]
+        color = palette[color_idx % n_unique_segments]
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=color,
+                markersize=10,
+                label=f"Segment {idx}",
+            )
+        )
+
     ax.legend(
-        handles=[
-            plt.Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor="black",
-                markersize=10,
-                label="Nucleus",
-            ),
-            plt.Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor="blue",
-                markersize=10,
-                label="Segmented Cell",
-            ),
-        ],
+        handles=legend_handles,
         loc="center left",
         bbox_to_anchor=(1, 0.5),
     )
@@ -393,15 +439,15 @@ def plot_celltype_estimation_results(
 
     error = np.stack(
         [
-            np.abs(aic_scores.min(axis=0) - aic_scores.min(axis=0)),
-            np.abs(aic_scores.min(axis=0) - aic_scores.max(axis=0)),
+            np.abs(aic_scores.mean(axis=0) - aic_scores.min(axis=0)),
+            np.abs(aic_scores.mean(axis=0) - aic_scores.max(axis=0)),
         ]
     )
 
     # add min/max error bars
     ax.errorbar(
         n_components,
-        aic_scores.min(axis=0),
+        aic_scores.mean(axis=0),
         yerr=error,
         label="AIC",
         alpha=0.5,
@@ -416,15 +462,24 @@ def plot_celltype_estimation_results(
 
     ax.errorbar(
         n_components,
-        bic_scores.min(axis=0),
+        bic_scores.mean(axis=0),
         yerr=error,
         label="BIC",
         alpha=0.5,
     )
 
+    arg_min = np.argmin(bic_scores.min(axis=0))
+    min_value = bic_scores.min(axis=0)[arg_min]
+    best_n_celltypes = n_components[arg_min]
+
+    # add star to plot at best n_celltypes
+    ax.annotate(
+        text=f"Best N Celltypes:\n{best_n_celltypes}",
+        xy=(best_n_celltypes, min_value),
+    )
     ax.set_xlabel("Number of components")
     ax.set_ylabel("Score")
-    ax.set_title("AIC and BIC scores with error multiple trials")
+    ax.set_title("AIC and BIC score ranges over multiple trials")
     ax.legend()
     fig.savefig(os.path.join(output_dir, "aic_bic_scores.pdf"))
     plt.close()

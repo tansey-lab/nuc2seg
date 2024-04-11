@@ -1,7 +1,6 @@
 process PREDICT {
     tag "$meta.id"
     label 'process_medium'
-    label 'process_high_memory'
     label 'gpu'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/nuc2seg:latest' :

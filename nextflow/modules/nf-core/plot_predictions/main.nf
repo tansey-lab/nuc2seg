@@ -1,6 +1,6 @@
 process PLOT_PREDICTIONS {
     tag "$meta.id"
-    label 'process_single'
+    label 'process_low'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/nuc2seg:latest' :
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"

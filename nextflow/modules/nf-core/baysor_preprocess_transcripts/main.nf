@@ -15,6 +15,7 @@ process BAYSOR_PREPROCESS_TRANSCRIPTS {
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
+    def sample_area_arg = params.sample_area == null ? "" : "--sample-area ${params.sample_area}"
     """
     mkdir -p "${prefix}/baysor/input"
     baysor_preprocess_transcripts \
@@ -23,6 +24,7 @@ process BAYSOR_PREPROCESS_TRANSCRIPTS {
         --tile-width ${params.tile_width} \
         --tile-height ${params.tile_height} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${sample_area_arg} \
         ${args}
     """
 }
