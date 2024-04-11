@@ -10,7 +10,7 @@ process TRAIN {
     tuple val(meta), path(dataset), path(checkpoint)
 
     output:
-    tuple val(meta), path("${prefix}/*/checkpoints/*.ckpt"), emit: weights
+    tuple val(meta), path("${prefix}/weights.ckpt"), emit: weights
     path  "versions.yml"                , emit: versions
 
 
@@ -48,6 +48,8 @@ process TRAIN {
         ${reweight_flag} \
         ${checkpoint_flag} \
         ${args}
+
+    find "${prefix}" -iname '*.ckpt' -exec cp {} "${prefix}/weights.ckpt" \\;
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

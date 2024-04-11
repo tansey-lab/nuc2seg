@@ -46,7 +46,7 @@ def get_parser():
         "--epochs",
         help="Number of epochs to train for.",
         type=int,
-        default=50,
+        default=30,
     )
     parser.add_argument(
         "--batch-size",

@@ -46,9 +46,7 @@ def test_plot_model_predictions():
 
     segmentation_arr = labels.copy()
 
-    segmentation_arr[60:, 60:] = 10
-
-    segmentation_arr[0:4, 0:4] = 30
+    segmentation_arr[30:39, 20:43] = 10
 
     segmentation = SegmentationResults(segmentation=segmentation_arr)
 

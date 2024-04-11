@@ -25,15 +25,19 @@ Quickstart
             -r main \
             -profile <docker/singularity/iris/...> \
             --xenium_dir <path to xenium output> \
-            --outdir <path to output> \
             --wandb_api_key <optional weights and bias api key for tracking UNet training> \
-            --max_memory 128G \
-	        --max_cpus 2 \
-	        --max_time 96h \
-            --outdir /some/outdir \
-            -w /some/outdir/nf
+            --outdir /your/outdir \
+            -w /your/outdir/nf
 
+If running on MSKCC iris cluster, see the :ref:`Running on MSKCC Iris Cluster <mskcc-iris>` section for instructions.
 
+The nextflow pipeline also provides the following optional parameters:
+
+- ``--dataset``: Existing ``preprocessed.h5`` file to use, will skip preprocessing.
+- ``--celltyping_results``: Existing celltyping results to use (i.e. ``--celltyping_results "/your/outdir/cell_typing_chain_*.h5"``).
+- ``--weights``: Existing ``.ckpt`` to use, will skip neural net training.
+- ``--resume_weights``: Existing ``.ckpt`` to use, will initialize model weights to this checkpoint and continue training.
+- ``--sample_area``: Area of the slide to clip in bounding box format ``x1,y1,x2,y2`` (e.g. ``--sample_area "0,0,1000,1000"``).
 
 
 Contents
@@ -43,10 +47,11 @@ Contents
     :maxdepth: 2
 
     install
+    mskcc_iris
     inputs_and_outputs
     algorithm
     cli
-    api
+    Github <https://github.com/tansey-lab/nuc2seg>
 
 
 

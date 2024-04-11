@@ -1,6 +1,9 @@
 Algorithm
 =========
 
+.. figure:: algo_overview.png
+   :alt: Algorithm Overview
+
 We first preprocesses the data by splitting it up into discrete pixels of 1 micrometer.
 
 We then assign pixels as being either background, border, or nucelus based on
@@ -9,8 +12,10 @@ the distance of the pixel to the nearest nucelus or density of transcripts.
 For all pixels inside the nucleus, we calculate the angle of the vector from the pixel to the
 centroid of the nucleus.
 
-We use a EM approach to estimate the expression profiles of cell types in the data, and then choose
-a number of cell types based on AIC/BIC. We assign each nucleus to a cell type based on the transcripts it contains.
+We fit a multinomial mixture model via EM to estimate the expression profiles of cell types in the data.
+We run this model with multiple random seed initializations for every number of components (number of cell types).
+We choose the best performing model based on BIC, this will be the number of celltypes we use going forward.
+Using this best performing model we assign each nucleus to a cell type based on the transcripts it contains.
 
 Next we use a UNet with number of channels equal to the number of genes, and number of output classes
 equal to the number of celltypes. We also add to this two special output classes: one for background/foreground discrimination,
