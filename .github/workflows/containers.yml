@@ -78,9 +78,8 @@ jobs:
 
     name: Build singularity
     steps:
-
-      - name: Check out code for the container builds
-        uses: actions/checkout@v2
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
 
       - name: Build Container
         env:
