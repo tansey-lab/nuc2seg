@@ -148,7 +148,7 @@ def plot_angles_quiver(
             if not np.isnan(segmentation[i, j]):
                 color_idx = np.where(unique_segments == segmentation[i, j])[0][0]
                 imshow_data[i, j, :] = np.concatenate(
-                    [palette[color_idx % n_unique_segments], [0.9]]
+                    [palette[color_idx % len(palette)], [0.9]]
                 )
 
     for i in range(nuclei.shape[0]):
@@ -192,7 +192,7 @@ def plot_angles_quiver(
 
     for idx, v in enumerate(unique_segments):
         color_idx = np.where(unique_segments == v)[0][0]
-        color = palette[color_idx % n_unique_segments]
+        color = palette[color_idx % len(palette)]
         legend_handles.append(
             plt.Line2D(
                 [0],
