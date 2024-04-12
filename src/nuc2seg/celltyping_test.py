@@ -53,14 +53,14 @@ def test_estimate_cell_types2():
     n_genes, n_cells = 12, 99
 
     data = np.zeros((n_cells, n_genes), dtype=int)
-    data[:33, :4] = np.random.poisson(10, size=(33, 4))
-    data[33:, :4] = np.random.poisson(1, size=(66, 4))
-    data[33:66, 4:8] = np.random.poisson(10, size=(33, 4))
-    data[:33, 4:8] = np.random.poisson(1, size=(33, 4))
-    data[66:, :8] = np.random.poisson(1, size=(33, 8))
+    data[:33, :4] = rng.poisson(10, size=(33, 4))
+    data[33:, :4] = rng.poisson(1, size=(66, 4))
+    data[33:66, 4:8] = rng.poisson(10, size=(33, 4))
+    data[:33, 4:8] = rng.poisson(1, size=(33, 4))
+    data[66:, :8] = rng.poisson(1, size=(33, 8))
 
-    data[66:, 8:] = np.random.poisson(10, size=(33, 4))
-    data[:66, 8:] = np.random.poisson(1, size=(66, 4))
+    data[66:, 8:] = rng.poisson(10, size=(33, 4))
+    data[:66, 8:] = rng.poisson(1, size=(66, 4))
 
     celltyping_results = fit_celltype_em_model(
         data,
