@@ -1,5 +1,6 @@
 from nuc2seg.segment import (
     greedy_expansion,
+    label_connected_components,
     flow_destination,
     greedy_cell_segmentation,
     raster_to_polygon,
@@ -8,6 +9,7 @@ from nuc2seg.segment import (
     convert_transcripts_to_anndata,
     collinear,
 )
+from nuc2seg.preprocessing import cart2pol
 import numpy as np
 import pytest
 import torch
@@ -212,6 +214,26 @@ def test_greedy_cell_segmentation(mocker):
         ),
     )
 
+    result2 = greedy_cell_segmentation(
+        mock_dataset,
+        mock_predictions,
+        foreground_threshold=0.5,
+        max_expansion_steps=10,
+        use_labels=False,
+        min_component_size=2,
+    )
+
+    np.testing.assert_equal(
+        result2.segmentation,
+        np.array(
+            [
+                [0, 1, 0],
+                [0, 1, 0],
+                [0, 1, 0],
+            ]
+        ),
+    )
+
 
 def test_raster_to_polygon():
     arr = np.array(
@@ -260,7 +282,6 @@ def test_stitch_predictions():
 
 
 def test_convert_segmentation_to_shapefile():
-
     classes = np.zeros((64, 100, 4))
 
     classes[10:20, 10:20, :] = np.array([0.9, 0.01, 0.01, 0.01])
@@ -358,3 +379,39 @@ def test_collinear():
     assert not collinear((0, 0), (1, 0), (2, 1))
     assert not collinear((0, 0), (1, 1), (2, 0))
     assert not collinear((0, 1), (1, 1), (2, 0))
+
+
+def test_label_free_greedy_expansion():
+    x_extent_pixels = 3
+    y_extent_pixels = 3
+    angles = np.zeros((x_extent_pixels, y_extent_pixels))
+
+    for x in range(x_extent_pixels):
+        for y in range(y_extent_pixels):
+            x_component = (x_extent_pixels / 2) - (x + 0.5)
+            y_component = (y_extent_pixels / 2) - (y + 0.5)
+            angle = cart2pol(x=x_component, y=y_component)
+            angles[x, y] = angle[1]
+
+    start_xy = np.mgrid[0:x_extent_pixels, 0:y_extent_pixels]
+    start_xy = np.array(list(zip(start_xy[0].flatten(), start_xy[1].flatten())))
+
+    flow_xy = flow_destination(start_xy, angles, np.sqrt(2))
+
+    # Get the pixels that are sufficiently predicted to be foreground
+    foreground_mask = np.ones((x_extent_pixels, y_extent_pixels)).astype(bool)[
+        start_xy[:, 0], start_xy[:, 1]
+    ]
+
+    foreground_mask[0] = False
+
+    result = label_connected_components(
+        x_extent_pixels=x_extent_pixels,
+        y_extent_pixels=y_extent_pixels,
+        start_xy=start_xy,
+        flow_xy=flow_xy,
+        foreground_mask=foreground_mask,
+        min_component_size=1,
+    )
+
+    np.testing.assert_equal(result, np.array([[0, 1, 1], [1, 1, 1], [1, 1, 1]]))
