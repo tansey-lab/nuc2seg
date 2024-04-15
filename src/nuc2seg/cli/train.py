@@ -1,14 +1,14 @@
 import argparse
 import logging
 import numpy as np
-from multiprocessing import cpu_count
+import os.path
+
 from nuc2seg import log_config
-from nuc2seg.data import Nuc2SegDataset, TiledDataset
+from nuc2seg.data import Nuc2SegDataset, TiledDataset, TrainTestSplit
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
 from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
-
 
 logger = logging.getLogger(__name__)
 
@@ -274,3 +274,11 @@ def main():
 
     # Fit model
     trainer.fit(model, dm)
+
+    test_indices = np.array([x for x in dm.val_set.indices]).astype(int)
+    train_indices = np.array([x for x in dm.train_set.indices]).astype(int)
+
+    TrainTestSplit(
+        train_indices=test_indices,
+        test_indices=train_indices,
+    ).save_h5(os.path.join(args.output_dir + "/train_val_test_assignments.h5"))

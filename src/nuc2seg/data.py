@@ -344,7 +344,28 @@ class TiledDataset(Dataset):
             "label_mask": torch.as_tensor(labels_mask).bool().contiguous(),
             "nucleus_mask": torch.as_tensor(nucleus_mask).bool().contiguous(),
             "location": np.array([x1, y1]),
+            "tile_index": idx,
         }
+
+
+class TrainTestSplit:
+    def __init__(self, train_indices, test_indices):
+        self.train_indices = train_indices
+        self.test_indices = test_indices
+
+    def save_h5(self, path):
+        with h5py.File(path, "w") as f:
+            f.create_dataset(
+                "train_indices", data=self.train_indices, compression="gzip"
+            )
+            f.create_dataset("test_indices", data=self.test_indices, compression="gzip")
+
+    @staticmethod
+    def load_h5(path):
+        with h5py.File(path, "r") as f:
+            train_indices = f["train_indices"][:]
+            test_indices = f["test_indices"][:]
+        return TrainTestSplit(train_indices=train_indices, test_indices=test_indices)
 
 
 class ModelPredictions:
