@@ -101,6 +101,17 @@ def get_parser():
         type=str,
         help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
     )
+    parser.add_argument(
+        "--use-connected-components",
+        help="Use connected components seed segmentation instead of nuclei labels",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--connected-components-min-size",
+        help="Minimum size of connected components to consider",
+        type=int,
+        default=20,
+    )
     return parser
 
 
@@ -126,6 +137,8 @@ def main():
         predictions=predictions,
         max_expansion_steps=args.max_steps,
         foreground_threshold=args.foreground_prob_threshold,
+        use_labels=(not args.use_connected_components),
+        min_component_size=args.connected_components_min_size,
     )
 
     logger.info(f"Saving segmentation to {args.output}")

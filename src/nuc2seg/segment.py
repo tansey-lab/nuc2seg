@@ -18,6 +18,9 @@ from nuc2seg.data import (
 from scipy.sparse import csr_matrix
 from shapely import Polygon, affinity, box
 from blended_tiling import TilingModule
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
+
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +189,54 @@ def greedy_expansion(
     return pixel_labels_arr
 
 
+def label_connected_components(
+    x_extent_pixels,
+    y_extent_pixels,
+    start_xy,
+    flow_xy,
+    foreground_mask,
+    min_component_size=20,
+):
+    pixel_labels_arr = np.zeros((x_extent_pixels, y_extent_pixels), dtype=int)
+
+    # Connect adjacent pixels where one pixel flows into the next
+    rows = (start_xy[foreground_mask, 0] * y_extent_pixels) + start_xy[
+        foreground_mask, 1
+    ]
+    cols = (flow_xy[foreground_mask, 0] * y_extent_pixels) + flow_xy[foreground_mask, 1]
+    graph = csr_matrix(
+        (np.ones(len(rows)), (rows, cols)),
+        shape=(foreground_mask.shape[0], foreground_mask.shape[0]),
+    )
+
+    # Estimate connected subgraphs
+    n_connected, connected_labels = connected_components(
+        csgraph=graph, directed=False, return_labels=True
+    )
+
+    # Filter down to segments with enough pixels
+    uniques, counts = np.unique(connected_labels[foreground_mask], return_counts=True)
+    uniques = uniques[counts >= min_component_size]
+
+    # Update the pixel labels with the new cells
+    for idx, connected_label in enumerate(uniques):
+        mask = connected_labels == connected_label
+        pixel_labels_arr[start_xy[mask, 0], start_xy[mask, 1]] = idx + 1
+
+    # Post-process to remove island pixels surrounded by the same class on all sides
+    island_mask = np.zeros(pixel_labels_arr.shape, dtype=bool)
+    island_mask[1:-1, 1:-1] = (
+        (pixel_labels_arr[1:-1, 1:-1] == -1)
+        & (pixel_labels_arr[:-2, 1:-1] != -1)
+        & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[2:, 1:-1])
+        & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, :-2])
+        & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, 2:])
+    )
+    pixel_labels_arr[island_mask] = pixel_labels_arr[:-2, 1:-1][island_mask[1:-1, 1:-1]]
+
+    return pixel_labels_arr
+
+
 def flow_destination(start_xy, angle_preds, magnitude):
     dxdy = np.array(pol2cart(magnitude, angle_preds))[
         :, start_xy[:, 0], start_xy[:, 1]
@@ -201,34 +252,40 @@ def greedy_cell_segmentation(
     predictions: ModelPredictions,
     foreground_threshold=0.5,
     max_expansion_steps=15,
+    use_labels=True,
+    min_component_size=20,
 ):
-    # Create a dataframe with an entry for every pixel
-    pixel_labels_arr = dataset.labels.copy()
-
     # Determine where each pixel would flow to next
     start_xy = np.mgrid[0 : dataset.x_extent_pixels, 0 : dataset.y_extent_pixels]
     start_xy = np.array(list(zip(start_xy[0].flatten(), start_xy[1].flatten())))
 
     flow_xy = flow_destination(start_xy, predictions.angles, np.sqrt(2))
-    flow_labels = (
-        np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
-    )
-    flow_labels[start_xy[:, 0], start_xy[:, 1]] = pixel_labels_arr[
-        flow_xy[:, 0], flow_xy[:, 1]
-    ]
-
     flow_xy2 = flow_destination(start_xy, predictions.angles, np.sqrt(3))
-    flow_labels2 = (
-        np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
-    )
-    flow_labels2[start_xy[:, 0], start_xy[:, 1]] = pixel_labels_arr[
-        flow_xy2[:, 0], flow_xy2[:, 1]
-    ]
 
     # Get the pixels that are sufficiently predicted to be foreground
     foreground_mask = (predictions.foreground >= foreground_threshold)[
         start_xy[:, 0], start_xy[:, 1]
     ]
+
+    flow_labels = (
+        np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
+    )
+    flow_labels2 = (
+        np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
+    )
+
+    # Create a dataframe with an entry for every pixel
+    if use_labels:
+        pixel_labels_arr = dataset.labels.copy()
+    else:
+        pixel_labels_arr = label_connected_components(
+            dataset.x_extent_pixels,
+            dataset.y_extent_pixels,
+            start_xy,
+            flow_xy,
+            foreground_mask,
+            min_component_size=min_component_size,
+        )
 
     flow_labels[start_xy[:, 0], start_xy[:, 1]] = pixel_labels_arr[
         flow_xy[:, 0], flow_xy[:, 1]
