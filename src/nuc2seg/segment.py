@@ -216,18 +216,26 @@ def label_connected_components(
 
     # Filter down to segments with enough pixels
     uniques, counts = np.unique(connected_labels[foreground_mask], return_counts=True)
-    uniques = uniques[counts >= min_component_size]
+    logger.info(f"Found {len(uniques)} connected components")
 
-    # Update the pixel labels with the new cells
-    for idx, connected_label in enumerate(uniques):
-        mask = connected_labels == connected_label
-        pixel_labels_arr[start_xy[mask, 0], start_xy[mask, 1]] = idx + 1
+    to_keep = uniques[counts >= min_component_size]
+    pixel_labels_arr[start_xy[foreground_mask, 0], start_xy[foreground_mask, 1]] = (
+        connected_labels[foreground_mask]
+    )
+    pixel_labels_arr *= np.isin(pixel_labels_arr, to_keep).astype(int)
+
+    _, inverse_indices = np.unique(pixel_labels_arr, return_inverse=True)
+    pixel_labels_arr = np.reshape(inverse_indices, newshape=pixel_labels_arr.shape)
+
+    logger.info(
+        f"Found {len(to_keep)} connected components with at least {min_component_size} pixels"
+    )
 
     # Post-process to remove island pixels surrounded by the same class on all sides
     island_mask = np.zeros(pixel_labels_arr.shape, dtype=bool)
     island_mask[1:-1, 1:-1] = (
-        (pixel_labels_arr[1:-1, 1:-1] == -1)
-        & (pixel_labels_arr[:-2, 1:-1] != -1)
+        (pixel_labels_arr[1:-1, 1:-1] == 0)
+        & (pixel_labels_arr[:-2, 1:-1] != 0)
         & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[2:, 1:-1])
         & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, :-2])
         & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, 2:])
@@ -333,6 +341,38 @@ def pixel_coords_to_polygon(coords):
         shapes.append(box(x1, y1, x1 + 1, y1 + 1))
 
     return shapely.union_all(shapes)
+
+
+def segmentation_array_to_shapefile(segmentation):
+    records = []
+    segmentation_flattened = segmentation.flatten().astype(int)
+    segmentation_flattened[segmentation_flattened == -1] = 0
+    x, y = np.indices(segmentation.shape)
+
+    # segmentation raster but as a dataframe with one row per pixel
+    segmentation_df = pd.DataFrame(
+        {"x": x.flatten(), "y": y.flatten(), "segmentation": segmentation.flatten()}
+    )
+    segmentation_df = segmentation_df[~segmentation_df["segmentation"].isin([-1, 0])]
+
+    bag_of_coordinates_for_each_segment = segmentation_df.groupby("segmentation").apply(
+        lambda x: list(zip(x["x"], x["y"]))
+    )
+    coordinates = bag_of_coordinates_for_each_segment.tolist()
+    cell_ids = bag_of_coordinates_for_each_segment.index.tolist()
+
+    for cell_id, coords in tqdm.tqdm(list(zip(cell_ids, coordinates))):
+        record = {}
+        poly = pixel_coords_to_polygon(coords)
+        record["geometry"] = poly
+        records.append(record)
+
+    gdf = geopandas.GeoDataFrame(records, geometry="geometry")
+
+    gdf.reset_index(inplace=True, drop=True)
+    gdf.reset_index(inplace=True, drop=False, names="segment_id")
+
+    return gdf
 
 
 def convert_segmentation_to_shapefile(
@@ -479,11 +519,11 @@ def convert_transcripts_to_anndata(
     adata = anndata.AnnData(
         X=sparse_matrix,
         obsm={
-            "spatial": segmentation_gdf.iloc[shapefile_index][
+            "spatial": segmentation_gdf.loc[shapefile_index][
                 ["centroid_x", "centroid_y"]
             ].values
         },
-        obs=segmentation_gdf.iloc[shapefile_index][additional_columns],
+        obs=segmentation_gdf.loc[shapefile_index][additional_columns],
         var=pd.DataFrame(index=gene_u),
     )
 
