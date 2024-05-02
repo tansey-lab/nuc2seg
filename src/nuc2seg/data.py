@@ -1,8 +1,9 @@
 import h5py
 import logging
 import torch
-
+import pandas
 import numpy as np
+
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from blended_tiling import TilingModule
@@ -164,6 +165,84 @@ class Nuc2SegDataset:
     @property
     def y_extent_pixels(self):
         return self.labels.shape[1]
+
+    def get_background_frequencies(self):
+        """
+        Returns the expected count of each gene in background pixels
+
+        :return: dict[int, float] of gene id -> expected count
+        """
+        label_per_transcript = self.labels[
+            self.transcripts[:, 0], self.transcripts[:, 1]
+        ]
+
+        df = pandas.DataFrame(
+            {
+                "gene": self.transcripts[:, 2],
+                "label": label_per_transcript,
+                "x": self.transcripts[:, 0],
+                "y": self.transcripts[:, 1],
+            }
+        )
+
+        selection_vector = df["label"] == 0
+        n_background_pixels = selection_vector.sum()
+        df_filtered = df[selection_vector].drop_duplicates(subset=["x", "y", "gene"])
+        gene_counts = (
+            df_filtered.groupby(["x", "y", "gene"]).size().reset_index(name="count")
+        )
+
+        return (
+            gene_counts.groupby("gene")["count"].sum() / n_background_pixels
+        ).to_dict()
+
+    def get_celltype_frequencies(self):
+        """
+        Returns the expected count of each gene in each cell type
+
+        :return: dict[int, np.array] of celltype index -> expected expression vector
+        """
+        class_per_transcript = self.classes[
+            self.transcripts[:, 0], self.transcripts[:, 1]
+        ]
+
+        # count n pixels per celltype
+        celltype_pixel_totals = (
+            pandas.Series(self.classes[self.classes > 0] - 1)
+            .value_counts()
+            .reset_index()
+            .rename(columns={"index": "celltype", "count": "n_pixels"})
+        )
+
+        df = pandas.DataFrame(
+            {
+                "gene": self.transcripts[:, 2],
+                "celltype": class_per_transcript,
+                "x": self.transcripts[:, 0],
+                "y": self.transcripts[:, 1],
+            }
+        )
+
+        df = df[df["celltype"] > 0]
+        df["celltype"] = df["celltype"] - 1
+        df = df.drop_duplicates(subset=["x", "y", "gene"])
+
+        per_gene_per_celltype_frequencies = (
+            df.groupby(["gene", "celltype"]).size().reset_index(name="count")
+        )
+
+        per_gene_per_celltype_frequencies = per_gene_per_celltype_frequencies.merge(
+            celltype_pixel_totals, left_on="celltype", right_on="celltype", how="left"
+        )
+
+        per_gene_per_celltype_frequencies["frequency"] = (
+            per_gene_per_celltype_frequencies["count"]
+            / per_gene_per_celltype_frequencies["n_pixels"]
+        )
+
+        return per_gene_per_celltype_frequencies.set_index(["celltype", "gene"])[
+            "frequency"
+        ].to_dict()
 
     @staticmethod
     def load_h5(path):

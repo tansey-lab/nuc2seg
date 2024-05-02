@@ -75,7 +75,24 @@ def calculate_even_weights(values):
     return tuple(result)
 
 
+def calculate_unlabeled_foreground_loss(
+    x,
+    y,
+    gene,
+    foreground_pred,
+    class_pred,
+    background_frequencies,
+    celltype_frequencies,
+):
+    """
+    p(foreground)*sum_k p(cell type=k)*p(gene|k) + p(background)*p(gene|background)
+    """
+
+
 def training_step(
+    x,
+    y,
+    gene,
     labels,
     angles,
     classes,
@@ -85,6 +102,19 @@ def training_step(
     foreground_criterion,
     celltype_criterion,
 ):
+    """
+    :param x: vector of transcript x coordinates, shape (n_transcripts,)
+    :param y: vector of transcript y coordinates, shape (n_transcripts,)
+    :param gene: vector of gene indices, shape (n_transcripts,)
+    :param labels: ground truth label mask, shape (tile_height, tile_width)
+    :param angles: ground truth angle mask, shape (tile_height, tile_width)
+    :param classes: ground truth class mask, shape (tile_height, tile_width)
+    :param label_mask: mask of pixels that are definitively labeled foreground or background
+    :param nucleus_mask: mask of pixels that are definitively part of a nucleus
+    :param prediction: model prediction, shape (tile_height, tile_width, n_classes + 2)
+    :param foreground_criterion: loss function for foreground/background prediction
+    :param celltype_criterion: loss function for cell type prediction
+    """
     label_mask = label_mask.type(torch.bool)
 
     foreground_pred = prediction[..., 0]
@@ -94,6 +124,10 @@ def training_step(
     # Add the cross-entropy loss on just foreground vs background
     foreground_loss = foreground_criterion(
         foreground_pred[label_mask], (labels[label_mask] > 0).type(torch.float)
+    )
+
+    unlabeled_foreground_loss = calculate_unlabeled_foreground_loss(
+        x=x, y=y, gene=gene, class_pred=class_pred, foreground_pred=foreground_pred
     )
 
     # If there are any cells in this tile
@@ -230,7 +264,17 @@ class SparseUNet(LightningModule):
         )
 
     def training_step(self, batch, batch_idx):
-        x, y, z, labels, angles, classes, label_mask, nucleus_mask = (
+        (
+            x,
+            y,
+            gene,
+            labels,
+            angles,
+            classes,
+            label_mask,
+            nucleus_mask,
+            expansion_area_mask,
+        ) = (
             batch["X"],
             batch["Y"],
             batch["gene"],
@@ -239,16 +283,21 @@ class SparseUNet(LightningModule):
             batch["classes"],
             batch["label_mask"],
             batch["nucleus_mask"],
+            batch["expansion_area_mask"],
         )
 
-        prediction = self.forward(x, y, z)
+        prediction = self.forward(x, y, gene)
 
         foreground_loss, angle_loss_val, celltype_loss = training_step(
+            x=x,
+            y=y,
+            gene=gene,
             labels=labels,
             angles=angles,
             classes=classes,
             label_mask=label_mask,
             nucleus_mask=nucleus_mask,
+            expansion_area_mask=expansion_area_mask,
             prediction=prediction,
             foreground_criterion=self.foreground_criterion,
             celltype_criterion=self.celltype_criterion,

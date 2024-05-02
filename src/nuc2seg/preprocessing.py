@@ -176,6 +176,7 @@ def create_rasterized_dataset(
     X = tx_geo_df["x_location"].values.astype(int) - x_min
     Y = tx_geo_df["y_location"].values.astype(int) - y_min
     G = tx_geo_df["gene_id"].values.astype(int)
+
     ds = RasterizedDataset(
         labels=labels,
         angles=angles,
