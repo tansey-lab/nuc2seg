@@ -192,11 +192,12 @@ def test_get_background_frequencies():
         classes=np.array([[0, 1, 1], [0, 1, 1], [1, 1, 1]]),
     )
 
-    background_frequencies = ds.get_background_frequencies()
+    background_frequencies = ds.get_background_frequencies().detach().cpu().numpy()
 
-    assert len(background_frequencies) == 2
-    assert background_frequencies[1] == (1.0 / 3.0)
-    assert background_frequencies[2] == (1.0 / 3.0)
+    assert len(background_frequencies) == 3
+    np.testing.assert_almost_equal(
+        background_frequencies, np.array([0, 0.66666, 0.33333]), decimal=3
+    )
 
 
 def test_get_class_frequencies():
@@ -216,6 +217,15 @@ def test_get_class_frequencies():
         classes=classes,
     )
 
-    celltype_frequencies = ds.get_celltype_frequencies()
-    assert celltype_frequencies[(0, 2)] == (1.0 / 5.0)
-    assert celltype_frequencies[(1, 2)] == (1.0 / 3.0)
+    celltype_frequencies = ds.get_celltype_frequencies().detach().cpu().numpy()
+
+    np.testing.assert_almost_equal(
+        celltype_frequencies,
+        np.array(
+            [
+                [0, 0, 0.2],
+                [0, 0, 0.33333],
+            ]
+        ),
+        decimal=3,
+    )

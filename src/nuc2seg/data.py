@@ -168,9 +168,9 @@ class Nuc2SegDataset:
 
     def get_background_frequencies(self):
         """
-        Returns the expected count of each gene in background pixels
+        Returns the probability of observing a gene in a background pixel
 
-        :return: dict[int, float] of gene id -> expected count
+        :return: torch.tensor of shape (n_genes,) of expected expression values
         """
         label_per_transcript = self.labels[
             self.transcripts[:, 0], self.transcripts[:, 1]
@@ -186,15 +186,21 @@ class Nuc2SegDataset:
         )
 
         selection_vector = df["label"] == 0
-        n_background_pixels = selection_vector.sum()
-        df_filtered = df[selection_vector].drop_duplicates(subset=["x", "y", "gene"])
-        gene_counts = (
-            df_filtered.groupby(["x", "y", "gene"]).size().reset_index(name="count")
-        )
+        df = df[selection_vector]
+        n_background_transcripts = len(df)
+        gene_counts = df.groupby(["x", "y", "gene"]).size().reset_index(name="count")
 
-        return (
-            gene_counts.groupby("gene")["count"].sum() / n_background_pixels
+        d = (
+            gene_counts.groupby("gene")["count"].sum() / n_background_transcripts
         ).to_dict()
+
+        result = torch.zeros((self.n_genes,), dtype=torch.float)
+        result[:] = 1e-10
+
+        for k, v in d.items():
+            result[k] = v
+
+        return result
 
     def get_celltype_frequencies(self):
         """
@@ -240,9 +246,17 @@ class Nuc2SegDataset:
             / per_gene_per_celltype_frequencies["n_pixels"]
         )
 
-        return per_gene_per_celltype_frequencies.set_index(["celltype", "gene"])[
+        d = per_gene_per_celltype_frequencies.set_index(["celltype", "gene"])[
             "frequency"
         ].to_dict()
+
+        result = torch.zeros((self.n_classes, self.n_genes), dtype=torch.float)
+        result[:] = 1e-10
+
+        for (celltype, gene), freq in d.items():
+            result[celltype, gene] = freq
+
+        return result
 
     @staticmethod
     def load_h5(path):
@@ -359,7 +373,7 @@ class TiledDataset(Dataset):
 
     @property
     def celltype_criterion_weights(self):
-        weights = torch.Tensor(
+        weights = torch.tensor(
             self.per_tile_class_histograms[:, 2:].mean()
             / self.per_tile_class_histograms[:, 2:].mean(axis=0)
         )

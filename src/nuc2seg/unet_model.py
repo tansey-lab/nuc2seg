@@ -60,7 +60,7 @@ class UNet(nn.Module):
         self.outc = torch.utils.checkpoint(self.outc)
 
 
-def angle_loss(predictions, targets):
+def calculate_angle_loss(predictions, targets):
     return squared_angle_difference(torch.sigmoid(predictions), targets)
 
 
@@ -79,14 +79,50 @@ def calculate_unlabeled_foreground_loss(
     x,
     y,
     gene,
+    label_mask,
     foreground_pred,
     class_pred,
     background_frequencies,
     celltype_frequencies,
 ):
     """
-    p(foreground)*sum_k p(cell type=k)*p(gene|k) + p(background)*p(gene|background)
+    :param x: vector of transcript x coordinates, shape (n_transcripts,)
+    :param y: vector of transcript y coordinates, shape (n_transcripts,)
+    :param gene: vector of gene indices, shape (n_transcripts,)
+    :param label_mask: mask of pixels, True if labeled as foreground/background, false if unlabeled, shape (tile_height, tile_width)
+    :param foreground_pred: foreground/background prediction, shape (tile_height, tile_width)
+    :param class_pred: cell type prediction, shape (tile_height, tile_width, n_classes)
+    :param background_frequencies: prior frequency of each gene in the background, shape (n_genes,)
+    :param celltype_frequencies: prior frequency of each gene in each cell type, shape (n_celltypes, n_genes)
     """
+    selection_vector = ~label_mask[x, y]
+
+    if torch.count_nonzero(selection_vector) == 0:
+        return None
+
+    gene = gene[selection_vector]
+    x = x[selection_vector]
+    y = y[selection_vector]
+
+    p_foreground = foreground_pred[x, y]
+    p_background = 1 - foreground_pred[x, y]
+    p_celltype = class_pred[x, y, :]  # <N Transcript x N Celltype>
+
+    p_gene_given_background = torch.index_select(
+        background_frequencies, 0, gene
+    )  # <N Transcript>
+
+    p_gene_given_celltype = torch.index_select(
+        celltype_frequencies.T, 0, gene
+    )  # <N Transcript x N Celltype>
+
+    per_transcript_likelihood = (
+        p_foreground * (p_gene_given_celltype * p_celltype).sum(dim=1)
+    ) + (
+        p_background * p_gene_given_background
+    )  # <N Transcript>
+
+    return -1 * torch.log(per_transcript_likelihood).sum()
 
 
 def training_step(
@@ -101,6 +137,8 @@ def training_step(
     prediction,
     foreground_criterion,
     celltype_criterion,
+    background_frequencies,
+    celltype_frequencies,
 ):
     """
     :param x: vector of transcript x coordinates, shape (n_transcripts,)
@@ -114,6 +152,8 @@ def training_step(
     :param prediction: model prediction, shape (tile_height, tile_width, n_classes + 2)
     :param foreground_criterion: loss function for foreground/background prediction
     :param celltype_criterion: loss function for cell type prediction
+    :param background_frequencies: frequency of each gene in the background, shape (n_genes,)
+    :param celltype_frequencies: frequency of each gene in each cell type, shape (n_celltypes, n_genes)
     """
     label_mask = label_mask.type(torch.bool)
 
@@ -127,13 +167,20 @@ def training_step(
     )
 
     unlabeled_foreground_loss = calculate_unlabeled_foreground_loss(
-        x=x, y=y, gene=gene, class_pred=class_pred, foreground_pred=foreground_pred
+        x=x,
+        y=y,
+        gene=gene,
+        label_mask=label_mask,
+        class_pred=class_pred,
+        foreground_pred=foreground_pred,
+        background_frequencies=background_frequencies,
+        celltype_frequencies=celltype_frequencies,
     )
 
     # If there are any cells in this tile
     if nucleus_mask.count_nonzero() > 0:
         # Add the squared error loss on the correct angles for known class pixels
-        angle_loss_val = angle_loss(
+        angle_loss_val = calculate_angle_loss(
             angles_pred[nucleus_mask], angles[nucleus_mask]
         ).mean()
 
@@ -142,9 +189,9 @@ def training_step(
             class_pred[nucleus_mask], classes[nucleus_mask] - 1
         )
 
-        return foreground_loss, angle_loss_val, celltype_loss
+        return foreground_loss, unlabeled_foreground_loss, angle_loss_val, celltype_loss
     else:
-        return foreground_loss, None, None
+        return foreground_loss, unlabeled_foreground_loss, None, None
 
 
 class SparseUNet(LightningModule):
@@ -153,6 +200,8 @@ class SparseUNet(LightningModule):
         n_channels,
         n_classes,
         celltype_criterion_weights,
+        celltype_frequencies,
+        background_frequencies,
         tile_height=64,
         tile_width=64,
         tile_overlap=0.25,
@@ -163,6 +212,7 @@ class SparseUNet(LightningModule):
         betas: float = (0.9, 0.999),
         angle_loss_factor: float = 1.0,
         foreground_loss_factor: float = 1.0,
+        unlabeled_foreground_loss_factor: float = 1.0,
         celltype_loss_factor: float = 1.0,
         moving_average_size: int = 100,
         loss_reweighting: bool = False,
@@ -178,6 +228,10 @@ class SparseUNet(LightningModule):
             (moving_average_size,), device=self.device, dtype=torch.float
         )
         self.foreground_loss_history[:] = torch.nan
+        self.unlabeled_foreground_loss_history = torch.zeros(
+            (moving_average_size,), device=self.device, dtype=torch.float
+        )
+        self.unlabeled_foreground_loss_history[:] = torch.nan
         self.angle_loss_history = torch.zeros(
             (moving_average_size,), device=self.device, dtype=torch.float
         )
@@ -199,10 +253,17 @@ class SparseUNet(LightningModule):
         )
         self.validation_step_outputs = []
 
-    def update_moving_average(self, foreground_loss, angle_loss, celltype_loss):
+    def update_moving_average(
+        self, foreground_loss, unlabeled_foreground_loss, angle_loss, celltype_loss
+    ):
         if foreground_loss is not None:
             self.foreground_loss_history = torch.roll(self.foreground_loss_history, 1)
             self.foreground_loss_history[0] = foreground_loss
+        if unlabeled_foreground_loss is not None:
+            self.unlabeled_foreground_loss_history = torch.roll(
+                self.unlabeled_foreground_loss_history, 1
+            )
+            self.unlabeled_foreground_loss_history[0] = unlabeled_foreground_loss
         if angle_loss is not None:
             self.angle_loss_history = torch.roll(self.angle_loss_history, 1)
             self.angle_loss_history[0] = angle_loss
@@ -210,17 +271,31 @@ class SparseUNet(LightningModule):
             self.celltype_loss_history = torch.roll(self.celltype_loss_history, 1)
             self.celltype_loss_history[0] = celltype_loss
 
-    def get_weighted_losses(self, foreground_loss, angle_loss, celltype_loss):
+    def get_weighted_losses(
+        self, foreground_loss, unlabeled_foreground_loss, angle_loss, celltype_loss
+    ):
         avg_foreground_loss = self.foreground_loss_history.nanmean()
+        avg_unlabeled_foreground_loss = self.unlabeled_foreground_loss_history.nanmean()
         avg_angle_loss = self.angle_loss_history.nanmean()
         avg_celltype_loss = self.celltype_loss_history.nanmean()
 
-        foreground_weight, angle_weight, celltype_weight = calculate_even_weights(
-            [avg_foreground_loss, avg_angle_loss, avg_celltype_loss]
+        (
+            foreground_weight,
+            unlabeled_foreground_loss_weight,
+            angle_weight,
+            celltype_weight,
+        ) = calculate_even_weights(
+            [
+                avg_foreground_loss,
+                avg_unlabeled_foreground_loss,
+                avg_angle_loss,
+                avg_celltype_loss,
+            ]
         )
 
         # remove gradient from weights
         foreground_weight = foreground_weight.detach()
+        unlabeled_foreground_loss_weight = unlabeled_foreground_loss_weight.detach()
         angle_weight = angle_weight.detach()
         celltype_weight = celltype_weight.detach()
 
@@ -228,6 +303,11 @@ class SparseUNet(LightningModule):
             (
                 foreground_loss * foreground_weight
                 if foreground_loss is not None
+                else None
+            ),
+            (
+                unlabeled_foreground_loss * unlabeled_foreground_loss_weight
+                if unlabeled_foreground_loss is not None
                 else None
             ),
             angle_loss * angle_weight if angle_loss is not None else None,
@@ -264,17 +344,7 @@ class SparseUNet(LightningModule):
         )
 
     def training_step(self, batch, batch_idx):
-        (
-            x,
-            y,
-            gene,
-            labels,
-            angles,
-            classes,
-            label_mask,
-            nucleus_mask,
-            expansion_area_mask,
-        ) = (
+        (x, y, gene, labels, angles, classes, label_mask, nucleus_mask) = (
             batch["X"],
             batch["Y"],
             batch["gene"],
@@ -283,61 +353,82 @@ class SparseUNet(LightningModule):
             batch["classes"],
             batch["label_mask"],
             batch["nucleus_mask"],
-            batch["expansion_area_mask"],
         )
 
         prediction = self.forward(x, y, gene)
 
-        foreground_loss, angle_loss_val, celltype_loss = training_step(
-            x=x,
-            y=y,
-            gene=gene,
-            labels=labels,
-            angles=angles,
-            classes=classes,
-            label_mask=label_mask,
-            nucleus_mask=nucleus_mask,
-            expansion_area_mask=expansion_area_mask,
-            prediction=prediction,
-            foreground_criterion=self.foreground_criterion,
-            celltype_criterion=self.celltype_criterion,
+        foreground_loss, unlabeled_foreground_loss, angle_loss, celltype_loss = (
+            training_step(
+                x=x,
+                y=y,
+                gene=gene,
+                labels=labels,
+                angles=angles,
+                classes=classes,
+                label_mask=label_mask,
+                nucleus_mask=nucleus_mask,
+                prediction=prediction,
+                foreground_criterion=self.foreground_criterion,
+                celltype_criterion=self.celltype_criterion,
+                background_frequencies=self.hparams.background_frequencies,
+                celltype_frequencies=self.hparams.celltype_frequencies,
+            )
         )
 
         self.log("foreground_loss", foreground_loss)
-        if angle_loss_val is not None:
-            self.log("angle_loss", angle_loss_val)
+
+        if unlabeled_foreground_loss is not None:
+            self.log("unlabeled_foreground_loss", unlabeled_foreground_loss)
+
+        if angle_loss is not None:
+            self.log("angle_loss", angle_loss)
 
         if celltype_loss is not None:
             self.log("celltype_loss", celltype_loss)
 
         if self.hparams.loss_reweighting:
-            self.update_moving_average(foreground_loss, angle_loss_val, celltype_loss)
+            self.update_moving_average(
+                foreground_loss, unlabeled_foreground_loss, angle_loss, celltype_loss
+            )
 
         # if greater than n steps
         if self.global_step > self.hparams.moving_average_size:
             if self.hparams.loss_reweighting:
-                foreground_loss, angle_loss_val, celltype_loss = (
-                    self.get_weighted_losses(
-                        foreground_loss, angle_loss_val, celltype_loss
-                    )
+                (
+                    foreground_loss,
+                    unlabeled_foreground_loss,
+                    angle_loss,
+                    celltype_loss,
+                ) = self.get_weighted_losses(
+                    foreground_loss,
+                    unlabeled_foreground_loss,
+                    angle_loss,
+                    celltype_loss,
                 )
 
-        if angle_loss_val is not None and celltype_loss is not None:
-            foreground_loss = foreground_loss * self.hparams.foreground_loss_factor
-            angle_loss_val = angle_loss_val * self.hparams.angle_loss_factor
-            celltype_loss = celltype_loss * self.hparams.celltype_loss_factor
-            train_loss = foreground_loss + angle_loss_val + celltype_loss
-        else:
-            foreground_loss = foreground_loss * self.hparams.foreground_loss_factor
-            train_loss = foreground_loss * self.hparams.foreground_loss_factor
-
+        foreground_loss = foreground_loss * self.hparams.foreground_loss_factor
         self.log("foreground_loss_weighted", foreground_loss)
 
-        if angle_loss_val is not None:
-            self.log("angle_loss_weighted", angle_loss_val)
+        train_loss = foreground_loss
+
+        if angle_loss is not None:
+            angle_loss = angle_loss * self.hparams.angle_loss_factor
+            self.log("angle_loss_weighted", angle_loss)
+            train_loss += angle_loss
 
         if celltype_loss is not None:
+            celltype_loss = celltype_loss * self.hparams.celltype_loss_factor
             self.log("celltype_loss_weighted", celltype_loss)
+            train_loss += celltype_loss
+
+        if unlabeled_foreground_loss is not None:
+            unlabeled_foreground_loss = (
+                unlabeled_foreground_loss
+                * self.hparams.unlabeled_foreground_loss_factor
+            )
+            self.log("unlabeled_foreground_loss_weighted", unlabeled_foreground_loss)
+            train_loss += unlabeled_foreground_loss
+
         self.log("train_loss", train_loss)
 
         return train_loss
