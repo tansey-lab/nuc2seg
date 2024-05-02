@@ -2,8 +2,8 @@ process PLOT_PREDICTIONS {
     tag "$meta.id"
     label 'process_low'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://jeffquinnmsk/nuc2seg:latest' :
-        'docker.io/jeffquinnmsk/nuc2seg:latest' }"
+        ('docker://jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) :
+        ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
     tuple val(meta), path(dataset), path(predictions), path(segmentation)

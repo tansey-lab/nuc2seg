@@ -2,8 +2,8 @@ process CREATE_SPATIALDATA {
     tag "$meta.id"
     label 'process_medium'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://jeffquinnmsk/spatialdata:latest' :
-        'docker.io/jeffquinnmsk/spatialdata:latest' }"
+        ('docker://jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) :
+        ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
     tuple val(meta), path(segmentation), path(anndata), path(xenium_dir)

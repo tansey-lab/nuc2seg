@@ -24,7 +24,9 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: jeffquinnmsk/nuc2seg:latest
+          tags: |
+            jeffquinnmsk/nuc2seg:latest
+            jeffquinnmsk/nuc2seg:${{ github.sha }}
           cache-from: type=registry,ref=jeffquinnmsk/nuc2seg:latest
           cache-to: type=inline
       - name: Build and push container
@@ -33,7 +35,9 @@ jobs:
           context: containers/spatialdata
           file: containers/spatialdata/Dockerfile
           push: true
-          tags: jeffquinnmsk/spatialdata:latest
+          tags: |
+            jeffquinnmsk/spatialdata:latest
+            jeffquinnmsk/spatialdata:${{ github.sha }}
           cache-from: type=registry,ref=jeffquinnmsk/spatialdata:latest
   nextflow-integration:
     runs-on: ubuntu-20.04
@@ -54,7 +58,7 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
