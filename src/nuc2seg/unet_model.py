@@ -219,8 +219,6 @@ class SparseUNet(LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters()
-        self.celltype_frequencies = celltype_frequencies.to(self.device)
-        self.background_frequencies = background_frequencies.to(self.device)
         self.img_shape = (
             tile_width,
             tile_height,
@@ -248,14 +246,31 @@ class SparseUNet(LightningModule):
             self.hparams.n_filters, self.n_classes, bilinear=self.hparams.bilinear
         )
         self.foreground_criterion = nn.BCEWithLogitsLoss(reduction="mean")
-        # Class imbalance reweighting
+        self.validation_step_outputs = []
+
+        self.celltype_frequencies = self.hparams.celltype_frequencies.to(self.device)
+        self.background_frequencies = self.hparams.background_frequencies.to(
+            self.device
+        )
         self.celltype_criterion = nn.CrossEntropyLoss(
             reduction="mean",
-            weight=torch.tensor(celltype_criterion_weights, dtype=torch.float).to(
-                self.device
-            ),
+            weight=torch.tensor(
+                self.hparams.celltype_criterion_weights, dtype=torch.float
+            ).to(self.device),
         )
-        self.validation_step_outputs = []
+
+    def setup(self, *args, **kwargs):
+        # Make sure these hyper parameter tensors are on the correct device
+        self.celltype_frequencies = self.hparams.celltype_frequencies.to(self.device)
+        self.background_frequencies = self.hparams.background_frequencies.to(
+            self.device
+        )
+        self.celltype_criterion = nn.CrossEntropyLoss(
+            reduction="mean",
+            weight=torch.tensor(
+                self.hparams.celltype_criterion_weights, dtype=torch.float
+            ).to(self.device),
+        )
 
     def update_moving_average(
         self, foreground_loss, unlabeled_foreground_loss, angle_loss, celltype_loss
