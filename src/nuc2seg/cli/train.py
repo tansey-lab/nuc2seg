@@ -175,8 +175,8 @@ def get_parser():
     parser.add_argument(
         "--loss-reweighting",
         help="Reweight losses to be even.",
-        action="store_true",
-        default=False,
+        action=argparse.BooleanOptionalAction,
+        default=True,
     )
     return parser
 
