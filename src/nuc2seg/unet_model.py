@@ -251,7 +251,9 @@ class SparseUNet(LightningModule):
         # Class imbalance reweighting
         self.celltype_criterion = nn.CrossEntropyLoss(
             reduction="mean",
-            weight=celltype_criterion_weights,
+            weight=torch.tensor(celltype_criterion_weights, dtype=torch.float).to(
+                self.device
+            ),
         )
         self.validation_step_outputs = []
 
