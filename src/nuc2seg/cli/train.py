@@ -49,12 +49,6 @@ def get_parser():
         default=30,
     )
     parser.add_argument(
-        "--batch-size",
-        help="Batch size.",
-        type=int,
-        default=1,
-    )
-    parser.add_argument(
         "--learning-rate",
         help="Learning rate.",
         type=float,
@@ -218,8 +212,8 @@ def main():
     dm = Nuc2SegDataModule(
         preprocessed_data_path=args.dataset,
         val_percent=args.val_percent,
-        train_batch_size=args.batch_size,
-        val_batch_size=args.batch_size,
+        train_batch_size=1,
+        val_batch_size=1,
         tile_height=args.tile_height,
         tile_width=args.tile_width,
         tile_overlap=args.overlap_percentage,

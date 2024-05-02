@@ -328,7 +328,7 @@ def test_calculate_unlabeled_foreground_loss():
         label_mask=~label_mask,
         foreground_pred=foreground_pred,
         class_pred=class_pred,
-        background_frequencies=None,
-        celltype_frequencies=None,
+        background_frequencies=background_frequencies2,
+        celltype_frequencies=celltype_frequencies2,
     )
     assert result_none is None
