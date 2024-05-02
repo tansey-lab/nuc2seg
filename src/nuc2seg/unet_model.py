@@ -413,17 +413,22 @@ class SparseUNet(LightningModule):
         # if greater than n steps
         if self.global_step > self.hparams.moving_average_size:
             if self.hparams.loss_reweighting:
-                (
-                    foreground_loss,
-                    unlabeled_foreground_loss,
-                    angle_loss,
-                    celltype_loss,
-                ) = self.get_weighted_losses(
-                    foreground_loss,
-                    unlabeled_foreground_loss,
-                    angle_loss,
-                    celltype_loss,
-                )
+                if (
+                    unlabeled_foreground_loss is not None
+                    or angle_loss is not None
+                    or celltype_loss is not None
+                ):
+                    (
+                        foreground_loss,
+                        unlabeled_foreground_loss,
+                        angle_loss,
+                        celltype_loss,
+                    ) = self.get_weighted_losses(
+                        foreground_loss,
+                        unlabeled_foreground_loss,
+                        angle_loss,
+                        celltype_loss,
+                    )
 
         foreground_loss = foreground_loss * self.hparams.foreground_loss_factor
         self.log("foreground_loss_weighted", foreground_loss)
@@ -433,12 +438,12 @@ class SparseUNet(LightningModule):
         if angle_loss is not None:
             angle_loss = angle_loss * self.hparams.angle_loss_factor
             self.log("angle_loss_weighted", angle_loss)
-            train_loss += angle_loss
+            train_loss = train_loss + angle_loss
 
         if celltype_loss is not None:
             celltype_loss = celltype_loss * self.hparams.celltype_loss_factor
             self.log("celltype_loss_weighted", celltype_loss)
-            train_loss += celltype_loss
+            train_loss = train_loss + celltype_loss
 
         if unlabeled_foreground_loss is not None:
             unlabeled_foreground_loss = (
@@ -446,7 +451,7 @@ class SparseUNet(LightningModule):
                 * self.hparams.unlabeled_foreground_loss_factor
             )
             self.log("unlabeled_foreground_loss_weighted", unlabeled_foreground_loss)
-            train_loss += unlabeled_foreground_loss
+            train_loss = train_loss + unlabeled_foreground_loss
 
         self.log("train_loss", train_loss)
 
