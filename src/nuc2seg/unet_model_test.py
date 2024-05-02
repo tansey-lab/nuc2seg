@@ -61,6 +61,7 @@ def test_model():
         moving_average_size=1,
         celltype_frequencies=celltype_frequencies,
         background_frequencies=background_frequencies,
+        loss_reweighting=True,
     )
 
     trainer = Trainer(accelerator="cpu", max_epochs=3)
@@ -86,6 +87,7 @@ def test_model():
                 [99, 99, 0],
                 [99, 0, 0],
                 [0, 99, 0],
+                [70, 70, 1],
             ]
         ),
         bbox=np.array([100, 100, 200, 200]),
@@ -278,6 +280,20 @@ def test_calculate_even_weights():
     a, b, c = calculate_even_weights([x, y, z])
 
     assert (a * x).item() == (b * y).item() == (c * z).item()
+
+    x, y, z = (torch.tensor([1e-7]), torch.tensor([np.nan]), torch.tensor([3.0]))
+    a, b, c = calculate_even_weights([x, y, z])
+
+    assert not a.isnan()
+    assert b.isnan()
+    assert not c.isnan()
+
+    x, y, z = (torch.tensor([1e-7]), torch.tensor([np.nan]), torch.tensor([np.nan]))
+    a, b, c = calculate_even_weights([x, y, z])
+
+    assert a == 1.0
+    assert b.isnan()
+    assert c.isnan()
 
 
 def test_calculate_unlabeled_foreground_loss():

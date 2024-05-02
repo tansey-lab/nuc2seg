@@ -65,9 +65,15 @@ def calculate_angle_loss(predictions, targets):
 
 
 def calculate_even_weights(values):
-    n_classes = float(len(values))
+    # number of non nan values
+    values_non_nan = [v for v in values if not v.isnan()]
 
-    total = sum(values)
+    n_classes = max(float(len(values_non_nan)), 1)
+
+    if len(values_non_nan) == 0:
+        return tuple([1.0] * len(values))
+
+    total = sum(values_non_nan)
 
     result = []
     for val in values:
@@ -161,6 +167,9 @@ def training_step(
     angles_pred = prediction[..., 1]
     class_pred = prediction[..., 2:]
 
+    foreground_prob = torch.sigmoid(foreground_pred)
+    classes_prob = torch.softmax(class_pred, dim=-1)
+
     # Add the cross-entropy loss on just foreground vs background
     foreground_loss = foreground_criterion(
         foreground_pred[label_mask], (labels[label_mask] > 0).type(torch.float)
@@ -171,8 +180,8 @@ def training_step(
         y=y,
         gene=gene,
         label_mask=label_mask,
-        class_pred=class_pred,
-        foreground_pred=foreground_pred,
+        class_pred=classes_prob,
+        foreground_pred=foreground_prob,
         background_frequencies=background_frequencies,
         celltype_frequencies=celltype_frequencies,
     )
@@ -215,7 +224,7 @@ class SparseUNet(LightningModule):
         unlabeled_foreground_loss_factor: float = 1.0,
         celltype_loss_factor: float = 1.0,
         moving_average_size: int = 100,
-        loss_reweighting: bool = False,
+        loss_reweighting: bool = True,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -414,9 +423,9 @@ class SparseUNet(LightningModule):
         if self.global_step > self.hparams.moving_average_size:
             if self.hparams.loss_reweighting:
                 if (
-                    unlabeled_foreground_loss is not None
-                    or angle_loss is not None
+                    angle_loss is not None
                     or celltype_loss is not None
+                    or unlabeled_foreground_loss is not None
                 ):
                     (
                         foreground_loss,
