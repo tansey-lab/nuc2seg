@@ -1,8 +1,9 @@
 import h5py
 import logging
 import torch
-
+import pandas
 import numpy as np
+
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from blended_tiling import TilingModule
@@ -165,6 +166,98 @@ class Nuc2SegDataset:
     def y_extent_pixels(self):
         return self.labels.shape[1]
 
+    def get_background_frequencies(self):
+        """
+        Returns the probability of observing a gene in a background pixel
+
+        :return: torch.tensor of shape (n_genes,) of expected expression values
+        """
+        label_per_transcript = self.labels[
+            self.transcripts[:, 0], self.transcripts[:, 1]
+        ]
+
+        df = pandas.DataFrame(
+            {
+                "gene": self.transcripts[:, 2],
+                "label": label_per_transcript,
+                "x": self.transcripts[:, 0],
+                "y": self.transcripts[:, 1],
+            }
+        )
+
+        selection_vector = df["label"] == 0
+        df = df[selection_vector]
+        n_background_transcripts = len(df)
+        gene_counts = df.groupby(["x", "y", "gene"]).size().reset_index(name="count")
+
+        d = (
+            gene_counts.groupby("gene")["count"].sum() / n_background_transcripts
+        ).to_dict()
+
+        result = torch.zeros((self.n_genes,), dtype=torch.float)
+        result[:] = 1e-10
+
+        for k, v in d.items():
+            result[k] = v
+
+        return result
+
+    def get_celltype_frequencies(self):
+        """
+        Returns the expected count of each gene in each cell type
+
+        :return: dict[int, np.array] of celltype index -> expected expression vector
+        """
+        class_per_transcript = self.classes[
+            self.transcripts[:, 0], self.transcripts[:, 1]
+        ]
+
+        # count n pixels per celltype
+        celltype_pixel_totals = (
+            pandas.Series(self.classes[self.classes > 0] - 1)
+            .value_counts()
+            .reset_index()
+            .rename(columns={"index": "celltype", "count": "n_pixels"})
+        )
+
+        df = pandas.DataFrame(
+            {
+                "gene": self.transcripts[:, 2],
+                "celltype": class_per_transcript,
+                "x": self.transcripts[:, 0],
+                "y": self.transcripts[:, 1],
+            }
+        )
+
+        df = df[df["celltype"] > 0]
+        df["celltype"] = df["celltype"] - 1
+        df = df.drop_duplicates(subset=["x", "y", "gene"])
+
+        per_gene_per_celltype_frequencies = (
+            df.groupby(["gene", "celltype"]).size().reset_index(name="count")
+        )
+
+        per_gene_per_celltype_frequencies = per_gene_per_celltype_frequencies.merge(
+            celltype_pixel_totals, left_on="celltype", right_on="celltype", how="left"
+        )
+
+        per_gene_per_celltype_frequencies["frequency"] = (
+            per_gene_per_celltype_frequencies["count"]
+            / per_gene_per_celltype_frequencies["n_pixels"]
+        )
+
+        d = per_gene_per_celltype_frequencies.set_index(["celltype", "gene"])[
+            "frequency"
+        ].to_dict()
+
+        result = torch.zeros((self.n_classes, self.n_genes), dtype=torch.float)
+        result[:] = 1e-10
+
+        for (celltype, gene), freq in d.items():
+            result[celltype, gene] = freq
+
+        return result
+
     @staticmethod
     def load_h5(path):
         with h5py.File(path, "r") as f:
@@ -280,7 +373,7 @@ class TiledDataset(Dataset):
 
     @property
     def celltype_criterion_weights(self):
-        weights = torch.Tensor(
+        weights = torch.tensor(
             self.per_tile_class_histograms[:, 2:].mean()
             / self.per_tile_class_histograms[:, 2:].mean(axis=0)
         )

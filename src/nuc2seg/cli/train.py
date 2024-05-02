@@ -49,12 +49,6 @@ def get_parser():
         default=30,
     )
     parser.add_argument(
-        "--batch-size",
-        help="Batch size.",
-        type=int,
-        default=1,
-    )
-    parser.add_argument(
         "--learning-rate",
         help="Learning rate.",
         type=float,
@@ -161,6 +155,12 @@ def get_parser():
         default=1.0,
     )
     parser.add_argument(
+        "--unlabeled-foreground-loss-factor",
+        help="Multiply unlabeled foreground loss by this factor before backpropagation.",
+        type=float,
+        default=1.0,
+    )
+    parser.add_argument(
         "--celltype-loss-factor",
         help="Multiply celltype loss by this factor before backpropagation.",
         type=float,
@@ -198,6 +198,9 @@ def main():
 
     ds = Nuc2SegDataset.load_h5(args.dataset)
 
+    celltype_frequencies = ds.get_celltype_frequencies()
+    background_frequencies = ds.get_background_frequencies()
+
     tiled_ds = TiledDataset(
         ds,
         tile_height=args.tile_height,
@@ -209,8 +212,8 @@ def main():
     dm = Nuc2SegDataModule(
         preprocessed_data_path=args.dataset,
         val_percent=args.val_percent,
-        train_batch_size=args.batch_size,
-        val_batch_size=args.batch_size,
+        train_batch_size=1,
+        val_batch_size=1,
         tile_height=args.tile_height,
         tile_width=args.tile_width,
         tile_overlap=args.overlap_percentage,
@@ -224,6 +227,7 @@ def main():
             n_classes=ds.n_classes,
             angle_loss_factor=args.angle_loss_factor,
             foreground_loss_factor=args.foreground_loss_factor,
+            unlabeled_foreground_loss_factor=args.unlabeled_foreground_loss_factor,
             celltype_loss_factor=args.celltype_loss_factor,
             celltype_criterion_weights=tiled_ds.celltype_criterion_weights,
             tile_height=args.tile_height,
@@ -234,6 +238,8 @@ def main():
             weight_decay=args.weight_decay,
             betas=args.betas,
             loss_reweighting=args.loss_reweighting,
+            celltype_frequencies=celltype_frequencies,
+            background_frequencies=background_frequencies,
         )
     else:
         logger.info(f"Resuming from checkpoint {args.checkpoint}")

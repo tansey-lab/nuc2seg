@@ -174,3 +174,58 @@ def test_rasterized_dataset():
         assert ds.n_genes == ds2.n_genes
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_get_background_frequencies():
+    labels = np.array([[0, 0, 1], [0, -1, 1], [1, 1, 1]])
+    angles = np.random.random((3, 3))
+    transcripts = np.array([[0, 0, 1], [0, 0, 1], [0, 1, 2], [2, 2, 2]])
+
+    ds = Nuc2SegDataset(
+        labels=labels,
+        angles=angles,
+        transcripts=transcripts,
+        bbox=np.array([100, 100, 102, 102]),
+        n_genes=3,
+        resolution=1,
+        n_classes=2,
+        classes=np.array([[0, 1, 1], [0, 1, 1], [1, 1, 1]]),
+    )
+
+    background_frequencies = ds.get_background_frequencies().detach().cpu().numpy()
+
+    assert len(background_frequencies) == 3
+    np.testing.assert_almost_equal(
+        background_frequencies, np.array([0, 0.66666, 0.33333]), decimal=3
+    )
+
+
+def test_get_class_frequencies():
+    labels = np.array([[0, 1, 1], [1, 1, 1], [1, 1, 1]])
+    angles = np.random.random((3, 3))
+    transcripts = np.array([[0, 0, 1], [0, 0, 1], [0, 1, 2], [0, 1, 2], [2, 2, 2]])
+    classes = np.array([[0, 1, 1], [1, 1, 1], [2, 2, 2]])
+
+    ds = Nuc2SegDataset(
+        labels=labels,
+        angles=angles,
+        transcripts=transcripts,
+        bbox=np.array([100, 100, 102, 102]),
+        n_genes=3,
+        resolution=1,
+        n_classes=2,
+        classes=classes,
+    )
+
+    celltype_frequencies = ds.get_celltype_frequencies().detach().cpu().numpy()
+
+    np.testing.assert_almost_equal(
+        celltype_frequencies,
+        np.array(
+            [
+                [0, 0, 0.2],
+                [0, 0, 0.33333],
+            ]
+        ),
+        decimal=3,
+    )
