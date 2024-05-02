@@ -219,8 +219,8 @@ class SparseUNet(LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters()
-        self.hparams.celltype_frequencies = celltype_frequencies.to(self.device)
-        self.hparams.background_frequencies = background_frequencies.to(self.device)
+        self.celltype_frequencies = celltype_frequencies.to(self.device)
+        self.background_frequencies = background_frequencies.to(self.device)
         self.img_shape = (
             tile_width,
             tile_height,
@@ -372,8 +372,8 @@ class SparseUNet(LightningModule):
                 prediction=prediction[0, ...],
                 foreground_criterion=self.foreground_criterion,
                 celltype_criterion=self.celltype_criterion,
-                background_frequencies=self.hparams.background_frequencies,
-                celltype_frequencies=self.hparams.celltype_frequencies,
+                background_frequencies=self.background_frequencies,
+                celltype_frequencies=self.celltype_frequencies,
             )
         )
 
