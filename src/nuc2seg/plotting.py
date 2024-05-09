@@ -727,7 +727,6 @@ def plot_class_probabilities_image(
     nuclei_shapes: geopandas.GeoDataFrame,
     output_dir: str,
 ):
-
     mask = ((model_predictions.foreground > 0.5).T).astype(int)
     for celltype_idx in tqdm.trange(model_predictions.classes.shape[0]):
         data = model_predictions.classes[celltype_idx, ...].copy().T * mask
@@ -752,5 +751,3 @@ def plot_class_probabilities_image(
             os.path.join(output_dir, f"celltype_probabilities_{celltype_idx}.png")
         )
         plt.close(fig)
-
-    model_predictions.classes = model_predictions.classes.T
