@@ -3,6 +3,7 @@ import os.path
 import geopandas
 import numpy as np
 import pandas
+import tqdm
 from matplotlib import cm, gridspec
 from matplotlib import pyplot as plt
 from shapely import box
@@ -718,3 +719,35 @@ def rank_genes_groups_plot(
 
     fig.tight_layout()
     fig.savefig(output_path, pad_inches=0.5)
+
+
+def plot_class_probabilities_image(
+    model_predictions: ModelPredictions,
+    segmentation_shapes: geopandas.GeoDataFrame,
+    nuclei_shapes: geopandas.GeoDataFrame,
+    output_dir: str,
+):
+    mask = ((model_predictions.foreground > 0.5).T).astype(int)
+    for celltype_idx in tqdm.trange(model_predictions.classes.shape[0]):
+        data = model_predictions.classes[celltype_idx, ...].copy().T * mask
+
+        fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
+
+        ax.imshow(data, cmap="Blues", interpolation="none")
+        ax.invert_yaxis()
+        ax.set_title(f"Pixel Probabilities for Celltype {celltype_idx}")
+
+        segmentation_shapes.plot(
+            ax=ax,
+            facecolor=(0.0, 0.0, 0.0, 0.0),
+            edgecolor=(199.0 / 255.0, 161 / 255.0, 155 / 255.0, 1.0),
+            linewidth=0.1,
+        )
+        nuclei_shapes.plot(
+            ax=ax, facecolor=(0.0, 0.0, 0.0, 0.0), edgecolor="black", linewidth=0.1
+        )
+
+        fig.savefig(
+            os.path.join(output_dir, f"celltype_probabilities_{celltype_idx}.png")
+        )
+        plt.close(fig)

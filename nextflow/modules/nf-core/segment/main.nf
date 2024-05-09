@@ -9,11 +9,12 @@ process SEGMENT {
     tuple val(meta), path(dataset), path(predictions), path(xenium_dir), path(cell_typing_results)
 
     output:
-    tuple val(meta), path("${prefix}/segmentation.h5"), emit: segmentation
-    tuple val(meta), path("${prefix}/shapes.parquet") , emit: shapefile
-    tuple val(meta), path("${prefix}/anndata.h5ad")   , emit: anndata
-    tuple val(meta), path("${prefix}/*.png")          , emit: plot
-    path  "versions.yml"                              , emit: versions
+    tuple val(meta), path("${prefix}/segmentation.h5")                           , emit: segmentation
+    tuple val(meta), path("${prefix}/shapes.parquet")                            , emit: shapefile
+    tuple val(meta), path("${prefix}/anndata.h5ad")                              , emit: anndata
+    tuple val(meta), path("${prefix}/*.png")                                     , emit: plot
+    tuple val(meta), path("${prefix}/celltype_probability_plots/*.png")          , emit: celltype_probability_plots
+    path  "versions.yml"                                                         , emit: versions
 
 
     when:

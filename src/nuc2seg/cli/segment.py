@@ -16,6 +16,7 @@ from nuc2seg.plotting import (
     plot_segmentation_class_assignment,
     celltype_histogram,
     celltype_area_violin,
+    plot_class_probabilities_image,
 )
 from nuc2seg.xenium import (
     read_transcripts_into_points,
@@ -213,4 +214,16 @@ def main():
             os.path.dirname(args.output), "celltype_histograms.pdf"
         ),
         cat_column="celltype_assignment",
+    )
+    celltype_probability_plots_dir = os.path.join(
+        os.path.dirname(args.output), "celltype_probability_plots"
+    )
+
+    os.makedirs(celltype_probability_plots_dir, exist_ok=True)
+
+    plot_class_probabilities_image(
+        model_predictions=predictions,
+        segmentation_shapes=gdf,
+        nuclei_shapes=nuclei_gdf,
+        output_dir=celltype_probability_plots_dir,
     )
