@@ -5,9 +5,9 @@ import numpy as np
 import pandas
 import tqdm
 import shapely
-from matplotlib import cm, gridspec
+from matplotlib import cm, gridspec, colors
 from matplotlib import pyplot as plt
-from shapely import box
+from shapely import box, affinity
 import seaborn as sns
 from nuc2seg.data import (
     Nuc2SegDataset,
@@ -16,7 +16,7 @@ from nuc2seg.data import (
     CelltypingResults,
 )
 from nuc2seg.preprocessing import pol2cart
-from nuc2seg.segment import get_segment_l2_norm_diff
+from nuc2seg.segment import get_segment_l2_norm_diff, raster_to_polygon
 
 
 def plot_tiling(bboxes, output_path):
@@ -763,17 +763,18 @@ def plot_diff_l2_norm_class_probabilities(
     segment_id: int,
     output_path: str,
 ):
-    diffs, bbox, mask = get_segment_l2_norm_diff(
+    diffs, _, x_bar, bbox, mask = get_segment_l2_norm_diff(
         dataset=dataset, predictions=predictions, segment_id=segment_id
     )
 
     diffs = diffs.T
-    mask = mask.T
 
-    poly = shapely.box(*bbox)
+    sample_area_poly = raster_to_polygon(mask)
 
-    nuclei_shapes = nuclei_shapes.clip(poly)
-    segmentation_shapes = segmentation_shapes.clip(poly)
+    bbox_poly = shapely.box(*bbox)
+
+    nuclei_shapes = nuclei_shapes.clip(bbox_poly)
+    segmentation_shapes = segmentation_shapes.clip(bbox_poly)
 
     # translate polygons
     nuclei_shapes = nuclei_shapes.translate(xoff=-bbox[0], yoff=-bbox[1])
@@ -781,12 +782,11 @@ def plot_diff_l2_norm_class_probabilities(
 
     fig, ax = plt.subplots(figsize=(15, 15), dpi=300)
 
-    pos = ax.imshow(diffs, cmap="coolwarm", interpolation="none")
+    pos = ax.imshow(diffs, cmap="Blues_r", interpolation="none")
     fig.colorbar(pos, ax=ax)
-    ax.imshow(mask, cmap="binary", alpha=0.5, interpolation="none")
     ax.invert_yaxis()
     ax.set_title(
-        f"Probability Vector Norm Difference from Nucleus Average for Segment {segment_id}"
+        f"Probability Vector Difference 2-Norm relative Nucleus Median for Segment {segment_id}"
     )
 
     segmentation_shapes.plot(
@@ -799,6 +799,10 @@ def plot_diff_l2_norm_class_probabilities(
         ax=ax, facecolor=(0.0, 0.0, 0.0, 0.0), edgecolor="black", linewidth=1.0
     )
 
+    geopandas.GeoSeries(sample_area_poly).plot(
+        ax=ax, facecolor=(0.0, 0.0, 0.0, 0.0), edgecolor="red", linewidth=1.0
+    )
+
     fig.savefig(output_path)
     plt.close(fig)
-    return poly, bbox
+    return bbox_poly, bbox

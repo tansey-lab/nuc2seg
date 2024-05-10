@@ -533,32 +533,35 @@ def convert_transcripts_to_anndata(
 
 
 def get_segment_l2_norm_diff(
-    dataset: Nuc2SegDataset, predictions: ModelPredictions, segment_id: int
+    dataset: Nuc2SegDataset,
+    predictions: ModelPredictions,
+    segment_id: int,
+    window_size=30,
 ):
     mask = dataset.labels == segment_id
     background = (predictions.foreground > 0.5).astype(int)
     # get bounding box of true values
     x, y = np.where(mask)
     bbox = (
-        max(x.min() - 30, 0),
-        max(y.min() - 30, 0),
-        min(x.max() + 30, dataset.labels.shape[0]),
-        min(y.max() + 30, dataset.labels.shape[1]),
+        max(x.min() - window_size, 0),
+        max(y.min() - window_size, 0),
+        min(x.max() + window_size, dataset.labels.shape[0]),
+        min(y.max() + window_size, dataset.labels.shape[1]),
     )
 
-    classes = predictions.classes[:, bbox[0] : bbox[2], bbox[1] : bbox[3]].transpose(
-        1, 2, 0
-    )
+    classes = predictions.classes[
+        :, bbox[0] : bbox[2] + 1, bbox[1] : bbox[3] + 1
+    ].transpose(1, 2, 0)
 
-    background = background[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+    background = background[bbox[0] : bbox[2] + 1, bbox[1] : bbox[3] + 1]
 
-    x_mean = predictions.classes[:, mask].T.mean(axis=0)
-    class_diff = classes - x_mean
+    x_bar = np.median(predictions.classes[:, mask].T, axis=0)
+    class_diff = classes - x_bar[None, None, :]
 
-    mask = mask[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+    mask = mask[bbox[0] : bbox[2] + 1, bbox[1] : bbox[3] + 1]
 
-    results = norm(class_diff, axis=2)
+    results = norm(class_diff, ord=2, axis=2)
 
     results[background] = np.nan
 
-    return results, bbox, mask
+    return results, classes, x_bar, bbox, mask
