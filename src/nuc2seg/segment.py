@@ -20,7 +20,7 @@ from shapely import Polygon, affinity, box
 from blended_tiling import TilingModule
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
-
+from numpy.linalg import norm
 
 logger = logging.getLogger(__name__)
 
@@ -530,3 +530,35 @@ def convert_transcripts_to_anndata(
     adata.obs_names.name = "cell_id"
 
     return adata
+
+
+def get_segment_l2_norm_diff(
+    dataset: Nuc2SegDataset, predictions: ModelPredictions, segment_id: int
+):
+    mask = dataset.labels == segment_id
+    background = (predictions.foreground > 0.5).astype(int)
+    # get bounding box of true values
+    x, y = np.where(mask)
+    bbox = (
+        max(x.min() - 30, 0),
+        max(y.min() - 30, 0),
+        min(x.max() + 30, dataset.labels.shape[0]),
+        min(y.max() + 30, dataset.labels.shape[1]),
+    )
+
+    classes = predictions.classes[:, bbox[0] : bbox[2], bbox[1] : bbox[3]].transpose(
+        1, 2, 0
+    )
+
+    background = background[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+
+    x_mean = predictions.classes[:, mask].T.mean(axis=0)
+    class_diff = classes - x_mean
+
+    mask = mask[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+
+    results = norm(class_diff, axis=2)
+
+    results[background] = np.nan
+
+    return results, bbox, mask

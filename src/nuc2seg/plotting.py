@@ -4,6 +4,7 @@ import geopandas
 import numpy as np
 import pandas
 import tqdm
+import shapely
 from matplotlib import cm, gridspec
 from matplotlib import pyplot as plt
 from shapely import box
@@ -15,6 +16,7 @@ from nuc2seg.data import (
     CelltypingResults,
 )
 from nuc2seg.preprocessing import pol2cart
+from nuc2seg.segment import get_segment_l2_norm_diff
 
 
 def plot_tiling(bboxes, output_path):
@@ -751,3 +753,52 @@ def plot_class_probabilities_image(
             os.path.join(output_dir, f"celltype_probabilities_{celltype_idx}.png")
         )
         plt.close(fig)
+
+
+def plot_diff_l2_norm_class_probabilities(
+    predictions: ModelPredictions,
+    dataset: Nuc2SegDataset,
+    segmentation_shapes: geopandas.GeoDataFrame,
+    nuclei_shapes: geopandas.GeoDataFrame,
+    segment_id: int,
+    output_path: str,
+):
+    diffs, bbox, mask = get_segment_l2_norm_diff(
+        dataset=dataset, predictions=predictions, segment_id=segment_id
+    )
+
+    diffs = diffs.T
+    mask = mask.T
+
+    poly = shapely.box(*bbox)
+
+    nuclei_shapes = nuclei_shapes.clip(poly)
+    segmentation_shapes = segmentation_shapes.clip(poly)
+
+    # translate polygons
+    nuclei_shapes = nuclei_shapes.translate(xoff=-bbox[0], yoff=-bbox[1])
+    segmentation_shapes = segmentation_shapes.translate(xoff=-bbox[0], yoff=-bbox[1])
+
+    fig, ax = plt.subplots(figsize=(15, 15), dpi=300)
+
+    pos = ax.imshow(diffs, cmap="coolwarm", interpolation="none")
+    fig.colorbar(pos, ax=ax)
+    ax.imshow(mask, cmap="binary", alpha=0.5, interpolation="none")
+    ax.invert_yaxis()
+    ax.set_title(
+        f"Probability Vector Norm Difference from Nucleus Average for Segment {segment_id}"
+    )
+
+    segmentation_shapes.plot(
+        ax=ax,
+        facecolor=(0.0, 0.0, 0.0, 0.0),
+        edgecolor=(57.0 / 255.0, 255 / 255.0, 20 / 255.0, 1.0),
+        linewidth=1.0,
+    )
+    nuclei_shapes.plot(
+        ax=ax, facecolor=(0.0, 0.0, 0.0, 0.0), edgecolor="black", linewidth=1.0
+    )
+
+    fig.savefig(output_path)
+    plt.close(fig)
+    return poly, bbox
