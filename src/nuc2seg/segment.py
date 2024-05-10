@@ -10,10 +10,12 @@ import numpy_groupies as npg
 
 from shapely import affinity
 from nuc2seg.preprocessing import pol2cart
+from nuc2seg.celltyping import predict_celltype_probabilities_for_all_segments
 from nuc2seg.data import (
     ModelPredictions,
     Nuc2SegDataset,
     SegmentationResults,
+    CelltypingResults,
 )
 from scipy.sparse import csr_matrix
 from shapely import Polygon, affinity, box
@@ -84,9 +86,6 @@ def greedy_expansion(
             logger.info("No pixels left to update. Stopping expansion.")
             break
 
-        # Update the filtered pixels to have the assignment of their flow neighbor
-        # pixel_labels_arr[start_xy[update_mask,0], start_xy[update_mask,1]] = flow_labels_flat[update_mask]
-
         # Immediate neighbor flows
         flow1_mask = update_mask & (flow_labels_flat != -1)
         flow1_targets = flow_labels_flat[flow1_mask]
@@ -122,7 +121,7 @@ def greedy_expansion(
         )
         flow1_targets[~flow1_connected] = -1
         pixel_labels_arr[start_xy[flow1_mask, 0], start_xy[flow1_mask, 1]] = (
-            flow1_targets  # flow_labels_flat[flow1_mask]
+            flow1_targets
         )
 
         # Slightly farther flows but still contiguous to the cell
@@ -187,6 +186,158 @@ def greedy_expansion(
         )
 
     return pixel_labels_arr
+
+
+def probability_aware_greedy_expansion(
+    start_xy,
+    labels,
+    flow_labels,
+    flow_labels2,
+    flow_xy,
+    flow_xy2,
+    foreground_mask,
+    prior_probs,
+    expression_profiles,
+    transcripts,
+    max_expansion_steps=50,
+):
+
+    x_max = labels.shape[0] - 1
+    y_max = labels.shape[1] - 1
+
+    segment_celltype_probabilities = []
+
+    initial_probs = predict_celltype_probabilities_for_all_segments(
+        labels=labels,
+        prior_probs=prior_probs,
+        expression_profiles=expression_profiles,
+        transcripts=transcripts,
+    )
+    segment_celltype_probabilities.append(initial_probs)
+
+    for _ in tqdm.trange(max_expansion_steps, desc="greedy_expansion", unit="step"):
+        # Filter down to unassigned pixels that would flow to an assigned pixel
+        pixel_labels_flat = labels[start_xy[:, 0], start_xy[:, 1]]
+        flow_labels_flat = flow_labels[start_xy[:, 0], start_xy[:, 1]]
+        flow_labels_flat2 = flow_labels2[start_xy[:, 0], start_xy[:, 1]]
+        update_mask = (
+            foreground_mask
+            & (pixel_labels_flat == -1)
+            & ((flow_labels_flat != -1) | (flow_labels_flat2 != -1))
+        )
+
+        # If there are no pixels to update, just exit early
+        if update_mask.sum() == 0:
+            logger.info("No pixels left to update. Stopping expansion.")
+            break
+
+        # Update the filtered pixels to have the assignment of their flow neighbor
+        # pixel_labels_arr[start_xy[update_mask,0], start_xy[update_mask,1]] = flow_labels_flat[update_mask]
+
+        # Immediate neighbor flows
+        flow1_mask = update_mask & (flow_labels_flat != -1)
+        flow1_targets = flow_labels_flat[flow1_mask]
+        flow1_connected = (
+            (
+                labels[
+                    (start_xy[flow1_mask, 0] - 1).clip(0, x_max),
+                    (start_xy[flow1_mask, 1] - 1).clip(0, y_max),
+                ]
+                == flow1_targets
+            )
+            | (
+                labels[
+                    (start_xy[flow1_mask, 0] + 1).clip(0, x_max),
+                    (start_xy[flow1_mask, 1] - 1).clip(0, y_max),
+                ]
+                == flow1_targets
+            )
+            | (
+                labels[
+                    (start_xy[flow1_mask, 0] - 1).clip(0, x_max),
+                    (start_xy[flow1_mask, 1] + 1).clip(0, y_max),
+                ]
+                == flow1_targets
+            )
+            | (
+                labels[
+                    (start_xy[flow1_mask, 0] + 1).clip(0, x_max),
+                    (start_xy[flow1_mask, 1] + 1).clip(0, y_max),
+                ]
+                == flow1_targets
+            )
+        )
+        flow1_targets[~flow1_connected] = -1
+        labels[start_xy[flow1_mask, 0], start_xy[flow1_mask, 1]] = (
+            flow1_targets  # flow_labels_flat[flow1_mask]
+        )
+
+        # Slightly farther flows but still contiguous to the cell
+        flow2_mask = update_mask & (flow_labels_flat == -1) & (flow_labels_flat2 != -1)
+        flow2_targets = np.array(flow_labels_flat2[flow2_mask])
+        flow2_connected = (
+            (
+                labels[
+                    (start_xy[flow2_mask, 0] - 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] - 1).clip(0, y_max),
+                ]
+                == flow2_targets
+            )
+            | (
+                labels[
+                    (start_xy[flow2_mask, 0] + 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] - 1).clip(0, y_max),
+                ]
+                == flow2_targets
+            )
+            | (
+                labels[
+                    (start_xy[flow2_mask, 0] - 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] + 1).clip(0, y_max),
+                ]
+                == flow2_targets
+            )
+            | (
+                labels[
+                    (start_xy[flow2_mask, 0] + 1).clip(0, x_max),
+                    (start_xy[flow2_mask, 1] + 1).clip(0, y_max),
+                ]
+                == flow2_targets
+            )
+        )
+        flow2_targets[~flow2_connected] = -1
+        labels[start_xy[flow2_mask, 0], start_xy[flow2_mask, 1]] = flow2_targets
+
+        # Post-process to remove island pixels surrounded by the same class on all sides
+        island_mask = np.zeros(labels.shape, dtype=bool)
+        island_mask[1:-1, 1:-1] = (
+            (labels[1:-1, 1:-1] == -1)
+            & (labels[:-2, 1:-1] != -1)
+            & (labels[:-2, 1:-1] == labels[2:, 1:-1])
+            & (labels[:-2, 1:-1] == labels[1:-1, :-2])
+            & (labels[:-2, 1:-1] == labels[1:-1, 2:])
+        )
+        labels[island_mask] = labels[:-2, 1:-1][island_mask[1:-1, 1:-1]]
+
+        # Update the flow labels
+        flow_labels[start_xy[:, 0], start_xy[:, 1]] = np.maximum(
+            labels[flow_xy[:, 0], flow_xy[:, 1]],
+            labels[flow_xy2[:, 0], flow_xy2[:, 1]],
+        )
+        flow_labels2[start_xy[:, 0], start_xy[:, 1]] = np.maximum(
+            labels[flow_xy[:, 0], flow_xy[:, 1]],
+            labels[flow_xy2[:, 0], flow_xy2[:, 1]],
+        )
+
+        current_probs = predict_celltype_probabilities_for_all_segments(
+            labels=labels,
+            prior_probs=prior_probs,
+            expression_profiles=expression_profiles,
+            transcripts=transcripts,
+        )
+        segment_celltype_probabilities.append(current_probs)
+
+    return np.stack(segment_celltype_probabilities)
 
 
 def label_connected_components(

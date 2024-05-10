@@ -10,6 +10,7 @@ from nuc2seg.xenium import logger
 from nuc2seg.data import CelltypingResults, RasterizedDataset
 from scipy.special import logsumexp
 from collections import defaultdict
+from scipy.stats import multinomial
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):
@@ -46,6 +47,20 @@ def estimate_cell_types(
         gene_counts[:, None] * np.log(expression_profiles[None])
     ).sum(axis=2)
     return softmax(logits, axis=1)
+
+
+def neg_log_likelihood_celltype(
+    expression_profiles,
+    gene_counts,
+):
+    """
+    Calculate the negative log likelihood of the cell type assignment
+
+    :param expression_profiles: The expression profiles of each cell type, shape (n_genes,)
+    :param gene_counts: The gene counts for each cell, shape (n_genes,)
+    :return: Negative log likelihood
+    """
+    return -multinomial(p=expression_profiles, n=gene_counts.sum()).logpmf(gene_counts)
 
 
 def fit_celltype_em_model(
@@ -438,3 +453,28 @@ def predict_celltypes_for_anndata(
         prior_probs=prior_probs,
         gene_counts=gene_counts,
     )
+
+
+def predict_celltype_probabilities_for_all_segments(
+    labels,
+    transcripts,
+    expression_profiles,
+    prior_probs,
+):
+    n_unique_cells = len(np.unique(labels))
+
+    counts = np.zeros((n_unique_cells, expression_profiles.shape[1]))
+
+    label_per_transcript = labels[transcripts[:, 0], transcripts[:, 1]]
+    np.add.at(
+        counts,
+        (
+            label_per_transcript + 1,
+            transcripts[:, 2],
+        ),
+        1,
+    )
+
+    counts = counts[2:, ...]
+
+    return estimate_cell_types(prior_probs, expression_profiles, counts)

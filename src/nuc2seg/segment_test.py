@@ -1,5 +1,6 @@
 from nuc2seg.segment import (
     greedy_expansion,
+    probability_aware_greedy_expansion,
     label_connected_components,
     flow_destination,
     greedy_cell_segmentation,
@@ -22,6 +23,74 @@ import anndata
 from shapely import Polygon, Point
 from blended_tiling import TilingModule
 from nuc2seg.data import ModelPredictions, Nuc2SegDataset
+
+
+def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
+    pixel_labels_arr = np.array(
+        [
+            [0, -1, -1, 1],
+        ]
+    )
+
+    flow_labels = np.array(
+        [
+            [0, -1, 1, 1],
+        ]
+    )
+
+    flow_labels2 = np.array(
+        [
+            [0, -1, 1, 1],
+        ]
+    )
+
+    start_xy = np.array([[0, 0], [0, 1], [0, 2], [0, 3]])
+
+    foreground_mask = (pixel_labels_arr != 0)[start_xy[:, 0], start_xy[:, 1]]
+
+    flow_xy = np.array(
+        [
+            [0, 1],
+            [0, 2],
+            [0, 3],
+            [0, 3],
+        ]
+    )
+
+    flow_xy2 = np.array(
+        [
+            [0, 1],
+            [0, 2],
+            [0, 3],
+            [0, 3],
+        ]
+    )
+
+    result = greedy_expansion(
+        start_xy.copy(),
+        pixel_labels_arr.copy(),
+        flow_labels.copy(),
+        flow_labels2.copy(),
+        flow_xy.copy(),
+        flow_xy2.copy(),
+        foreground_mask.copy(),
+        max_expansion_steps=1,
+    )
+
+    np.testing.assert_equal(result, np.array([[0, -1, 1, 1]]))
+
+    result = greedy_expansion(
+        start_xy.copy(),
+        pixel_labels_arr.copy(),
+        flow_labels.copy(),
+        flow_labels2.copy(),
+        flow_xy.copy(),
+        flow_xy2.copy(),
+        foreground_mask.copy(),
+        max_expansion_steps=2,
+    )
+
+    np.testing.assert_equal(result, np.array([[0, 1, 1, 1]]))
 
 
 def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
