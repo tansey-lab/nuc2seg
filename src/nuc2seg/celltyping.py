@@ -461,20 +461,20 @@ def predict_celltype_probabilities_for_all_segments(
     expression_profiles,
     prior_probs,
 ):
-    n_unique_cells = len(np.unique(labels))
+    n_unique_cells = len(np.unique(labels[labels > 0]))
 
     counts = np.zeros((n_unique_cells, expression_profiles.shape[1]))
 
     label_per_transcript = labels[transcripts[:, 0], transcripts[:, 1]]
+
+    selection_vector = label_per_transcript > 0
     np.add.at(
         counts,
         (
-            label_per_transcript + 1,
-            transcripts[:, 2],
+            label_per_transcript[selection_vector] - 1,
+            transcripts[:, 2][selection_vector],
         ),
         1,
     )
-
-    counts = counts[2:, ...]
 
     return estimate_cell_types(prior_probs, expression_profiles, counts)

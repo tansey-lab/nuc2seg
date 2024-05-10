@@ -17,6 +17,7 @@ from nuc2seg.data import (
     SegmentationResults,
     CelltypingResults,
 )
+from nuc2seg.utils import get_indices_for_ndarray
 from scipy.sparse import csr_matrix
 from shapely import Polygon, affinity, box
 from blended_tiling import TilingModule
@@ -58,7 +59,6 @@ def stitch_predictions(results, tiler: TilingModule):
 
 
 def greedy_expansion(
-    start_xy,
     pixel_labels_arr,
     flow_labels,
     flow_labels2,
@@ -70,11 +70,17 @@ def greedy_expansion(
 
     x_max = pixel_labels_arr.shape[0] - 1
     y_max = pixel_labels_arr.shape[1] - 1
+    indices_2d = get_indices_for_ndarray(
+        pixel_labels_arr.shape[0], pixel_labels_arr.shape[1]
+    )
+    x_indices = indices_2d[:, 0]
+    y_indices = indices_2d[:, 1]
+
     for _ in tqdm.trange(max_expansion_steps, desc="greedy_expansion", unit="step"):
         # Filter down to unassigned pixels that would flow to an assigned pixel
-        pixel_labels_flat = pixel_labels_arr[start_xy[:, 0], start_xy[:, 1]]
-        flow_labels_flat = flow_labels[start_xy[:, 0], start_xy[:, 1]]
-        flow_labels_flat2 = flow_labels2[start_xy[:, 0], start_xy[:, 1]]
+        pixel_labels_flat = pixel_labels_arr[x_indices, y_indices]
+        flow_labels_flat = flow_labels[x_indices, y_indices]
+        flow_labels_flat2 = flow_labels2[x_indices, y_indices]
         update_mask = (
             foreground_mask
             & (pixel_labels_flat == -1)
@@ -92,35 +98,35 @@ def greedy_expansion(
         flow1_connected = (
             (
                 pixel_labels_arr[
-                    (start_xy[flow1_mask, 0] - 1).clip(0, x_max),
-                    (start_xy[flow1_mask, 1] - 1).clip(0, y_max),
+                    (indices_2d[flow1_mask, 0] - 1).clip(0, x_max),
+                    (indices_2d[flow1_mask, 1] - 1).clip(0, y_max),
                 ]
                 == flow1_targets
             )
             | (
                 pixel_labels_arr[
-                    (start_xy[flow1_mask, 0] + 1).clip(0, x_max),
-                    (start_xy[flow1_mask, 1] - 1).clip(0, y_max),
+                    (indices_2d[flow1_mask, 0] + 1).clip(0, x_max),
+                    (indices_2d[flow1_mask, 1] - 1).clip(0, y_max),
                 ]
                 == flow1_targets
             )
             | (
                 pixel_labels_arr[
-                    (start_xy[flow1_mask, 0] - 1).clip(0, x_max),
-                    (start_xy[flow1_mask, 1] + 1).clip(0, y_max),
+                    (indices_2d[flow1_mask, 0] - 1).clip(0, x_max),
+                    (indices_2d[flow1_mask, 1] + 1).clip(0, y_max),
                 ]
                 == flow1_targets
             )
             | (
                 pixel_labels_arr[
-                    (start_xy[flow1_mask, 0] + 1).clip(0, x_max),
-                    (start_xy[flow1_mask, 1] + 1).clip(0, y_max),
+                    (indices_2d[flow1_mask, 0] + 1).clip(0, x_max),
+                    (indices_2d[flow1_mask, 1] + 1).clip(0, y_max),
                 ]
                 == flow1_targets
             )
         )
         flow1_targets[~flow1_connected] = -1
-        pixel_labels_arr[start_xy[flow1_mask, 0], start_xy[flow1_mask, 1]] = (
+        pixel_labels_arr[indices_2d[flow1_mask, 0], indices_2d[flow1_mask, 1]] = (
             flow1_targets
         )
 
@@ -130,35 +136,35 @@ def greedy_expansion(
         flow2_connected = (
             (
                 pixel_labels_arr[
-                    (start_xy[flow2_mask, 0] - 1).clip(0, x_max),
-                    (start_xy[flow2_mask, 1] - 1).clip(0, y_max),
+                    (indices_2d[flow2_mask, 0] - 1).clip(0, x_max),
+                    (indices_2d[flow2_mask, 1] - 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
             | (
                 pixel_labels_arr[
-                    (start_xy[flow2_mask, 0] + 1).clip(0, x_max),
-                    (start_xy[flow2_mask, 1] - 1).clip(0, y_max),
+                    (indices_2d[flow2_mask, 0] + 1).clip(0, x_max),
+                    (indices_2d[flow2_mask, 1] - 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
             | (
                 pixel_labels_arr[
-                    (start_xy[flow2_mask, 0] - 1).clip(0, x_max),
-                    (start_xy[flow2_mask, 1] + 1).clip(0, y_max),
+                    (indices_2d[flow2_mask, 0] - 1).clip(0, x_max),
+                    (indices_2d[flow2_mask, 1] + 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
             | (
                 pixel_labels_arr[
-                    (start_xy[flow2_mask, 0] + 1).clip(0, x_max),
-                    (start_xy[flow2_mask, 1] + 1).clip(0, y_max),
+                    (indices_2d[flow2_mask, 0] + 1).clip(0, x_max),
+                    (indices_2d[flow2_mask, 1] + 1).clip(0, y_max),
                 ]
                 == flow2_targets
             )
         )
         flow2_targets[~flow2_connected] = -1
-        pixel_labels_arr[start_xy[flow2_mask, 0], start_xy[flow2_mask, 1]] = (
+        pixel_labels_arr[indices_2d[flow2_mask, 0], indices_2d[flow2_mask, 1]] = (
             flow2_targets
         )
 
@@ -176,11 +182,11 @@ def greedy_expansion(
         ]
 
         # Update the flow labels
-        flow_labels[start_xy[:, 0], start_xy[:, 1]] = np.maximum(
+        flow_labels[indices_2d[:, 0], indices_2d[:, 1]] = np.maximum(
             pixel_labels_arr[flow_xy[:, 0], flow_xy[:, 1]],
             pixel_labels_arr[flow_xy2[:, 0], flow_xy2[:, 1]],
         )
-        flow_labels2[start_xy[:, 0], start_xy[:, 1]] = np.maximum(
+        flow_labels2[indices_2d[:, 0], indices_2d[:, 1]] = np.maximum(
             pixel_labels_arr[flow_xy[:, 0], flow_xy[:, 1]],
             pixel_labels_arr[flow_xy2[:, 0], flow_xy2[:, 1]],
         )
@@ -343,11 +349,11 @@ def probability_aware_greedy_expansion(
 def label_connected_components(
     x_extent_pixels,
     y_extent_pixels,
-    start_xy,
     flow_xy,
     foreground_mask,
     min_component_size=20,
 ):
+    start_xy = get_indices_for_ndarray(x_extent_pixels, y_extent_pixels)
     pixel_labels_arr = np.zeros((x_extent_pixels, y_extent_pixels), dtype=int)
 
     # Connect adjacent pixels where one pixel flows into the next
@@ -414,16 +420,18 @@ def greedy_cell_segmentation(
     use_labels=True,
     min_component_size=20,
 ):
-    # Determine where each pixel would flow to next
-    start_xy = np.mgrid[0 : dataset.x_extent_pixels, 0 : dataset.y_extent_pixels]
-    start_xy = np.array(list(zip(start_xy[0].flatten(), start_xy[1].flatten())))
+    indices_2d = get_indices_for_ndarray(
+        dataset.x_extent_pixels, dataset.y_extent_pixels
+    )  # <N pixel> x 2 array
+    x_indices = indices_2d[:, 0]
+    y_indices = indices_2d[:, 1]
 
-    flow_xy = flow_destination(start_xy, predictions.angles, np.sqrt(2))
-    flow_xy2 = flow_destination(start_xy, predictions.angles, np.sqrt(3))
+    flow_xy = flow_destination(indices_2d, predictions.angles, np.sqrt(2))
+    flow_xy2 = flow_destination(indices_2d, predictions.angles, np.sqrt(3))
 
     # Get the pixels that are sufficiently predicted to be foreground
     foreground_mask = (predictions.foreground >= foreground_threshold)[
-        start_xy[:, 0], start_xy[:, 1]
+        indices_2d[:, 0], indices_2d[:, 1]
     ]
 
     flow_labels = (
@@ -440,22 +448,18 @@ def greedy_cell_segmentation(
         pixel_labels_arr = label_connected_components(
             dataset.x_extent_pixels,
             dataset.y_extent_pixels,
-            start_xy,
             flow_xy,
             foreground_mask,
             min_component_size=min_component_size,
         )
 
-    flow_labels[start_xy[:, 0], start_xy[:, 1]] = pixel_labels_arr[
-        flow_xy[:, 0], flow_xy[:, 1]
-    ]
-    flow_labels2[start_xy[:, 0], start_xy[:, 1]] = pixel_labels_arr[
+    flow_labels[x_indices, y_indices] = pixel_labels_arr[flow_xy[:, 0], flow_xy[:, 1]]
+    flow_labels2[x_indices, y_indices] = pixel_labels_arr[
         flow_xy2[:, 0], flow_xy2[:, 1]
     ]
 
     # Greedily expand the cell one pixel at a time
     result = greedy_expansion(
-        start_xy,
         pixel_labels_arr,
         flow_labels,
         flow_labels2,

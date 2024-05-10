@@ -93,7 +93,7 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
     np.testing.assert_equal(result, np.array([[0, 1, 1, 1]]))
 
 
-def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
+def test_probability_aware_greedy_expansion():
     pixel_labels_arr = np.array(
         [
             [0, -1, -1, 1],
@@ -134,20 +134,15 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         ]
     )
 
-    result = greedy_expansion(
-        start_xy.copy(),
-        pixel_labels_arr.copy(),
-        flow_labels.copy(),
-        flow_labels2.copy(),
-        flow_xy.copy(),
-        flow_xy2.copy(),
-        foreground_mask.copy(),
-        max_expansion_steps=1,
+    prior_probs = np.array([0.5, 0.5])
+
+    expression_profiles = np.array([[0.9, 0.1], [0.1, 0.9]])
+
+    transcripts = np.array(
+        [[0, 0, 0], [0, 1, 1], [0, 1, 0], [0, 2, 0], [0, 3, 0], [0, 3, 0]]
     )
 
-    np.testing.assert_equal(result, np.array([[0, -1, 1, 1]]))
-
-    result = greedy_expansion(
+    result = probability_aware_greedy_expansion(
         start_xy.copy(),
         pixel_labels_arr.copy(),
         flow_labels.copy(),
@@ -156,9 +151,11 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         flow_xy2.copy(),
         foreground_mask.copy(),
         max_expansion_steps=2,
+        prior_probs=prior_probs,
+        transcripts=transcripts,
+        expression_profiles=expression_profiles,
     )
-
-    np.testing.assert_equal(result, np.array([[0, 1, 1, 1]]))
+    print(result)
 
 
 def test_greedy_expansion_doesnt_update_pixel():

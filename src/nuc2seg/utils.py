@@ -23,3 +23,8 @@ def grid_graph_edges(rows, cols):
                 edges[i].append(j)
                 edges[j].append(i)
     return edges
+
+
+def get_indices_for_ndarray(x_dim, y_dim):
+    xy = np.mgrid[0:x_dim, 0:y_dim]
+    return np.array(list(zip(xy[0].flatten(), xy[1].flatten())))
