@@ -166,7 +166,7 @@ def greedy_expansion(
             break
 
         # Immediate neighbor flows
-        flow1_mask = update_mask & (flow_labels_flat == -1)
+        flow1_mask = update_mask & (flow_labels_flat != -1)
         update_labels_with_flow_values(
             labels=pixel_labels_arr,
             update_mask=flow1_mask,
