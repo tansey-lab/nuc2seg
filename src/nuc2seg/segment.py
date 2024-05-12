@@ -24,7 +24,6 @@ from blended_tiling import TilingModule
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -58,6 +57,83 @@ def stitch_predictions(results, tiler: TilingModule):
     )
 
 
+def update_labels_with_flow_values(
+    labels: np.array,
+    update_mask: np.array,
+    flow_labels_flat: np.array,
+    indices_2d: np.array,
+):
+    """
+    :param labels: array of pixel labels, shape (n_width, n_height).
+    :param update_mask: boolean mask of pixels for which we might potentially update the labels, shape (n_pixels,)
+    :param flow_labels_flat: flow labels for each pixel, shape (n_pixels,)
+    :param indices_2d: 2D indices for each pixel, shape (n_pixels, 2)
+
+    :return: None, will update labels in-place
+    """
+    x_max = labels.shape[0] - 1
+    y_max = labels.shape[1] - 1
+
+    n_pixels_to_update = np.count_nonzero(update_mask)
+
+    logger.debug(f"Possibly updating {n_pixels_to_update} pixels")
+
+    flow_targets = flow_labels_flat[update_mask]
+
+    # This will create a boolean mask of shape (n_pixels_to_update,) where each
+    # pixel is True if the pixel that would be assigned a label based on the flow
+    # has a diagonal neighbor with the same label.
+    flow_is_connected = (
+        (
+            labels[
+                (indices_2d[update_mask, 0] - 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] - 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
+        | (
+            labels[
+                (indices_2d[update_mask, 0] + 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] - 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
+        | (
+            labels[
+                (indices_2d[update_mask, 0] - 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] + 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
+        | (
+            labels[
+                (indices_2d[update_mask, 0] + 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] + 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
+    )
+    flow_targets[~flow_is_connected] = -1
+    labels[indices_2d[update_mask, 0], indices_2d[update_mask, 1]] = flow_targets
+
+
+def fill_in_surrounded_unlabelled_pixels(
+    labels: np.array,
+):
+    """
+    :param labels: array of pixel labels, shape (n_width, n_height).
+    """
+    island_mask = np.zeros(labels.shape, dtype=bool)
+    island_mask[1:-1, 1:-1] = (
+        (labels[1:-1, 1:-1] == -1)
+        & (labels[:-2, 1:-1] != -1)
+        & (labels[:-2, 1:-1] == labels[2:, 1:-1])
+        & (labels[:-2, 1:-1] == labels[1:-1, :-2])
+        & (labels[:-2, 1:-1] == labels[1:-1, 2:])
+    )
+    labels[island_mask] = labels[:-2, 1:-1][island_mask[1:-1, 1:-1]]
+
+
 def greedy_expansion(
     pixel_labels_arr,
     flow_labels,
@@ -67,9 +143,6 @@ def greedy_expansion(
     foreground_mask,
     max_expansion_steps=50,
 ):
-
-    x_max = pixel_labels_arr.shape[0] - 1
-    y_max = pixel_labels_arr.shape[1] - 1
     indices_2d = get_indices_for_ndarray(
         pixel_labels_arr.shape[0], pixel_labels_arr.shape[1]
     )
@@ -93,93 +166,25 @@ def greedy_expansion(
             break
 
         # Immediate neighbor flows
-        flow1_mask = update_mask & (flow_labels_flat != -1)
-        flow1_targets = flow_labels_flat[flow1_mask]
-        flow1_connected = (
-            (
-                pixel_labels_arr[
-                    (indices_2d[flow1_mask, 0] - 1).clip(0, x_max),
-                    (indices_2d[flow1_mask, 1] - 1).clip(0, y_max),
-                ]
-                == flow1_targets
-            )
-            | (
-                pixel_labels_arr[
-                    (indices_2d[flow1_mask, 0] + 1).clip(0, x_max),
-                    (indices_2d[flow1_mask, 1] - 1).clip(0, y_max),
-                ]
-                == flow1_targets
-            )
-            | (
-                pixel_labels_arr[
-                    (indices_2d[flow1_mask, 0] - 1).clip(0, x_max),
-                    (indices_2d[flow1_mask, 1] + 1).clip(0, y_max),
-                ]
-                == flow1_targets
-            )
-            | (
-                pixel_labels_arr[
-                    (indices_2d[flow1_mask, 0] + 1).clip(0, x_max),
-                    (indices_2d[flow1_mask, 1] + 1).clip(0, y_max),
-                ]
-                == flow1_targets
-            )
-        )
-        flow1_targets[~flow1_connected] = -1
-        pixel_labels_arr[indices_2d[flow1_mask, 0], indices_2d[flow1_mask, 1]] = (
-            flow1_targets
+        flow1_mask = update_mask & (flow_labels_flat == -1)
+        update_labels_with_flow_values(
+            labels=pixel_labels_arr,
+            update_mask=flow1_mask,
+            flow_labels_flat=flow_labels_flat,
+            indices_2d=indices_2d,
         )
 
         # Slightly farther flows but still contiguous to the cell
         flow2_mask = update_mask & (flow_labels_flat == -1) & (flow_labels_flat2 != -1)
-        flow2_targets = np.array(flow_labels_flat2[flow2_mask])
-        flow2_connected = (
-            (
-                pixel_labels_arr[
-                    (indices_2d[flow2_mask, 0] - 1).clip(0, x_max),
-                    (indices_2d[flow2_mask, 1] - 1).clip(0, y_max),
-                ]
-                == flow2_targets
-            )
-            | (
-                pixel_labels_arr[
-                    (indices_2d[flow2_mask, 0] + 1).clip(0, x_max),
-                    (indices_2d[flow2_mask, 1] - 1).clip(0, y_max),
-                ]
-                == flow2_targets
-            )
-            | (
-                pixel_labels_arr[
-                    (indices_2d[flow2_mask, 0] - 1).clip(0, x_max),
-                    (indices_2d[flow2_mask, 1] + 1).clip(0, y_max),
-                ]
-                == flow2_targets
-            )
-            | (
-                pixel_labels_arr[
-                    (indices_2d[flow2_mask, 0] + 1).clip(0, x_max),
-                    (indices_2d[flow2_mask, 1] + 1).clip(0, y_max),
-                ]
-                == flow2_targets
-            )
-        )
-        flow2_targets[~flow2_connected] = -1
-        pixel_labels_arr[indices_2d[flow2_mask, 0], indices_2d[flow2_mask, 1]] = (
-            flow2_targets
+        update_labels_with_flow_values(
+            labels=pixel_labels_arr,
+            update_mask=flow2_mask,
+            flow_labels_flat=flow_labels_flat,
+            indices_2d=indices_2d,
         )
 
         # Post-process to remove island pixels surrounded by the same class on all sides
-        island_mask = np.zeros(pixel_labels_arr.shape, dtype=bool)
-        island_mask[1:-1, 1:-1] = (
-            (pixel_labels_arr[1:-1, 1:-1] == -1)
-            & (pixel_labels_arr[:-2, 1:-1] != -1)
-            & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[2:, 1:-1])
-            & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, :-2])
-            & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, 2:])
-        )
-        pixel_labels_arr[island_mask] = pixel_labels_arr[:-2, 1:-1][
-            island_mask[1:-1, 1:-1]
-        ]
+        fill_in_surrounded_unlabelled_pixels(pixel_labels_arr)
 
         # Update the flow labels
         flow_labels[indices_2d[:, 0], indices_2d[:, 1]] = np.maximum(
@@ -207,7 +212,6 @@ def probability_aware_greedy_expansion(
     transcripts,
     max_expansion_steps=50,
 ):
-
     x_max = labels.shape[0] - 1
     y_max = labels.shape[1] - 1
 

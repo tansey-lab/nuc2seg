@@ -9,8 +9,11 @@ from nuc2seg.segment import (
     convert_segmentation_to_shapefile,
     convert_transcripts_to_anndata,
     collinear,
+    fill_in_surrounded_unlabelled_pixels,
+    update_labels_with_flow_values,
 )
 from nuc2seg.preprocessing import cart2pol
+from nuc2seg.utils import get_indices_for_ndarray
 import numpy as np
 import pytest
 import torch
@@ -67,7 +70,6 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
     )
 
     result = greedy_expansion(
-        start_xy.copy(),
         pixel_labels_arr.copy(),
         flow_labels.copy(),
         flow_labels2.copy(),
@@ -80,7 +82,6 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
     np.testing.assert_equal(result, np.array([[0, -1, 1, 1]]))
 
     result = greedy_expansion(
-        start_xy.copy(),
         pixel_labels_arr.copy(),
         flow_labels.copy(),
         flow_labels2.copy(),
@@ -155,7 +156,6 @@ def test_probability_aware_greedy_expansion():
         transcripts=transcripts,
         expression_profiles=expression_profiles,
     )
-    print(result)
 
 
 def test_greedy_expansion_doesnt_update_pixel():
@@ -198,7 +198,6 @@ def test_greedy_expansion_doesnt_update_pixel():
     )
 
     result = greedy_expansion(
-        start_xy,
         pixel_labels_arr.copy(),
         flow_labels,
         flow_labels2,
@@ -474,10 +473,105 @@ def test_label_free_greedy_expansion():
     result = label_connected_components(
         x_extent_pixels=x_extent_pixels,
         y_extent_pixels=y_extent_pixels,
-        start_xy=start_xy,
         flow_xy=flow_xy,
         foreground_mask=foreground_mask,
         min_component_size=1,
     )
 
     np.testing.assert_equal(result, np.array([[0, 1, 1], [1, 1, 1], [1, 1, 1]]))
+
+
+def test_fill_in_surrounded_unlabelled_pixels():
+    labels = np.array(
+        [
+            [1, 1, 1],
+            [1, -1, 1],
+            [1, 1, 1],
+        ]
+    )
+    fill_in_surrounded_unlabelled_pixels(labels)
+    assert np.all(labels == 1)
+
+    labels = np.array(
+        [
+            [1, 1, 1],
+            [1, 0, 1],
+            [1, 1, 1],
+        ]
+    )
+    fill_in_surrounded_unlabelled_pixels(labels)
+    np.testing.assert_array_equal(
+        labels,
+        np.array(
+            [
+                [1, 1, 1],
+                [1, 0, 1],
+                [1, 1, 1],
+            ]
+        ),
+    )
+
+    labels = np.array(
+        [
+            [1, 1, 1],
+            [1, -1, -1],
+            [1, 1, 1],
+        ]
+    )
+    fill_in_surrounded_unlabelled_pixels(labels)
+    np.testing.assert_array_equal(
+        labels,
+        np.array(
+            [
+                [1, 1, 1],
+                [1, -1, -1],
+                [1, 1, 1],
+            ]
+        ),
+    )
+
+
+def test_update_labels_with_flow_values():
+    labels = np.array(
+        [
+            [1, 0, 0],
+            [1, -1, -1],
+            [0, 0, 0],
+        ]
+    )
+
+    flow_labels = np.array(
+        [
+            [1, 0, 0],
+            [1, 1, -1],
+            [0, 0, 0],
+        ]
+    )
+
+    indices_2d = get_indices_for_ndarray(labels.shape[0], labels.shape[1])
+    x_indices = indices_2d[:, 0]
+    y_indices = indices_2d[:, 1]
+
+    flow_labels_flat = flow_labels[x_indices, y_indices]
+
+    mask = labels == -1
+
+    mask_flat = mask[x_indices, y_indices]
+
+    update_labels_with_flow_values(
+        labels=labels,
+        update_mask=mask_flat,
+        flow_labels_flat=flow_labels_flat,
+        indices_2d=indices_2d,
+    )
+
+    np.testing.assert_array_equal(
+        labels,
+        np.array(
+            [
+                [1, 0, 0],
+                [1, 1, -1],
+                [0, 0, 0],
+            ]
+        ),
+    )
