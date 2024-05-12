@@ -1,6 +1,5 @@
 from nuc2seg.segment import (
     greedy_expansion,
-    probability_aware_greedy_expansion,
     label_connected_components,
     flow_destination,
     greedy_cell_segmentation,
