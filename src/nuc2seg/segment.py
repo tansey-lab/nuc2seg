@@ -136,8 +136,22 @@ def fill_in_surrounded_unlabelled_pixels(
 
 
 def greedy_expansion_step(
-    pixel_labels_arr, indices_2d, flow_labels, flow_labels2, foreground_mask
+    pixel_labels_arr,
+    indices_2d,
+    flow_labels,
+    flow_labels2,
+    foreground_mask,
+    exclude_segments: Optional[np.array] = None,
 ):
+    """
+    :param pixel_labels_arr: array of pixel labels, shape (n_width, n_height).
+    :param indices_2d: 2D indices for each pixel, shape (n_pixels, 2)
+    :param flow_labels: flow labels for each pixel, shape (n_width, n_height)
+    :param flow_labels2: flow labels for each pixel, shape (n_width, n_height)
+    :param foreground_mask: boolean mask of pixels that are considered foreground, shape (n_width, n_height)
+    :param exclude_segments: optional array of segment labels to exclude from the expansion
+    :return: None, will update pixel_labels_arr in-place
+    """
     x_indices = indices_2d[:, 0]
     y_indices = indices_2d[:, 1]
 
@@ -153,6 +167,9 @@ def greedy_expansion_step(
 
     # Immediate neighbor flows
     flow1_mask = update_mask & (flow_labels_flat != -1)
+    if exclude_segments is not None:
+        flow1_mask = flow1_mask & ~np.isin(flow_labels_flat, exclude_segments)
+
     update_labels_with_flow_values(
         labels=pixel_labels_arr,
         update_mask=flow1_mask,
@@ -162,6 +179,9 @@ def greedy_expansion_step(
 
     # Slightly farther flows but still contiguous to the cell
     flow2_mask = update_mask & (flow_labels_flat == -1) & (flow_labels_flat2 != -1)
+    if exclude_segments is not None:
+        flow2_mask = flow2_mask & ~np.isin(flow_labels_flat2, exclude_segments)
+
     update_labels_with_flow_values(
         labels=pixel_labels_arr,
         update_mask=flow2_mask,
@@ -181,12 +201,39 @@ def greedy_expansion(
     flow_xy2,
     foreground_mask,
     max_expansion_steps=50,
+    exclude_segments_callback: Optional[Callable[[int, np.array], np.array]] = None,
+    plotting_callback: Optional[Callable[[int, np.array], None]] = None,
 ):
+    """
+    :param pixel_labels_arr: array of pixel labels, shape (n_width, n_height).
+    :param flow_labels: flow labels for each pixel, shape (n_width, n_height)
+    :param flow_labels2: flow labels for each pixel, shape (n_width, n_height)
+    :param flow_xy: flow destination for each pixel, shape (n_pixels, 2)
+    :param flow_xy2: flow destination for each pixel, shape (n_pixels, 2)
+    :param foreground_mask: boolean mask of pixels that are considered foreground, shape (n_width, n_height)
+    :param max_expansion_steps: maximum number of expansion steps to take
+    :param exclude_segments_callback: optional callback to determine which segments to exclude from expansion
+    at a given iteration
+    :param plotting_callback: optional callback to visualize the state of the segmentation at each iteration
+    """
     indices_2d = get_indices_for_ndarray(
         pixel_labels_arr.shape[0], pixel_labels_arr.shape[1]
     )
 
-    for _ in tqdm.trange(max_expansion_steps, desc="greedy_expansion", unit="step"):
+    if plotting_callback is not None:
+        plotting_callback(0, pixel_labels_arr.copy())
+
+    for expansion_idx in tqdm.trange(
+        max_expansion_steps, desc="greedy_expansion", unit="step"
+    ):
+        # Get segments to exclude
+        if exclude_segments_callback is not None:
+            exclude_segments = exclude_segments_callback(
+                expansion_idx, pixel_labels_arr
+            )
+        else:
+            exclude_segments = None
+
         # Expand one step
         greedy_expansion_step(
             pixel_labels_arr,
@@ -194,6 +241,7 @@ def greedy_expansion(
             flow_labels,
             flow_labels2,
             foreground_mask,
+            exclude_segments=exclude_segments,
         )
 
         # Update the flow labels
@@ -205,6 +253,9 @@ def greedy_expansion(
             pixel_labels_arr[flow_xy[:, 0], flow_xy[:, 1]],
             pixel_labels_arr[flow_xy2[:, 0], flow_xy2[:, 1]],
         )
+
+        if plotting_callback is not None:
+            plotting_callback(expansion_idx + 1, pixel_labels_arr.copy())
 
     return pixel_labels_arr
 
@@ -282,6 +333,9 @@ def greedy_cell_segmentation(
     max_expansion_steps=15,
     use_labels=True,
     min_component_size=20,
+    flow1_magnitude=np.sqrt(2),
+    flow2_magnitude=np.sqrt(3),
+    plotting_callback: Optional[Callable[[int, np.array], None]] = None,
 ):
     indices_2d = get_indices_for_ndarray(
         dataset.x_extent_pixels, dataset.y_extent_pixels
@@ -289,8 +343,8 @@ def greedy_cell_segmentation(
     x_indices = indices_2d[:, 0]
     y_indices = indices_2d[:, 1]
 
-    flow_xy = flow_destination(indices_2d, predictions.angles, np.sqrt(2))
-    flow_xy2 = flow_destination(indices_2d, predictions.angles, np.sqrt(3))
+    flow_xy = flow_destination(indices_2d, predictions.angles, flow1_magnitude)
+    flow_xy2 = flow_destination(indices_2d, predictions.angles, flow2_magnitude)
 
     # Get the pixels that are sufficiently predicted to be foreground
     foreground_mask = (predictions.foreground >= foreground_threshold)[
@@ -330,6 +384,7 @@ def greedy_cell_segmentation(
         flow_xy2,
         foreground_mask,
         max_expansion_steps=max_expansion_steps,
+        plotting_callback=plotting_callback,
     )
     return SegmentationResults(result)
 

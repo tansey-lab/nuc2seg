@@ -2,6 +2,7 @@ from nuc2seg.plotting import (
     plot_model_predictions,
     plot_celltype_estimation_results,
     rank_genes_groups_plot,
+    plot_greedy_cell_segmentation,
 )
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
 from nuc2seg.celltyping import fit_celltype_em_model
@@ -138,3 +139,48 @@ def test_rank_genes_groups_plot():
 
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_plot_greedy_cell_segmentation():
+    labels = np.zeros((64, 64))
+
+    labels[22:42, 10:50] = -1
+    labels[26:38, 22:42] = 1
+
+    angles = np.zeros((64, 64))
+
+    for x in range(64):
+        for y in range(64):
+            x_component = 32 - x
+            y_component = 32 - y
+            angle = cart2pol(x=x_component, y=y_component)
+            angles[x, y] = angle[1]
+
+    ds = Nuc2SegDataset(
+        labels=labels,
+        angles=angles,
+        classes=np.ones((64, 64, 3)).astype(float),
+        transcripts=np.array([[0, 0, 0], [32, 32, 1], [35, 35, 2], [22, 22, 2]]),
+        bbox=np.array([0, 0, 64, 64]),
+        n_classes=3,
+        n_genes=3,
+        resolution=1,
+    )
+
+    predictions = ModelPredictions(
+        angles=angles,
+        classes=np.ones((64, 64, 3)).astype(float),
+        foreground=np.ones_like(labels).astype(float),
+    )
+
+    output_dir = tempfile.mkdtemp()
+
+    try:
+        plot_greedy_cell_segmentation(
+            dataset=ds,
+            predictions=predictions,
+            output_path=os.path.join(output_dir, "test.mp4"),
+            segment_id=1,
+        )
+    finally:
+        shutil.rmtree(output_dir)

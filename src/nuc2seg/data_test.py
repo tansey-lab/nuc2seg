@@ -31,7 +31,7 @@ def test_Nuc2SegDataset():
     ds = Nuc2SegDataset(
         labels=np.ones((10, 20)),
         angles=np.ones((10, 20)),
-        classes=np.ones((10, 20)),
+        classes=np.ones((10, 20, 3)),
         transcripts=np.array([[0, 0, 0], [5, 5, 1], [10, 10, 2]]),
         bbox=np.array([100, 100, 110, 120]),
         n_classes=3,
@@ -58,6 +58,12 @@ def test_Nuc2SegDataset():
         np.testing.assert_array_equal(ds.bbox, ds2.bbox)
         assert ds.n_classes == ds2.n_classes
         assert ds.n_genes == ds2.n_genes
+
+        ds_clipped = ds.clip(np.array([0, 0, 10, 10]))
+        assert ds_clipped.x_extent_pixels == 10
+        assert ds_clipped.y_extent_pixels == 10
+        assert ds_clipped.labels.shape == (10, 10)
+        np.testing.assert_array_equal(ds_clipped.bbox, np.array([100, 100, 110, 110]))
     finally:
         shutil.rmtree(tmpdir)
 

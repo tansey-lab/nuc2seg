@@ -10,6 +10,7 @@ from nuc2seg.segment import (
     collinear,
     fill_in_surrounded_unlabelled_pixels,
     update_labels_with_flow_values,
+    greedy_expansion_step,
 )
 from nuc2seg.preprocessing import cart2pol
 from nuc2seg.utils import get_indices_for_ndarray
@@ -143,6 +144,52 @@ def test_greedy_expansion_doesnt_update_pixel():
     )
 
     np.testing.assert_equal(result, np.array([[0, -1, 1]]))
+
+
+def test_greedy_expansion_step():
+    pixel_labels_arr = np.array(
+        [
+            [0, -1, -1, 1],
+        ]
+    )
+
+    flow_labels = np.array(
+        [
+            [0, -1, 1, 1],
+        ]
+    )
+
+    flow_labels2 = np.array(
+        [
+            [0, -1, 1, 1],
+        ]
+    )
+
+    start_xy = np.array([[0, 0], [0, 1], [0, 2], [0, 3]])
+
+    foreground_mask = (pixel_labels_arr != 0)[start_xy[:, 0], start_xy[:, 1]]
+
+    greedy_expansion_step(
+        pixel_labels_arr=pixel_labels_arr,
+        indices_2d=start_xy,
+        flow_labels=flow_labels,
+        flow_labels2=flow_labels2,
+        foreground_mask=foreground_mask,
+        exclude_segments=np.array([1]),
+    )
+    # If excluded, segment 1 does not expand
+    np.testing.assert_equal(pixel_labels_arr, np.array([[0, -1, -1, 1]]))
+
+    greedy_expansion_step(
+        pixel_labels_arr=pixel_labels_arr,
+        indices_2d=start_xy,
+        flow_labels=flow_labels,
+        flow_labels2=flow_labels2,
+        foreground_mask=foreground_mask,
+        exclude_segments=np.array([2]),
+    )
+    # If not excluded, it does
+    np.testing.assert_equal(pixel_labels_arr, np.array([[0, -1, 1, 1]]))
 
 
 @pytest.mark.parametrize(

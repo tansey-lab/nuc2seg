@@ -4,10 +4,11 @@ import geopandas
 import numpy as np
 import pandas
 import tqdm
-from matplotlib import cm, gridspec
+from matplotlib import cm, gridspec, animation
 from matplotlib import pyplot as plt
 from shapely import box
 import seaborn as sns
+from nuc2seg.segment import greedy_cell_segmentation
 from nuc2seg.data import (
     Nuc2SegDataset,
     ModelPredictions,
@@ -751,3 +752,78 @@ def plot_class_probabilities_image(
             os.path.join(output_dir, f"celltype_probabilities_{celltype_idx}.png")
         )
         plt.close(fig)
+
+
+class SegmentationPlotter:
+    def __init__(self):
+        self.frames = []
+
+    def __call__(self, step_idx: int, labels: np.array):
+        self.frames.append((step_idx, labels))
+
+    def generate_imshow_array(self, labels, initial_labels):
+        imshow_arr = np.ones((labels.shape[0], labels.shape[1], 3)).astype(float)
+        imshow_arr[labels > 0] = np.array([0, 0, 1.0])
+        imshow_arr[initial_labels > 0] = np.array([1.0, 0, 0])
+        return imshow_arr
+
+    def plot(self, output_path):
+        fig, ax = plt.subplots(figsize=(10, 10), dpi=300)
+        image = None
+        initial_labels = None
+
+        frames = []
+
+        for step_idx, labels in self.frames:
+            if step_idx == 0:
+                initial_labels = labels
+            imshow_arr = self.generate_imshow_array(labels, initial_labels)
+            if step_idx == 0:
+                image = ax.imshow(imshow_arr)
+            frames.append(imshow_arr)
+
+        def update(frame):
+            image.set_array(frame)
+            return [image]
+
+        ani = animation.FuncAnimation(
+            fig, update, frames=frames, blit=True, interval=200
+        )
+
+        ani.save(output_path, writer="ffmpeg", fps=5)
+
+
+def plot_greedy_cell_segmentation(
+    dataset: Nuc2SegDataset,
+    predictions: ModelPredictions,
+    segment_id: int,
+    output_path: str,
+    window_size=30,
+):
+    """
+    Plot the greedy cell segmentation for a specific segment_id
+    """
+    mask = dataset.labels == segment_id
+    background = (predictions.foreground > 0.5).astype(int)
+    # get bounding box of true values
+    x, y = np.where(mask)
+    bbox = (
+        max(x.min() - window_size, 0),
+        max(y.min() - window_size, 0),
+        min(x.max() + window_size, dataset.labels.shape[0]),
+        min(y.max() + window_size, dataset.labels.shape[1]),
+    )
+
+    dataset_clipped = dataset.clip(bbox)
+    predictions_clipped = predictions.clip(bbox)
+
+    plotting_callback = SegmentationPlotter()
+
+    greedy_cell_segmentation(
+        dataset=dataset_clipped,
+        predictions=predictions_clipped,
+        use_labels=True,
+        plotting_callback=plotting_callback,
+    )
+
+    plotting_callback.plot(output_path)
