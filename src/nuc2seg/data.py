@@ -487,6 +487,11 @@ class TrainTestSplit:
 
 class ModelPredictions:
     def __init__(self, angles, classes, foreground):
+        """
+        :param angles: array of shape (x, y) of angles in radians
+        :param classes: array of shape (n_classes, x, y) of class predictions
+        :param foreground: array of shape (x, y) of foreground probabilities
+        """
         self.angles = angles
         self.classes = classes
         self.foreground = foreground
@@ -508,7 +513,7 @@ class ModelPredictions:
     def clip(self, bbox):
         return ModelPredictions(
             angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
-            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            classes=self.classes[:, bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
             foreground=self.foreground[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
         )
 

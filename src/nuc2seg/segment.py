@@ -24,6 +24,7 @@ from shapely import Polygon, affinity, box
 from blended_tiling import TilingModule
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
+from numpy.linalg import norm
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +330,8 @@ def flow_destination(start_xy, angle_preds, magnitude):
 def greedy_cell_segmentation(
     dataset: Nuc2SegDataset,
     predictions: ModelPredictions,
+    prior_probs: np.array,
+    expression_profiles: np.array,
     foreground_threshold=0.5,
     max_expansion_steps=15,
     use_labels=True,
@@ -375,18 +378,82 @@ def greedy_cell_segmentation(
         flow_xy2[:, 0], flow_xy2[:, 1]
     ]
 
-    # Greedily expand the cell one pixel at a time
+    # Greedily expand the cell one pixel at a time, callback will record
+    # the difference in celltype probabilities vector norm at each step
+    # This metric becomes larger as the model becomes more confident in the celltype assignment
+    gather_callback = GatherCelltypeProbabilitiesForSegments(
+        prior_probs=prior_probs,
+        expression_profiles=expression_profiles,
+        transcripts=dataset.transcripts,
+    )
+
+    greedy_expansion(
+        pixel_labels_arr.copy(),
+        flow_labels.copy(),
+        flow_labels2.copy(),
+        flow_xy.copy(),
+        flow_xy2.copy(),
+        foreground_mask.copy(),
+        max_expansion_steps=max_expansion_steps,
+        exclude_segments_callback=gather_callback,
+    )
+
+    # Run the expansion again but this time stop each segments expansion at the point of
+    # its maximum increase in celltype probability confidence
+    exclude_callback = EnforceBestIterationForEachSegment(
+        gather_callback.get_best_iteration_for_each_segment()
+    )
     result = greedy_expansion(
-        pixel_labels_arr,
-        flow_labels,
-        flow_labels2,
-        flow_xy,
-        flow_xy2,
-        foreground_mask,
+        pixel_labels_arr.copy(),
+        flow_labels.copy(),
+        flow_labels2.copy(),
+        flow_xy.copy(),
+        flow_xy2.copy(),
+        foreground_mask.copy(),
         max_expansion_steps=max_expansion_steps,
         plotting_callback=plotting_callback,
+        exclude_segments_callback=exclude_callback,
     )
     return SegmentationResults(result)
+
+
+class GatherCelltypeProbabilitiesForSegments:
+    def __init__(self, transcripts, expression_profiles, prior_probs):
+        self.norm_diff_per_step = []
+        self.transcripts = transcripts
+        self.expression_profiles = expression_profiles
+        self.prior_probs = prior_probs
+        self.original_probs = None
+
+    def __call__(self, expansion_idx, pixel_labels_arr):
+        probs = predict_celltype_probabilities_for_all_segments(
+            labels=pixel_labels_arr,
+            transcripts=self.transcripts,
+            expression_profiles=self.expression_profiles,
+            prior_probs=self.prior_probs,
+        )  # N segment x N celltype
+
+        if expansion_idx == 0:
+            self.original_probs = probs
+        else:
+            norm_diff = norm((self.original_probs + probs) / 2.0, ord=2, axis=1) - norm(
+                self.original_probs, ord=2, axis=1
+            )
+            self.norm_diff_per_step.append(norm_diff)
+        return np.array([])
+
+    def get_best_iteration_for_each_segment(self):
+        return np.stack(self.norm_diff_per_step).argmax(axis=0)
+
+
+class EnforceBestIterationForEachSegment:
+    def __init__(self, best_iteration_for_each_segment):
+        self.best_iteration_for_each_segment = best_iteration_for_each_segment
+
+    def __call__(self, expansion_idx, pixel_labels_arr):
+        return np.arange(self.best_iteration_for_each_segment)[
+            self.best_iteration_for_each_segment <= expansion_idx
+        ]
 
 
 def collinear(p1, p2, p3):

@@ -796,6 +796,8 @@ class SegmentationPlotter:
 def plot_greedy_cell_segmentation(
     dataset: Nuc2SegDataset,
     predictions: ModelPredictions,
+    prior_probs: np.array,
+    expression_profiles: np.array,
     segment_id: int,
     output_path: str,
     window_size=30,
@@ -822,6 +824,8 @@ def plot_greedy_cell_segmentation(
     greedy_cell_segmentation(
         dataset=dataset_clipped,
         predictions=predictions_clipped,
+        prior_probs=prior_probs,
+        expression_profiles=expression_profiles,
         use_labels=True,
         plotting_callback=plotting_callback,
     )

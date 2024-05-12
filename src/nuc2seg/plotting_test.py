@@ -160,7 +160,7 @@ def test_plot_greedy_cell_segmentation():
         labels=labels,
         angles=angles,
         classes=np.ones((64, 64, 3)).astype(float),
-        transcripts=np.array([[0, 0, 0], [32, 32, 1], [35, 35, 2], [22, 22, 2]]),
+        transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
         bbox=np.array([0, 0, 64, 64]),
         n_classes=3,
         n_genes=3,
@@ -179,6 +179,10 @@ def test_plot_greedy_cell_segmentation():
         plot_greedy_cell_segmentation(
             dataset=ds,
             predictions=predictions,
+            prior_probs=np.array([1.0 / 3, 1.0 / 3, 1.0 / 3]),
+            expression_profiles=np.array(
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]
+            ),
             output_path=os.path.join(output_dir, "test.mp4"),
             segment_id=1,
         )

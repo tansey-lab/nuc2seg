@@ -133,9 +133,16 @@ def main():
     dataset = Nuc2SegDataset.load_h5(args.dataset)
     predictions = ModelPredictions.load_h5(args.predictions)
 
+    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
+    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
+        celltyping_chains
+    )
+
     result = greedy_cell_segmentation(
         dataset=dataset,
         predictions=predictions,
+        prior_probs=celltyping_results.prior_probs[best_k],
+        expression_profiles=celltyping_results.expression_profiles[best_k],
         max_expansion_steps=args.max_steps,
         foreground_threshold=args.foreground_prob_threshold,
         use_labels=(not args.use_connected_components),
@@ -155,10 +162,7 @@ def main():
     )
 
     logger.info("Predicting celltypes")
-    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
-    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
-        celltyping_chains
-    )
+
     celltype_predictions = predict_celltypes_for_anndata(
         prior_probs=celltyping_results.prior_probs[best_k],
         expression_profiles=celltyping_results.expression_profiles[best_k],
