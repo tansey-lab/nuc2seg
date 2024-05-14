@@ -157,7 +157,7 @@ def test_plot_greedy_cell_segmentation():
             angles[x, y] = angle[1]
 
     ds = Nuc2SegDataset(
-        labels=labels,
+        labels=labels.astype(int),
         angles=angles,
         classes=np.ones((64, 64, 3)).astype(float),
         transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
@@ -181,7 +181,7 @@ def test_plot_greedy_cell_segmentation():
             predictions=predictions,
             prior_probs=np.array([1.0 / 3, 1.0 / 3, 1.0 / 3]),
             expression_profiles=np.array(
-                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]
+                [[0.98, 0.01, 0.01], [0.01, 0.98, 0.01], [0.98, 0.01, 0.01]]
             ),
             output_path=os.path.join(output_dir, "test.mp4"),
             segment_id=1,

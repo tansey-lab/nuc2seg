@@ -146,6 +146,50 @@ def test_greedy_expansion_doesnt_update_pixel():
     np.testing.assert_equal(result, np.array([[0, -1, 1]]))
 
 
+def test_greedy_cell_segmentation_early_stop():
+    labels = np.zeros((64, 64))
+
+    labels[22:42, 10:50] = -1
+    labels[26:38, 22:42] = 1
+
+    angles = np.zeros((64, 64))
+
+    for x in range(64):
+        for y in range(64):
+            x_component = 32 - x
+            y_component = 32 - y
+            angle = cart2pol(x=x_component, y=y_component)
+            angles[x, y] = angle[1]
+
+    ds = Nuc2SegDataset(
+        labels=labels.astype(int),
+        angles=angles,
+        classes=np.ones((64, 64, 3)).astype(float),
+        transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
+        bbox=np.array([0, 0, 64, 64]),
+        n_classes=3,
+        n_genes=3,
+        resolution=1,
+    )
+
+    predictions = ModelPredictions(
+        angles=angles,
+        classes=np.ones((64, 64, 3)).astype(float),
+        foreground=np.ones_like(labels).astype(float),
+    )
+    result = greedy_cell_segmentation(
+        dataset=ds,
+        predictions=predictions,
+        prior_probs=np.array([1.0 / 3, 1.0 / 3, 1.0 / 3]),
+        expression_profiles=np.array(
+            [[0.98, 0.01, 0.01], [0.01, 0.98, 0.01], [0.98, 0.01, 0.01]]
+        ),
+        max_expansion_steps=100,
+    )
+
+    assert result.segmentation
+
+
 def test_greedy_expansion_step():
     pixel_labels_arr = np.array(
         [

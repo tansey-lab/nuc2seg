@@ -451,9 +451,12 @@ class EnforceBestIterationForEachSegment:
         self.best_iteration_for_each_segment = best_iteration_for_each_segment
 
     def __call__(self, expansion_idx, pixel_labels_arr):
-        return np.arange(self.best_iteration_for_each_segment)[
-            self.best_iteration_for_each_segment <= expansion_idx
-        ]
+        return (
+            np.arange(len(self.best_iteration_for_each_segment))[
+                self.best_iteration_for_each_segment <= expansion_idx
+            ]
+            + 1
+        )
 
 
 def collinear(p1, p2, p3):
