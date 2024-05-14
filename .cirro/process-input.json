@@ -1,0 +1,5 @@
+{
+    "outdir": "$.params.dataset.s3|/data",
+    "xenium_dir": "$.params.inputs[0].s3|/data",
+    "wandb_api_key": "$.params.dataset.paramJson.wandb_api_key"
+}
