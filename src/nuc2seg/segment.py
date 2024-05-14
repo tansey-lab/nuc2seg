@@ -216,6 +216,8 @@ def greedy_expansion(
     :param exclude_segments_callback: optional callback to determine which segments to exclude from expansion
     at a given iteration
     :param plotting_callback: optional callback to visualize the state of the segmentation at each iteration
+
+    :return: Generator with the state of the labels at each iteration
     """
     indices_2d = get_indices_for_ndarray(
         pixel_labels_arr.shape[0], pixel_labels_arr.shape[1]
@@ -258,7 +260,7 @@ def greedy_expansion(
         if plotting_callback is not None:
             plotting_callback(expansion_idx + 1, pixel_labels_arr.copy())
 
-    return pixel_labels_arr
+        yield pixel_labels_arr
 
 
 def label_connected_components(
@@ -339,6 +341,7 @@ def greedy_cell_segmentation(
     flow1_magnitude=np.sqrt(2),
     flow2_magnitude=np.sqrt(3),
     plotting_callback: Optional[Callable[[int, np.array], None]] = None,
+    use_early_stopping=True,
 ):
     indices_2d = get_indices_for_ndarray(
         dataset.x_extent_pixels, dataset.y_extent_pixels
@@ -378,6 +381,8 @@ def greedy_cell_segmentation(
         flow_xy2[:, 0], flow_xy2[:, 1]
     ]
 
+    result = pixel_labels_arr
+
     # Greedily expand the cell one pixel at a time, callback will record
     # the difference in celltype probabilities vector norm at each step
     # This metric becomes larger as the model becomes more confident in the celltype assignment
@@ -387,23 +392,30 @@ def greedy_cell_segmentation(
         transcripts=dataset.transcripts,
     )
 
-    greedy_expansion(
-        pixel_labels_arr.copy(),
-        flow_labels.copy(),
-        flow_labels2.copy(),
-        flow_xy.copy(),
-        flow_xy2.copy(),
-        foreground_mask.copy(),
-        max_expansion_steps=max_expansion_steps,
-        exclude_segments_callback=gather_callback,
-    )
+    gather_callback(0, pixel_labels_arr)
+    for idx, result in enumerate(
+        greedy_expansion(
+            pixel_labels_arr.copy(),
+            flow_labels.copy(),
+            flow_labels2.copy(),
+            flow_xy.copy(),
+            flow_xy2.copy(),
+            foreground_mask.copy(),
+            max_expansion_steps=max_expansion_steps,
+        )
+    ):
+        gather_callback(idx + 1, result)
+
+    if not use_early_stopping:
+        return SegmentationResults(result)
 
     # Run the expansion again but this time stop each segments expansion at the point of
     # its maximum increase in celltype probability confidence
     exclude_callback = EnforceBestIterationForEachSegment(
         gather_callback.get_best_iteration_for_each_segment()
     )
-    result = greedy_expansion(
+
+    for result in greedy_expansion(
         pixel_labels_arr.copy(),
         flow_labels.copy(),
         flow_labels2.copy(),
@@ -413,7 +425,8 @@ def greedy_cell_segmentation(
         max_expansion_steps=max_expansion_steps,
         plotting_callback=plotting_callback,
         exclude_segments_callback=exclude_callback,
-    )
+    ):
+        pass
     return SegmentationResults(result)
 
 
@@ -435,15 +448,18 @@ class GatherCelltypeProbabilitiesForSegments:
 
         if expansion_idx == 0:
             self.original_probs = probs
-        else:
-            norm_diff = norm((self.original_probs + probs) / 2.0, ord=2, axis=1) - norm(
-                self.original_probs, ord=2, axis=1
-            )
-            self.norm_diff_per_step.append(norm_diff)
+
+        norm_diff = norm((self.original_probs + probs) / 2.0, ord=2, axis=1) - norm(
+            self.original_probs, ord=2, axis=1
+        )
+        self.norm_diff_per_step.append(norm_diff)
         return np.array([])
 
     def get_best_iteration_for_each_segment(self):
-        return np.stack(self.norm_diff_per_step).argmax(axis=0)
+        arr = np.stack(self.norm_diff_per_step)
+
+        # In case of ties take the highest iteration index
+        return arr.shape[0] - arr[::-1, :].argmax(axis=0) - 1
 
 
 class EnforceBestIterationForEachSegment:

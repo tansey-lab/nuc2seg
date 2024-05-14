@@ -69,7 +69,7 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         ]
     )
 
-    result = greedy_expansion(
+    for result in greedy_expansion(
         pixel_labels_arr.copy(),
         flow_labels.copy(),
         flow_labels2.copy(),
@@ -77,11 +77,12 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         flow_xy2.copy(),
         foreground_mask.copy(),
         max_expansion_steps=1,
-    )
+    ):
+        pass
 
     np.testing.assert_equal(result, np.array([[0, -1, 1, 1]]))
 
-    result = greedy_expansion(
+    for result in greedy_expansion(
         pixel_labels_arr.copy(),
         flow_labels.copy(),
         flow_labels2.copy(),
@@ -89,7 +90,8 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         flow_xy2.copy(),
         foreground_mask.copy(),
         max_expansion_steps=2,
-    )
+    ):
+        pass
 
     np.testing.assert_equal(result, np.array([[0, 1, 1, 1]]))
 
@@ -133,7 +135,7 @@ def test_greedy_expansion_doesnt_update_pixel():
         ]
     )
 
-    result = greedy_expansion(
+    for result in greedy_expansion(
         pixel_labels_arr.copy(),
         flow_labels,
         flow_labels2,
@@ -141,7 +143,8 @@ def test_greedy_expansion_doesnt_update_pixel():
         flow_xy2,
         foreground_mask,
         max_expansion_steps=1,
-    )
+    ):
+        pass
 
     np.testing.assert_equal(result, np.array([[0, -1, 1]]))
 
@@ -184,10 +187,12 @@ def test_greedy_cell_segmentation_early_stop():
         expression_profiles=np.array(
             [[0.98, 0.01, 0.01], [0.01, 0.98, 0.01], [0.98, 0.01, 0.01]]
         ),
-        max_expansion_steps=100,
+        max_expansion_steps=15,
     )
 
-    assert result.segmentation
+    y, x = np.where(result.segmentation == 1)
+
+    assert x.min() == 12
 
 
 def test_greedy_expansion_step():
