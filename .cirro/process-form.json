@@ -1,0 +1,14 @@
+{
+  "ui": {},
+  "form": {
+    "title": "BTC 10X Xenium Pipeline",
+    "type": "object",
+    "properties": {
+      "wandb_api_key": {
+        "description": "WandB Api key for reporting training results.",
+        "title": "wandb_api_key",
+        "type": "string"
+      }
+    }
+  }
+}
