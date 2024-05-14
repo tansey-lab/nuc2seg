@@ -7,10 +7,8 @@ from kneed import KneeLocator
 
 from scipy.special import softmax
 from nuc2seg.xenium import logger
-from nuc2seg.data import CelltypingResults, RasterizedDataset
+from nuc2seg.data import CelltypingResults
 from scipy.special import logsumexp
-from collections import defaultdict
-from scipy.stats import multinomial
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):
@@ -47,20 +45,6 @@ def estimate_cell_types(
         gene_counts[:, None] * np.log(expression_profiles[None])
     ).sum(axis=2)
     return softmax(logits, axis=1)
-
-
-def neg_log_likelihood_celltype(
-    expression_profiles,
-    gene_counts,
-):
-    """
-    Calculate the negative log likelihood of the cell type assignment
-
-    :param expression_profiles: The expression profiles of each cell type, shape (n_genes,)
-    :param gene_counts: The gene counts for each cell, shape (n_genes,)
-    :return: Negative log likelihood
-    """
-    return -multinomial(p=expression_profiles, n=gene_counts.sum()).logpmf(gene_counts)
 
 
 def fit_celltype_em_model(
