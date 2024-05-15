@@ -2,7 +2,6 @@ process TRAIN {
     tag "$meta.id"
     label 'process_high'
     label 'gpu'
-    accelerator = 1
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) :
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
