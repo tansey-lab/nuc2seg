@@ -4,6 +4,7 @@ from nuc2seg.celltyping import (
     select_best_celltyping_chain,
     create_dense_gene_counts_matrix,
     predict_celltypes_for_segments_and_transcripts,
+    predict_celltype_probabilities_for_all_segments,
 )
 import numpy as np
 import geopandas
@@ -199,3 +200,15 @@ def test_predict_celltypes_for_segments_and_transcripts():
 
     assert result.argmax(axis=0).tolist() == [0, 1]
     assert result[0][0] > result[1][1]
+
+
+def test_predict_celltype_probabilities_for_all_segments():
+    labels = np.array([[0, 1], [2, -1]])
+
+    transcripts = np.array([[0, 1, 0], [1, 0, 1]])
+
+    expression_profiles = np.array([[0.9, 0.1], [0.1, 0.9]])
+    prior_probs = np.array([0.6, 0.4])
+    result = predict_celltype_probabilities_for_all_segments(
+        labels, transcripts, expression_profiles, prior_probs
+    )

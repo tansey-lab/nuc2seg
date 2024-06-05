@@ -7,9 +7,8 @@ from kneed import KneeLocator
 
 from scipy.special import softmax
 from nuc2seg.xenium import logger
-from nuc2seg.data import CelltypingResults, RasterizedDataset
+from nuc2seg.data import CelltypingResults
 from scipy.special import logsumexp
-from collections import defaultdict
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):
@@ -438,3 +437,28 @@ def predict_celltypes_for_anndata(
         prior_probs=prior_probs,
         gene_counts=gene_counts,
     )
+
+
+def predict_celltype_probabilities_for_all_segments(
+    labels,
+    transcripts,
+    expression_profiles,
+    prior_probs,
+):
+    n_unique_cells = len(np.unique(labels[labels > 0]))
+
+    counts = np.zeros((n_unique_cells, expression_profiles.shape[1]))
+
+    label_per_transcript = labels[transcripts[:, 0], transcripts[:, 1]]
+
+    selection_vector = label_per_transcript > 0
+    np.add.at(
+        counts,
+        (
+            label_per_transcript[selection_vector] - 1,
+            transcripts[:, 2][selection_vector],
+        ),
+        1,
+    )
+
+    return estimate_cell_types(prior_probs, expression_profiles, counts)

@@ -280,6 +280,30 @@ class Nuc2SegDataset:
             resolution=resolution,
         )
 
+    def clip(self, bbox):
+        transcript_selector = np.isin(
+            self.transcripts[:, 0], np.arange(bbox[0], bbox[2])
+        ) & np.isin(self.transcripts[:, 1], np.arange(bbox[1], bbox[3]))
+        new_bbox = np.array(
+            [
+                bbox[0] + self.bbox[0],
+                bbox[1] + self.bbox[1],
+                bbox[2] + self.bbox[0],
+                bbox[3] + self.bbox[1],
+            ]
+        )
+
+        return Nuc2SegDataset(
+            labels=self.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3], :].copy(),
+            transcripts=self.transcripts[transcript_selector].copy(),
+            bbox=new_bbox,
+            n_classes=self.n_classes,
+            n_genes=self.n_genes,
+            resolution=self.resolution,
+        )
+
 
 def generate_tiles(
     tiler: TilingModule, x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None
@@ -463,6 +487,11 @@ class TrainTestSplit:
 
 class ModelPredictions:
     def __init__(self, angles, classes, foreground):
+        """
+        :param angles: array of shape (x, y) of angles in radians
+        :param classes: array of shape (n_classes, x, y) of class predictions
+        :param foreground: array of shape (x, y) of foreground probabilities
+        """
         self.angles = angles
         self.classes = classes
         self.foreground = foreground
@@ -480,6 +509,13 @@ class ModelPredictions:
             classes = f["classes"][:]
             foreground = f["foreground"][:]
         return ModelPredictions(angles=angles, classes=classes, foreground=foreground)
+
+    def clip(self, bbox):
+        return ModelPredictions(
+            angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            classes=self.classes[:, bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            foreground=self.foreground[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+        )
 
 
 class SegmentationResults:

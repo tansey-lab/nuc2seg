@@ -8,8 +8,12 @@ from nuc2seg.segment import (
     convert_segmentation_to_shapefile,
     convert_transcripts_to_anndata,
     collinear,
+    fill_in_surrounded_unlabelled_pixels,
+    update_labels_with_flow_values,
+    greedy_expansion_step,
 )
 from nuc2seg.preprocessing import cart2pol
+from nuc2seg.utils import get_indices_for_ndarray
 import numpy as np
 import pytest
 import torch
@@ -65,8 +69,7 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         ]
     )
 
-    result = greedy_expansion(
-        start_xy.copy(),
+    for result in greedy_expansion(
         pixel_labels_arr.copy(),
         flow_labels.copy(),
         flow_labels2.copy(),
@@ -74,12 +77,12 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         flow_xy2.copy(),
         foreground_mask.copy(),
         max_expansion_steps=1,
-    )
+    ):
+        pass
 
     np.testing.assert_equal(result, np.array([[0, -1, 1, 1]]))
 
-    result = greedy_expansion(
-        start_xy.copy(),
+    for result in greedy_expansion(
         pixel_labels_arr.copy(),
         flow_labels.copy(),
         flow_labels2.copy(),
@@ -87,7 +90,8 @@ def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
         flow_xy2.copy(),
         foreground_mask.copy(),
         max_expansion_steps=2,
-    )
+    ):
+        pass
 
     np.testing.assert_equal(result, np.array([[0, 1, 1, 1]]))
 
@@ -131,8 +135,7 @@ def test_greedy_expansion_doesnt_update_pixel():
         ]
     )
 
-    result = greedy_expansion(
-        start_xy,
+    for result in greedy_expansion(
         pixel_labels_arr.copy(),
         flow_labels,
         flow_labels2,
@@ -140,9 +143,102 @@ def test_greedy_expansion_doesnt_update_pixel():
         flow_xy2,
         foreground_mask,
         max_expansion_steps=1,
-    )
+    ):
+        pass
 
     np.testing.assert_equal(result, np.array([[0, -1, 1]]))
+
+
+def test_greedy_cell_segmentation_early_stop():
+    labels = np.zeros((64, 64))
+
+    labels[22:42, 10:50] = -1
+    labels[26:38, 22:42] = 1
+
+    angles = np.zeros((64, 64))
+
+    for x in range(64):
+        for y in range(64):
+            x_component = 32 - x
+            y_component = 32 - y
+            angle = cart2pol(x=x_component, y=y_component)
+            angles[x, y] = angle[1]
+
+    ds = Nuc2SegDataset(
+        labels=labels.astype(int),
+        angles=angles,
+        classes=np.ones((64, 64, 3)).astype(float),
+        transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
+        bbox=np.array([0, 0, 64, 64]),
+        n_classes=3,
+        n_genes=3,
+        resolution=1,
+    )
+
+    predictions = ModelPredictions(
+        angles=angles,
+        classes=np.ones((64, 64, 3)).astype(float),
+        foreground=np.ones_like(labels).astype(float),
+    )
+    result = greedy_cell_segmentation(
+        dataset=ds,
+        predictions=predictions,
+        prior_probs=np.array([1.0 / 3, 1.0 / 3, 1.0 / 3]),
+        expression_profiles=np.array(
+            [[0.98, 0.01, 0.01], [0.01, 0.98, 0.01], [0.98, 0.01, 0.01]]
+        ),
+        max_expansion_steps=15,
+    )
+
+    y, x = np.where(result.segmentation == 1)
+
+    assert x.min() == 12
+
+
+def test_greedy_expansion_step():
+    pixel_labels_arr = np.array(
+        [
+            [0, -1, -1, 1],
+        ]
+    )
+
+    flow_labels = np.array(
+        [
+            [0, -1, 1, 1],
+        ]
+    )
+
+    flow_labels2 = np.array(
+        [
+            [0, -1, 1, 1],
+        ]
+    )
+
+    start_xy = np.array([[0, 0], [0, 1], [0, 2], [0, 3]])
+
+    foreground_mask = (pixel_labels_arr != 0)[start_xy[:, 0], start_xy[:, 1]]
+
+    greedy_expansion_step(
+        pixel_labels_arr=pixel_labels_arr,
+        indices_2d=start_xy,
+        flow_labels=flow_labels,
+        flow_labels2=flow_labels2,
+        foreground_mask=foreground_mask,
+        exclude_segments=np.array([1]),
+    )
+    # If excluded, segment 1 does not expand
+    np.testing.assert_equal(pixel_labels_arr, np.array([[0, -1, -1, 1]]))
+
+    greedy_expansion_step(
+        pixel_labels_arr=pixel_labels_arr,
+        indices_2d=start_xy,
+        flow_labels=flow_labels,
+        flow_labels2=flow_labels2,
+        foreground_mask=foreground_mask,
+        exclude_segments=np.array([2]),
+    )
+    # If not excluded, it does
+    np.testing.assert_equal(pixel_labels_arr, np.array([[0, -1, 1, 1]]))
 
 
 @pytest.mark.parametrize(
@@ -167,72 +263,6 @@ def test_flow_destination(angle, expected_destination):
     result = flow_destination(start_xy, angles, np.sqrt(2))
 
     np.testing.assert_equal(result, np.array([expected_destination]))
-
-
-def test_greedy_cell_segmentation(mocker):
-    mock_dataset = mocker.Mock()
-    mock_dataset.labels = np.array(
-        [
-            [-1, -1, -1],
-            [-1, -1, -1],
-            [1, 1, 1],
-        ]
-    )
-    mock_dataset.x_extent_pixels = 3
-    mock_dataset.y_extent_pixels = 3
-
-    mock_predictions = mocker.Mock()
-
-    mock_predictions.angles = np.array(
-        [
-            [0, 0, 0],
-            [0, 0, 0],
-            [0, 0, 0],
-        ]
-    )
-
-    mock_predictions.foreground = np.array(
-        [
-            [0.1, 0.99, 0.1],
-            [0.1, 0.99, 0.1],
-            [0.1, 0.99, 0.1],
-        ]
-    )
-
-    result = greedy_cell_segmentation(
-        mock_dataset, mock_predictions, foreground_threshold=0.5, max_expansion_steps=10
-    )
-
-    np.testing.assert_equal(
-        result.segmentation,
-        np.array(
-            [
-                [-1, -1, -1],
-                [-1, 1, -1],
-                [1, 1, 1],
-            ]
-        ),
-    )
-
-    result2 = greedy_cell_segmentation(
-        mock_dataset,
-        mock_predictions,
-        foreground_threshold=0.5,
-        max_expansion_steps=10,
-        use_labels=False,
-        min_component_size=2,
-    )
-
-    np.testing.assert_equal(
-        result2.segmentation,
-        np.array(
-            [
-                [0, 1, 0],
-                [0, 1, 0],
-                [0, 1, 0],
-            ]
-        ),
-    )
 
 
 def test_raster_to_polygon():
@@ -408,10 +438,105 @@ def test_label_free_greedy_expansion():
     result = label_connected_components(
         x_extent_pixels=x_extent_pixels,
         y_extent_pixels=y_extent_pixels,
-        start_xy=start_xy,
         flow_xy=flow_xy,
         foreground_mask=foreground_mask,
         min_component_size=1,
     )
 
     np.testing.assert_equal(result, np.array([[0, 1, 1], [1, 1, 1], [1, 1, 1]]))
+
+
+def test_fill_in_surrounded_unlabelled_pixels():
+    labels = np.array(
+        [
+            [1, 1, 1],
+            [1, -1, 1],
+            [1, 1, 1],
+        ]
+    )
+    fill_in_surrounded_unlabelled_pixels(labels)
+    assert np.all(labels == 1)
+
+    labels = np.array(
+        [
+            [1, 1, 1],
+            [1, 0, 1],
+            [1, 1, 1],
+        ]
+    )
+    fill_in_surrounded_unlabelled_pixels(labels)
+    np.testing.assert_array_equal(
+        labels,
+        np.array(
+            [
+                [1, 1, 1],
+                [1, 0, 1],
+                [1, 1, 1],
+            ]
+        ),
+    )
+
+    labels = np.array(
+        [
+            [1, 1, 1],
+            [1, -1, -1],
+            [1, 1, 1],
+        ]
+    )
+    fill_in_surrounded_unlabelled_pixels(labels)
+    np.testing.assert_array_equal(
+        labels,
+        np.array(
+            [
+                [1, 1, 1],
+                [1, -1, -1],
+                [1, 1, 1],
+            ]
+        ),
+    )
+
+
+def test_update_labels_with_flow_values():
+    labels = np.array(
+        [
+            [1, 0, 0],
+            [1, -1, -1],
+            [0, 0, 0],
+        ]
+    )
+
+    flow_labels = np.array(
+        [
+            [1, 0, 0],
+            [1, 1, -1],
+            [0, 0, 0],
+        ]
+    )
+
+    indices_2d = get_indices_for_ndarray(labels.shape[0], labels.shape[1])
+    x_indices = indices_2d[:, 0]
+    y_indices = indices_2d[:, 1]
+
+    flow_labels_flat = flow_labels[x_indices, y_indices]
+
+    mask = labels == -1
+
+    mask_flat = mask[x_indices, y_indices]
+
+    update_labels_with_flow_values(
+        labels=labels,
+        update_mask=mask_flat,
+        flow_labels_flat=flow_labels_flat,
+        indices_2d=indices_2d,
+    )
+
+    np.testing.assert_array_equal(
+        labels,
+        np.array(
+            [
+                [1, 0, 0],
+                [1, 1, -1],
+                [0, 0, 0],
+            ]
+        ),
+    )

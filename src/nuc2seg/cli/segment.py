@@ -106,12 +106,19 @@ def get_parser():
         "--use-connected-components",
         help="Use connected components seed segmentation instead of nuclei labels",
         action="store_true",
+        default=False,
     )
     parser.add_argument(
         "--connected-components-min-size",
         help="Minimum size of connected components to consider",
         type=int,
         default=20,
+    )
+    parser.add_argument(
+        "--use-early-stopping",
+        help="Use early stopping in greedy expansion algorithm.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
     )
     return parser
 
@@ -133,13 +140,21 @@ def main():
     dataset = Nuc2SegDataset.load_h5(args.dataset)
     predictions = ModelPredictions.load_h5(args.predictions)
 
+    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
+    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
+        celltyping_chains
+    )
+
     result = greedy_cell_segmentation(
         dataset=dataset,
         predictions=predictions,
+        prior_probs=celltyping_results.prior_probs[best_k],
+        expression_profiles=celltyping_results.expression_profiles[best_k],
         max_expansion_steps=args.max_steps,
         foreground_threshold=args.foreground_prob_threshold,
         use_labels=(not args.use_connected_components),
         min_component_size=args.connected_components_min_size,
+        use_early_stopping=args.use_early_stopping,
     )
 
     logger.info(f"Saving segmentation to {args.output}")
@@ -155,10 +170,7 @@ def main():
     )
 
     logger.info("Predicting celltypes")
-    celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
-    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
-        celltyping_chains
-    )
+
     celltype_predictions = predict_celltypes_for_anndata(
         prior_probs=celltyping_results.prior_probs[best_k],
         expression_profiles=celltyping_results.expression_profiles[best_k],
