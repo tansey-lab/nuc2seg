@@ -183,7 +183,7 @@ def test_plot_greedy_cell_segmentation():
             expression_profiles=np.array(
                 [[0.98, 0.01, 0.01], [0.01, 0.98, 0.01], [0.98, 0.01, 0.01]]
             ),
-            output_path=os.path.join(output_dir, "test.mp4"),
+            output_path=os.path.join(output_dir, "test.gif"),
             segment_id=1,
         )
     finally:
