@@ -9,6 +9,7 @@ from scipy.special import softmax
 from nuc2seg.xenium import logger
 from nuc2seg.data import CelltypingResults
 from scipy.special import logsumexp
+from scipy.sparse import csr_matrix
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):
@@ -285,15 +286,16 @@ def fit_celltyping_on_segments_and_transcripts(
         tx_nuclei_geo_df["nucleus_distance"] <= foreground_nucleus_distance
     ]
 
-    # I think we have enough memory to just store this as a dense array
-    nuclei_count_matrix = np.zeros((nuclei_geo_df.shape[0] + 1, n_genes), dtype=int)
-    np.add.at(
-        nuclei_count_matrix,
-        (
-            nuclei_count_geo_df["nucleus_label"].values.astype(int),
-            nuclei_count_geo_df["gene_id"].values.astype(int),
-        ),
-        1,
+    summed_data = (
+        nuclei_count_geo_df.groupby(["nucleus_label", "gene_id"])
+        .size()
+        .reset_index(name="count")
+    )
+
+    # create sparse array
+    sparse_nuclei_count_matrix = csr_matrix(
+        (summed_data["count"], (summed_data["nucleus_label"], summed_data["gene_id"])),
+        shape=(nuclei_geo_df.shape[0] + 1, n_genes),
     )
 
     gene_name_map = dict(zip(tx_geo_df["gene_id"], tx_geo_df["feature_name"]))
@@ -301,7 +303,7 @@ def fit_celltyping_on_segments_and_transcripts(
     gene_names = np.array([gene_name_map[i] for i in range(n_genes)])
 
     return fit_celltype_em_model(
-        nuclei_count_matrix,
+        sparse_nuclei_count_matrix,
         gene_names=gene_names,
         min_components=min_components,
         max_components=max_components,
