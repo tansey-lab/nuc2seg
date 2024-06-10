@@ -689,3 +689,48 @@ def convert_transcripts_to_anndata(
     adata.obs_names.name = "cell_id"
 
     return adata
+
+
+def calculate_average_intersection_over_union(
+    seg_a, seg_b, overlap_area_threshold=2.0, overlap_area_col="intersection"
+):
+
+    seg_a = seg_a.reset_index(names="segment_id_a")
+    seg_b = seg_b.reset_index(names="segment_id_b")
+
+    overlay_gdf = geopandas.overlay(
+        seg_a, seg_b, how="intersection", keep_geom_type=False
+    )
+    overlay_gdf[overlap_area_col] = overlay_gdf.geometry.area
+
+    overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_col] > overlap_area_threshold]
+    max_overlay_gdf = overlay_gdf.loc[
+        overlay_gdf.groupby("segment_id_a")[[overlap_area_col]]
+        .idxmax()
+        .values.squeeze(),
+        :,
+    ]
+
+    max_overlay_gdf = max_overlay_gdf[
+        ["segment_id_a", "segment_id_b", overlap_area_col]
+    ]
+
+    result = max_overlay_gdf.merge(
+        seg_a[["geometry", "segment_id_a"]],
+        left_on="segment_id_a",
+        right_on="segment_id_a",
+    ).merge(
+        seg_b[["geometry", "segment_id_b"]],
+        left_on="segment_id_b",
+        right_on="segment_id_b",
+    )
+
+    result["union"] = result.apply(
+        lambda row: row["geometry_x"].union(row["geometry_y"]).area, axis=1
+    )
+
+    result["iou"] = result.apply(
+        lambda row: row[overlap_area_col] / row["union"], axis=1
+    )
+
+    return result

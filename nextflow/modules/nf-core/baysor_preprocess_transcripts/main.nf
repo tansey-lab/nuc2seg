@@ -1,6 +1,6 @@
 process BAYSOR_PREPROCESS_TRANSCRIPTS {
     tag "$meta.id"
-    label 'process_low'
+    label 'process_high_memory'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/nuc2seg:latest' :
         'docker.io/jeffquinnmsk/nuc2seg:latest' }"
