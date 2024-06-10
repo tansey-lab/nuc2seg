@@ -61,11 +61,27 @@ def read_boundaries_into_polygons(
 
 
 def read_transcripts_into_points(
-    transcripts_file, x_column_name="x_location", y_column_name="y_location"
+    transcripts_file,
+    x_column_name="x_location",
+    y_column_name="y_location",
+    feature_name_column="feature_name",
+    qv_column="qv",
+    cell_id_column="cell_id",
+    overlaps_nucleus_column="overlaps_nucleus",
 ):
-    transcripts = pd.read_parquet(transcripts_file)
+    transcripts = pd.read_parquet(
+        transcripts_file,
+        columns=[
+            feature_name_column,
+            x_column_name,
+            y_column_name,
+            qv_column,
+            cell_id_column,
+            overlaps_nucleus_column,
+        ],
+    )
 
-    transcripts["feature_name"] = transcripts["feature_name"].apply(
+    transcripts[feature_name_column] = transcripts[feature_name_column].apply(
         lambda x: x.decode("utf-8") if isinstance(x, bytes) else x
     )
 
@@ -128,9 +144,6 @@ def load_and_filter_transcripts(
 
     if sample_area is not None:
         transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
-
-    if "nucleus_distance" in transcripts_df.columns:
-        transcripts_df.drop(columns=["nucleus_distance"], inplace=True)
 
     count_after_bbox = len(transcripts_df)
 
