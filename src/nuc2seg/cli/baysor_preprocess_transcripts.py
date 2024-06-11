@@ -81,14 +81,20 @@ def main():
         sample_area = create_shapely_rectangle(
             *[float(x) for x in args.sample_area.split(",")]
         )
+        transcripts = load_and_filter_transcripts(
+            transcripts_file=args.transcripts,
+            sample_area=sample_area,
+            min_qv=args.min_qv,
+        )
+        transcripts["x_location"] = transcripts["x_location"] - sample_area.bounds[0]
+        transcripts["y_location"] = transcripts["y_location"] - sample_area.bounds[1]
     else:
         sample_area = None
-
-    transcripts = load_and_filter_transcripts(
-        transcripts_file=args.transcripts,
-        sample_area=sample_area,
-        min_qv=args.min_qv,
-    )
+        transcripts = load_and_filter_transcripts(
+            transcripts_file=args.transcripts,
+            sample_area=sample_area,
+            min_qv=args.min_qv,
+        )
 
     mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
 
