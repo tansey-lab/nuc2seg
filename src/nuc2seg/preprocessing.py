@@ -241,6 +241,8 @@ def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
     ):
         bbox = create_shapely_rectangle(x1, y1, x2, y2)
         filtered_df = filter_gdf_to_inside_polygon(transcripts, bbox)
+        if len(filtered_df) == 0:
+            continue
         output_path = os.path.join(output_dir, f"tile_{idx}.csv")
         pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
             output_path, index=False
