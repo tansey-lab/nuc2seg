@@ -9,7 +9,7 @@ process BAYSOR_PREPROCESS_TRANSCRIPTS {
     tuple val(meta), path(xenium_dir)
 
     output:
-    tuple val(meta), path("${prefix}/baysor/input/*.csv"), emit: transcripts
+    tuple val(meta), path("${prefix}/baysor/input/*.csv"), emit: transcripts, optional: true
 
 
     script:
