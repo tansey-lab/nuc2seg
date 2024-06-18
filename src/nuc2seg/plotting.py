@@ -664,8 +664,8 @@ def rank_genes_groups_plot(
     gs = gridspec.GridSpec(nrows=n_panels_y, ncols=n_panels_x, wspace=0.22, hspace=0.3)
 
     ax0 = None
-    ymin = np.Inf
-    ymax = -np.Inf
+    ymin = np.inf
+    ymax = -np.inf
     for celltype_idx in range(k):
         gene_names = celltyping_results.gene_names
         scores = celltyping_results.relative_expression[k_idx][celltype_idx, :]
