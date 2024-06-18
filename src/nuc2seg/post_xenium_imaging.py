@@ -13,16 +13,21 @@ def load_immunofluorescence(
     segmentation: SegmentationResults,
     if_ome_tiff_path,
     morphology_mip_ome_tiff_path,
-    alignment_matrix_path,
+    alignment_matrix_path=None,
 ):
-    M = pandas.read_csv(alignment_matrix_path, header=None).values
+    if alignment_matrix_path is None:
+        M = None
+    else:
+        M = pandas.read_csv(alignment_matrix_path, header=None).values
 
     reader = OMETIFFReader(fpath=pathlib.Path(if_ome_tiff_path))
     if_img_array, if_metadata, if_xml_metadata = reader.read()
 
     channel_names_in_order = [
-        y["Name"]
-        for y in sorted(list(if_metadata["Channels"].values()), key=lambda x: x["ID"])
+        y.get("Name", f"channel_{i}")
+        for i, y in enumerate(
+            sorted(list(if_metadata["Channels"].values()), key=lambda x: x["ID"])
+        )
     ]
 
     logger.info(
@@ -41,10 +46,13 @@ def load_immunofluorescence(
         src = if_img_array[i, ...]
         dst = np.zeros_like(xenium_img_array)
 
-        # Warp the IF image so it lines up with the xenium coordinates
-        res = cv2.warpAffine(
-            src=src, dst=dst, M=M[:2, :], dsize=(dst.shape[1], dst.shape[0])
-        ).T
+        if M is not None:
+            # Warp the IF image so it lines up with the xenium coordinates
+            res = cv2.warpAffine(
+                src=src, dst=dst, M=M[:2, :], dsize=(dst.shape[1], dst.shape[0])
+            ).T
+        else:
+            res = src
 
         # At this point we are aligned,
         # and we just need to down-sample down to the same resolution as the segmentation

@@ -11,6 +11,7 @@ def get_per_segment_immunofluorescence_intensity(
 
     intensities = []
     segment_sizes = []
+    segment_ids = []
 
     for value in tqdm.tqdm(np.unique(segmentation)[:maximum_cells]):
         if value in [-1, 0]:
@@ -20,8 +21,8 @@ def get_per_segment_immunofluorescence_intensity(
         mean_intensity = immunofluorescence[mask].mean()
         intensities.append(mean_intensity)
         segment_sizes.append(size)
-
-    return intensities, segment_sizes
+        segment_ids.append(value)
+    return segment_ids, intensities, segment_sizes
 
 
 def score_foreground_segmentation(

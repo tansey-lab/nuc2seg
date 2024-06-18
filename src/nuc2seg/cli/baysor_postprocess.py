@@ -28,6 +28,7 @@ from nuc2seg.segment import (
 from nuc2seg.xenium import (
     read_transcripts_into_points,
     load_nuclei,
+    create_shapely_rectangle,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,7 +128,12 @@ def main():
     args = get_args()
 
     log_config.configure_logging(args)
-
+    if args.sample_area:
+        sample_area = create_shapely_rectangle(
+            *[float(x) for x in args.sample_area.split(",")]
+        )
+    else:
+        sample_area = None
     transcript_df = read_transcripts_into_points(args.transcripts)
 
     x_extent = math.ceil(transcript_df["x_location"].astype(float).max())
@@ -155,8 +161,13 @@ def main():
     logger.info("Loading nuclei shapes")
     nuclei_geo_df = load_nuclei(
         nuclei_file=args.nuclei_file,
-        sample_area=None,
+        sample_area=sample_area,
     )
+
+    if sample_area:
+        nuclei_geo_df["geometry"] = nuclei_geo_df.translate(
+            -sample_area.bounds[0], -sample_area.bounds[1]
+        )
 
     stitched_shapes.to_parquet(args.output)
 
