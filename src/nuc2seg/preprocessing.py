@@ -174,13 +174,18 @@ def create_rasterized_dataset(
 
     logger.info("Creating dataset")
     X = tx_geo_df["x_location"].values.astype(int) - x_min
+    del tx_geo_df["x_location"]
     Y = tx_geo_df["y_location"].values.astype(int) - y_min
+    del tx_geo_df["y_location"]
     G = tx_geo_df["gene_id"].values.astype(int)
+    del tx_geo_df["gene_id"]
+
+    transcripts_arr = np.column_stack([X, Y, G])
 
     ds = RasterizedDataset(
         labels=labels,
         angles=angles,
-        transcripts=np.array([X, Y, G]).T,
+        transcripts=transcripts_arr,
         bbox=np.array([x_min, y_min, x_max, y_max]),
         n_genes=n_genes,
         resolution=1.0,
