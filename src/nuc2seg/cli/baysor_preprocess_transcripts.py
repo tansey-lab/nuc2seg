@@ -88,6 +88,9 @@ def main():
         )
         transcripts["x_location"] = transcripts["x_location"] - sample_area.bounds[0]
         transcripts["y_location"] = transcripts["y_location"] - sample_area.bounds[1]
+        transcripts["geometry"] = transcripts.translate(
+            -sample_area.bounds[0], -sample_area.bounds[1]
+        )
     else:
         sample_area = None
         transcripts = load_and_filter_transcripts(
