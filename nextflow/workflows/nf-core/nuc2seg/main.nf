@@ -24,6 +24,8 @@ workflow NUC2SEG {
         tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true), params.celltyping_n_chains)
     ])
 
+    def cell_typing_results = null
+
     if (params.celltyping_results != null) {
         celltyping_results = Channel.fromList([
             tuple( [ id: name, single_end:false ], file(params.celltyping_results, checkIfExists: true))
