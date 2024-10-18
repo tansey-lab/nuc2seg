@@ -132,17 +132,6 @@ def main():
         min_qv=args.min_qv,
     )
 
-    rasterized_dataset = create_rasterized_dataset(
-        nuclei_geo_df=nuclei_geo_df,
-        tx_geo_df=tx_geo_df,
-        sample_area=sample_area,
-        resolution=args.resolution,
-        foreground_nucleus_distance=args.foreground_nucleus_distance,
-        background_nucleus_distance=args.background_nucleus_distance,
-        background_pixel_transcripts=args.background_pixel_transcripts,
-        background_transcript_distance=args.background_transcript_distance,
-    )
-
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
     celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
         celltyping_chains
@@ -187,6 +176,17 @@ def main():
             n_genes=10,
             sharey=True,
         )
+
+    rasterized_dataset = create_rasterized_dataset(
+        nuclei_geo_df=nuclei_geo_df,
+        tx_geo_df=tx_geo_df,
+        sample_area=sample_area,
+        resolution=args.resolution,
+        foreground_nucleus_distance=args.foreground_nucleus_distance,
+        background_nucleus_distance=args.background_nucleus_distance,
+        background_pixel_transcripts=args.background_pixel_transcripts,
+        background_transcript_distance=args.background_transcript_distance,
+    )
 
     ds = create_nuc2seg_dataset(rasterized_dataset, celltype_predictions)
 

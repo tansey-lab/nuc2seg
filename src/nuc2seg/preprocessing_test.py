@@ -10,7 +10,7 @@ import glob
 import os.path
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="function")
 def test_nuclei_df():
     RECORDS = [
         {
@@ -36,7 +36,7 @@ def test_nuclei_df():
     return geopandas.GeoDataFrame(RECORDS).set_geometry("geometry")
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="function")
 def test_transcripts_df():
     RECORDS = [
         # cell 1
