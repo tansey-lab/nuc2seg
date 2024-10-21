@@ -4,6 +4,7 @@ import pandas
 import os.path
 
 from nuc2seg import log_config
+from matplotlib import pyplot as plt
 from nuc2seg.xenium import (
     load_nuclei,
     load_and_filter_transcripts,
@@ -140,6 +141,8 @@ def main():
         celltyping_chains
     )
 
+    logger.info("Predicting celltypes for segments and transcripts")
+
     celltype_predictions = predict_celltypes_for_segments_and_transcripts(
         prior_probs=celltyping_results.prior_probs[best_k],
         expression_profiles=celltyping_results.expression_profiles[best_k],
@@ -147,6 +150,8 @@ def main():
         transcript_geo_df=tx_geo_df,
         max_distinace=args.foreground_nucleus_distance,
     )
+
+    logger.info("Plotting celltype estimation results")
 
     plot_celltype_estimation_results(
         aic_scores,
@@ -158,6 +163,7 @@ def main():
         os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
     )
 
+    logger.info("Plotting rank_genes_groups_plot")
     for k in celltyping_results.n_component_values:
         rank_genes_groups_plot(
             celltyping_results=celltyping_results,
@@ -169,6 +175,7 @@ def main():
             n_genes=10,
             sharey=False,
         )
+        plt.close()
         rank_genes_groups_plot(
             celltyping_results=celltyping_results,
             k=k,
@@ -179,6 +186,7 @@ def main():
             n_genes=10,
             sharey=True,
         )
+        plt.close()
 
     rasterized_dataset = create_rasterized_dataset(
         nuclei_geo_df=nuclei_geo_df,
