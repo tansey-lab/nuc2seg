@@ -508,7 +508,7 @@ def plot_celltype_estimation_results(
             os.path.join(output_dir, f"expression_profiles_k={n_celltypes}.pdf")
         )
         fig.tight_layout()
-        plt.close()
+        plt.close(fig)
 
         fig, ax = plt.subplots(
             nrows=n_celltypes, figsize=(10, 10), sharex=True, sharey=True
