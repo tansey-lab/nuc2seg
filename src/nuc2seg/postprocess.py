@@ -62,7 +62,9 @@ def filter_gdf_to_tile_boundary(
     return gdf[gdf["intersection_percentage"] > 0.5]
 
 
-def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap):
+def stitch_shapes(
+    shapes: list[tuple[int, gpd.GeoDataFrame]], tile_size, base_size, overlap
+):
     tiler = TilingModule(
         tile_size=tile_size,
         tile_overlap=(overlap, overlap),
@@ -95,7 +97,7 @@ def stitch_shapes(shapes: list[gpd.GeoDataFrame], tile_size, base_size, overlap)
     results = []
     raw_baysor_segments = 0
 
-    for tile_idx, shapefile in enumerate(shapes):
+    for tile_idx, shapefile in shapes:
         raw_baysor_segments += len(shapefile)
         joined_to_centroids = gpd.sjoin_nearest(
             shapefile,

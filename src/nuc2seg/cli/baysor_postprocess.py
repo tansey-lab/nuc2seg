@@ -7,6 +7,7 @@ import re
 import numpy as np
 import pandas
 import tqdm
+from geopandas import GeoDataFrame
 
 from nuc2seg import log_config
 from nuc2seg.celltyping import (
@@ -139,14 +140,13 @@ def main():
     x_extent = math.ceil(transcript_df["x_location"].astype(float).max())
     y_extent = math.ceil(transcript_df["y_location"].astype(float).max())
 
-    shapefiles_fns = sorted(args.baysor_shapefiles, key=get_tile_idx)
-
     logger.info("Reading baysor results")
-    shape_gdfs = []
+    shape_gdfs: list[tuple[int, GeoDataFrame]] = []
 
-    for tile_idx, shapefile_fn in tqdm.tqdm(enumerate(shapefiles_fns)):
+    for shapefile_fn in tqdm.tqdm(args.baysor_shapefiles):
         shape_gdf = read_baysor_shapefile(shapes_fn=shapefile_fn)
-        shape_gdfs.append(shape_gdf)
+        tile_idx = get_tile_idx(shapefile_fn)
+        shape_gdfs.append((tile_idx, shape_gdf))
 
     logger.info("Done loading baysor results.")
 

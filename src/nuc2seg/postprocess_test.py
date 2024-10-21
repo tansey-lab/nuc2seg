@@ -52,30 +52,84 @@ def test_stitch_shapes():
     empty_shape = gpd.GeoDataFrame({"geometry": [], "cell": []})
 
     shapes = [
-        upper_left_shape,
-        middle_shape,
-        middle_shape,
-        middle_shape,
-        middle_shape,
-        middle_shape,
-        middle_shape,
-        middle_shape,
-        bottom_right_shape,
+        (
+            0,
+            upper_left_shape,
+        ),
+        (
+            1,
+            middle_shape,
+        ),
+        (
+            2,
+            middle_shape,
+        ),
+        (
+            3,
+            middle_shape,
+        ),
+        (
+            4,
+            middle_shape,
+        ),
+        (
+            5,
+            middle_shape,
+        ),
+        (
+            6,
+            middle_shape,
+        ),
+        (
+            7,
+            middle_shape,
+        ),
+        (
+            8,
+            bottom_right_shape,
+        ),
     ]
     result = stitch_shapes(shapes, (10, 10), (20, 20), 0.5)
 
     assert len(result) == 4
 
     shapes = [
-        empty_shape.copy(),
-        upper_left_shape,
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        empty_shape.copy(),
-        bottom_right_shape,
+        (
+            0,
+            empty_shape.copy(),
+        ),
+        (
+            1,
+            upper_left_shape,
+        ),
+        (
+            2,
+            empty_shape.copy(),
+        ),
+        (
+            3,
+            empty_shape.copy(),
+        ),
+        (
+            4,
+            empty_shape.copy(),
+        ),
+        (
+            5,
+            empty_shape.copy(),
+        ),
+        (
+            6,
+            empty_shape.copy(),
+        ),
+        (
+            7,
+            empty_shape.copy(),
+        ),
+        (
+            8,
+            bottom_right_shape,
+        ),
     ]
     result = stitch_shapes(shapes, (10, 10), (20, 20), 0.5)
     assert len(result) == 1
