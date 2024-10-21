@@ -115,9 +115,12 @@ def main():
         )
 
     else:
-        df = pandas.read_parquet(args.transcripts_file)
+        df = pandas.read_parquet(
+            args.transcripts_file, columns=["x_location", "y_location"]
+        )
         y_max = df["y_location"].max()
         x_max = df["x_location"].max()
+        del df
 
         sample_area = create_shapely_rectangle(0, 0, x_max, y_max)
 
@@ -188,6 +191,12 @@ def main():
         background_transcript_distance=args.background_transcript_distance,
     )
 
+    del tx_geo_df
+    del nuclei_geo_df
+
+    logger.info("Creating Nuc2Seg dataset")
+
     ds = create_nuc2seg_dataset(rasterized_dataset, celltype_predictions)
 
+    logger.info("Saving to h5")
     ds.save_h5(args.output)

@@ -27,6 +27,7 @@ def plot_tiling(bboxes, output_path):
     gdf.boundary.plot(ax=ax, color="red", alpha=0.5)
 
     fig.savefig(output_path)
+    plt.close(fig)
 
 
 def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
@@ -259,7 +260,7 @@ def plot_model_predictions(
 
     fig.tight_layout()
     fig.savefig(output_path)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
@@ -269,7 +270,7 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
     nuclei_gdf.plot(ax=ax, color="red")
 
     fig.savefig(output_path)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_segmentation_comparison(
@@ -321,7 +322,7 @@ def plot_segmentation_comparison(
     )
 
     fig.savefig(output_path)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_segmentation_class_assignment(
@@ -339,7 +340,7 @@ def plot_segmentation_class_assignment(
         linewidth=0.1,
     )
     fig.savefig(output_path)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_gene_choropleth(segmentation_gdf, adata, gene_name, output_path, log=True):
@@ -371,7 +372,7 @@ def plot_gene_choropleth(segmentation_gdf, adata, gene_name, output_path, log=Tr
         linewidth=0.1,
     )
     fig.savefig(output_path)
-    plt.close()
+    plt.close(fig)
 
 
 def celltype_histogram(segmentation_gdf, output_path, cat_column="celltype_assignment"):
@@ -402,6 +403,7 @@ def celltype_histogram(segmentation_gdf, output_path, cat_column="celltype_assig
 
     plt.tight_layout()
     fig.savefig(output_path)
+    plt.close(fig)
 
 
 def celltype_area_violin(
@@ -421,6 +423,7 @@ def celltype_area_violin(
 
     plt.tight_layout()
     fig.savefig(output_path)
+    plt.close(fig)
 
 
 def plot_celltype_estimation_results(
@@ -484,7 +487,7 @@ def plot_celltype_estimation_results(
     ax.set_title("AIC and BIC score ranges over multiple trials")
     ax.legend()
     fig.savefig(os.path.join(output_dir, "aic_bic_scores.pdf"))
-    plt.close()
+    plt.close(fig)
 
     # Create bar plot with the expression profiles
     for idx, expression_profile in enumerate(final_expression_profiles):
@@ -525,7 +528,7 @@ def plot_celltype_estimation_results(
             )
         )
         fig.tight_layout()
-        plt.close()
+        plt.close(fig)
 
         # Create bar plot with the prior probabilities
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -535,7 +538,7 @@ def plot_celltype_estimation_results(
         ax.set_title(f"Prior probabilities for k={n_celltypes}")
         fig.savefig(os.path.join(output_dir, f"prior_probs_k={n_celltypes}.pdf"))
         fig.tight_layout()
-        plt.close()
+        plt.close(fig)
 
 
 def plot_foreground_background_benchmark(
@@ -551,6 +554,7 @@ def plot_foreground_background_benchmark(
     ax.legend()
 
     fig.savefig(output_path)
+    plt.close(fig)
 
 
 def plot_segmentation_avg_intensity_distribution(
@@ -566,6 +570,7 @@ def plot_segmentation_avg_intensity_distribution(
     ax.legend()
 
     fig.savefig(output_path)
+    plt.close(fig)
 
 
 def plot_segmentation_size_distribution(
@@ -581,6 +586,7 @@ def plot_segmentation_size_distribution(
     ax.legend()
 
     fig.savefig(output_path)
+    plt.close(fig)
 
 
 def foreground_background_boxplot(
@@ -791,6 +797,7 @@ class SegmentationPlotter:
         )
 
         ani.save(output_path, writer="ffmpeg", fps=5)
+        plt.close(fig)
 
 
 def plot_greedy_cell_segmentation(

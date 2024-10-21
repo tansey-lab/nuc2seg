@@ -30,6 +30,8 @@ workflow NUC2SEG {
         ])
     }
 
+    preprocess_input = Channel.empty()
+
     if (params.weights == null && params.dataset == null && params.resume_weights == null) {
 
         if (params.celltyping_results == null) {
