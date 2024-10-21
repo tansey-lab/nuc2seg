@@ -93,7 +93,7 @@ workflow NUC2SEG {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
             .join(ch_input.map { tuple(it[0], it[1]) })
-            .join(CELLTYPING.out.cell_typing_results.groupTuple())
+            .join(preprocess_input)
             .tap { segment_input }
     } else if (params.dataset != null && params.celltyping_results != null) {
         Channel.fromList([tuple( [ id: name, single_end:false ],
