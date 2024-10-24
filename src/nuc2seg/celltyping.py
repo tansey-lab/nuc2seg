@@ -396,12 +396,15 @@ def predict_celltypes_for_segments_and_transcripts(
 
     results = []
 
+    pbar = tqdm.tqdm(total=len(segment_geo_df), desc="predict_celltypes")
+
     # iterate segment_geo_df in chunks of chunk_size
     current_index = 0
     while current_index < len(segment_geo_df):
         segment_chunk = segment_geo_df.iloc[
             current_index : current_index + chunk_size
         ].reset_index(drop=True)
+        pbar.update(len(segment_chunk))
         current_index += chunk_size
 
         gene_counts = create_dense_gene_counts_matrix(
