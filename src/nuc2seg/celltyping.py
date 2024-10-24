@@ -215,6 +215,7 @@ def calculate_celltype_relative_expression(gene_counts, final_cell_types):
 def create_dense_gene_counts_matrix(
     segmentation_geo_df: geopandas.GeoDataFrame,
     transcript_geo_df: geopandas.GeoDataFrame,
+    n_genes: int,
     max_distance: float = 0,
     gene_id_col: str = "gene_id",
 ):
@@ -224,6 +225,7 @@ def create_dense_gene_counts_matrix(
     :param segmentation_geo_df: GeoDataFrame where the geometry column in polygons
     :param transcript_geo_df: GeoDataFrame where the geometry column is points, should have column
     gene_id_col, which is integer gene ids from 0 to n_genes
+    :param n_genes: Number of genes in the dataset total
     :param max_distance: Maximum distance to consider a transcript to be associated with a segment,
     default 0 means will only include transcripts that are inside the segment boundary
     :returns: A dense gene counts matrix, (n_segments, n_genes)
@@ -244,8 +246,6 @@ def create_dense_gene_counts_matrix(
     joined_df = joined_df.drop_duplicates(subset=["transcript_id"]).reset_index(
         drop=True
     )
-
-    n_genes = transcript_geo_df[gene_id_col].nunique()
 
     nuclei_count_geo_df = joined_df[
         joined_df["_sjoin_distance"] <= max_distance
@@ -398,18 +398,28 @@ def predict_celltypes_for_segments_and_transcripts(
 
     pbar = tqdm.tqdm(total=len(segment_geo_df), desc="predict_celltypes")
 
+    segment_geo_df["_x_centroid"] = segment_geo_df.centroid.x
+    segment_geo_df["_y_centroid"] = segment_geo_df.centroid.y
+    segment_geo_df.sort_values(by=["_x_centroid", "_y_centroid"], inplace=True)
+    n_genes = transcript_geo_df["gene_id"].nunique()
     # iterate segment_geo_df in chunks of chunk_size
     current_index = 0
     while current_index < len(segment_geo_df):
         segment_chunk = segment_geo_df.iloc[
             current_index : current_index + chunk_size
         ].reset_index(drop=True)
+        xmin, ymin, xmax, ymax = segment_chunk.bounds.values[0]
+        transcript_chunk = transcript_geo_df.cx[xmin:xmax, ymin:ymax].reset_index(
+            drop=True
+        )
+
         pbar.update(len(segment_chunk))
         current_index += chunk_size
 
         gene_counts = create_dense_gene_counts_matrix(
             segment_chunk,
-            transcript_geo_df,
+            transcript_chunk,
+            n_genes,
             max_distance=max_distinace,
             gene_id_col="gene_id",
         )
