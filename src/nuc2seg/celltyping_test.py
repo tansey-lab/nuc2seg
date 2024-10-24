@@ -164,6 +164,7 @@ def test_create_dense_gene_counts_matrix():
     result = create_dense_gene_counts_matrix(
         segmentation_geo_df=boundaries,
         transcript_geo_df=transcripts,
+        n_genes=2,
         gene_id_col="gene_id",
     )
 
