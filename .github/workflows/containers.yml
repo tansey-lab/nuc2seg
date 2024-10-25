@@ -39,6 +39,14 @@ jobs:
             jeffquinnmsk/spatialdata:latest
             jeffquinnmsk/spatialdata:${{ github.sha }}
           cache-from: type=registry,ref=jeffquinnmsk/spatialdata:latest
+      - uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.4
+      - name: Build and push apptainer container
+        run: |
+          apptainer build jeffquinnmsk-nuc2seg-${{ github.sha }}.sif docker-daemon://jeffquinnmsk/nuc2seg:${{ github.sha }}
+          echo ${{ secrets.GITHUB_TOKEN }} | apptainer remote login -u ${{ secrets.GHCR_USERNAME }} --password-stdin oras://ghcr.io
+          apptainer push jeffquinnmsk-nuc2seg-${{ github.sha }}.sif oras://ghcr.io/${GITHUB_REPOSITORY}:${{ github.sha }}
   nextflow-integration:
     runs-on: ubuntu-20.04
     name: pytest
