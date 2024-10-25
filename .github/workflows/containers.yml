@@ -35,7 +35,7 @@ jobs:
       - name: Build and push apptainer container
         run: |
           apptainer remote login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }} oras://docker.io
-          apptainer build jeffquinnmsk-nuc2seg-${{ github.sha }}.sif docker-daemon://jeffquinnmsk/nuc2seg:${{ github.sha }}
+          apptainer build jeffquinnmsk-nuc2seg-${{ github.sha }}.sif docker://jeffquinnmsk/nuc2seg:${{ github.sha }}
           apptainer push jeffquinnmsk-nuc2seg-${{ github.sha }}.sif oras://docker.io/jeffquinnmsk/nuc2seg-sif:${{ github.sha }}
       - name: Build and push container
         uses: docker/build-push-action@v3
