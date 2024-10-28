@@ -5,7 +5,7 @@ include { PLOT_PREDICTIONS } from '../../../modules/nf-core/plot_predictions/mai
 include { SEGMENT } from '../../../modules/nf-core/segment/main'
 include { CREATE_SPATIALDATA } from '../../../modules/nf-core/create_spatialdata/main'
 include { CELLTYPING } from '../../../modules/nf-core/celltyping/main'
-include { TILE_TRANSCRIPTS } from '../../../modules/nf-core/tile_transcripts/main'
+include { TILE_DATASET } from '../../../modules/nf-core/tile_dataset/main'
 
 
 def create_parallel_sequence(meta, fn, n_par) {
@@ -17,6 +17,10 @@ def create_parallel_sequence(meta, fn, n_par) {
     return output
 }
 
+def extractTileNumber(String filepath) {
+   def matcher = filepath =~ /tile_(\d+)\.[^.]+$/
+   return matcher.find() ? matcher[0][1].toInteger() : null
+}
 
 workflow NUC2SEG {
     def name = params.name == null ? "nuc2seg" : params.name
@@ -90,12 +94,24 @@ workflow NUC2SEG {
 
     PREDICT( predict_input )
 
-    TILE_TRANSCRIPTS( ch_input.map { tuple(it[0], it[1], "parquet")} )
+    TILE_DATASET( ch_input.map { tuple(it[0], it[1], "parquet")} )
+
+    TILE_DATASET.out.transcripts.transpose().map {
+        tuple(it[0], extractTileNumber(it[1]), it[1])
+    }.tap { tiled_transcripts }
+
+    TILE_DATASET.out.nuclei.transpose().map {
+        tuple(it[0], extractTileNumber(it[1]), it[1])
+    }.tap { tiled_nuclei }
+
+    tiled_transcripts.join(tiled_nuclei, by=[0,1]).map {
+        tuple(it[0], it[2], it[3])
+    }.tap { tiled_data }
 
     if (params.dataset == null || params.celltyping_results == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
-            .join(TILE_TRANSCRIPTS.out.transcripts)
+            .join(tiled_data)
             .join(preprocess_input)
             .tap { segment_input }
     } else if (params.dataset != null && params.celltyping_results != null) {
@@ -103,7 +119,7 @@ workflow NUC2SEG {
           file(params.dataset, checkIfExists: true)
         )])
             .join(PREDICT.out.predictions)
-            .join(ch_input.map { tuple(it[0], it[1]) })
+            .join(tiled_data)
             .join(celltyping_results)
             .tap { segment_input }
     }

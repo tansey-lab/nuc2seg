@@ -5,6 +5,7 @@ from nuc2seg import log_config
 from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
+    load_nuclei,
 )
 from nuc2seg.preprocessing import tile_transcripts_to_disk, tile_nuclei_to_disk
 
@@ -17,8 +18,14 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
-        "--output-dir",
-        help="Directory to save baysor input CSVs.",
+        "--transcript-output-dir",
+        help="Directory to save transcript tile files.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--nuclei-output-dir",
+        help="Directory to save nuclei tile files.",
         type=str,
         required=True,
     )
@@ -104,6 +111,10 @@ def main():
         transcripts["geometry"] = transcripts.translate(
             -sample_area.bounds[0], -sample_area.bounds[1]
         )
+        nuclei_gdf = load_nuclei(args.nuclei_file, sample_area=sample_area)
+        nuclei_gdf["geometry"] = nuclei_gdf.translate(
+            -sample_area.bounds[0], -sample_area.bounds[1]
+        )
     else:
         sample_area = None
         transcripts = load_and_filter_transcripts(
@@ -111,6 +122,7 @@ def main():
             sample_area=sample_area,
             min_qv=args.min_qv,
         )
+        nuclei_gdf = load_nuclei(args.nuclei_file)
 
     mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
 
@@ -122,23 +134,22 @@ def main():
         transcripts=transcripts,
         tile_size=(args.tile_height, args.tile_width),
         overlap=args.overlap_percentage,
-        output_dir=args.output_dir,
+        output_dir=args.transcript_output_dir,
         output_format=args.output_format,
     )
 
-    if args.nuclei_file:
-        bounds = [
-            0,
-            0,
-            transcripts["x_location"].max(),
-            transcripts["y_location"].max(),
-        ]
+    bounds = [
+        0,
+        0,
+        transcripts["x_location"].max(),
+        transcripts["y_location"].max(),
+    ]
 
-        tile_nuclei_to_disk(
-            nuclei_gdf=transcripts,
-            bounds=bounds,
-            tile_size=(args.tile_height, args.tile_width),
-            overlap=args.overlap_percentage,
-            output_dir=args.output_dir,
-            output_format=args.output_format,
-        )
+    tile_nuclei_to_disk(
+        nuclei_gdf=nuclei_gdf,
+        bounds=bounds,
+        tile_size=(args.tile_height, args.tile_width),
+        overlap=args.overlap_percentage,
+        output_dir=args.nuclei_output_dir,
+        output_format=args.output_format,
+    )

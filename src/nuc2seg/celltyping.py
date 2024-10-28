@@ -371,6 +371,9 @@ def predict_celltypes_for_segments_and_transcripts(
     max_distinace: float = 0,
     gene_names: list[str] = None,
 ):
+    """
+    :returns: Array of probabilities for each cell type, shape(n_cell, n_cell_types)
+    """
     if gene_names is not None:
         # gene_name to id map
         gene_name_to_id = dict(
@@ -440,16 +443,27 @@ def predict_celltypes_for_anndata(
     prior_probs,
     ad: anndata.AnnData,
     gene_names: list[str] = None,
+    chunk_size: int = 10_000,
 ):
+    results = []
     ad = ad[:, gene_names]
+    current_index = 0
+    pbar = tqdm.tqdm(total=len(ad), desc="predict_celltypes")
+    while current_index < len(ad):
+        ad_chunk = ad[current_index : current_index + chunk_size]
+        gene_counts = ad_chunk.to_df().values
 
-    gene_counts = ad.to_df().values
+        results.append(
+            estimate_cell_types(
+                expression_profiles=expression_profiles,
+                prior_probs=prior_probs,
+                gene_counts=gene_counts,
+            )
+        )
+        current_index += chunk_size
+        pbar.update(len(ad_chunk))
 
-    return estimate_cell_types(
-        expression_profiles=expression_profiles,
-        prior_probs=prior_probs,
-        gene_counts=gene_counts,
-    )
+    return np.concatenate(results)
 
 
 def predict_celltype_probabilities_for_all_segments(

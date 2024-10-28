@@ -1,5 +1,5 @@
 include { BAYSOR } from '../../../modules/nf-core/baysor/main'
-include { TILE_TRANSCRIPTS } from '../../../modules/nf-core/tile_transcripts/main'
+include { TILE_DATASET } from '../../../modules/nf-core/tile_dataset/main'
 include { BAYSOR_POSTPROCESS } from '../../../modules/nf-core/baysor_postprocess/main'
 
 
@@ -28,7 +28,7 @@ workflow BAYSOR_SEGMENTATION {
         .tap { baysor_param_sweep }
 
 
-    TILE_TRANSCRIPTS.out.transcripts.transpose()
+    TILE_DATASET.out.transcripts.transpose()
         .combine( baysor_param_sweep )
         .map { tuple([id: it[0].id,
                       baysor_min_molecules_per_cell: it[2],
