@@ -6,14 +6,14 @@ from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
-from nuc2seg.preprocessing import tile_transcripts_to_csv
+from nuc2seg.preprocessing import tile_transcripts_to_disk
 
 logger = logging.getLogger(__name__)
 
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Benchmark cell segmentation given post-Xenium IF data that includes an autofluorescence marker."
+        description="Divide transcripts into overlapping tiles."
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
@@ -58,7 +58,13 @@ def get_parser():
         type=float,
         default=0.5,
     )
-
+    parser.add_argument(
+        "--output-format",
+        help="Output format for transcript files",
+        type=str,
+        default="csv",
+        choices=("csv", "parquet"),
+    )
     return parser
 
 
@@ -105,9 +111,10 @@ def main():
     transcripts.loc[mask, "nucleus_id"] = transcripts["cell_id"][mask]
 
     logger.info(f"Writing CSVs to {args.output_dir}")
-    tile_transcripts_to_csv(
+    tile_transcripts_to_disk(
         transcripts=transcripts,
         tile_size=(args.tile_height, args.tile_width),
         overlap=args.overlap_percentage,
         output_dir=args.output_dir,
+        output_format=args.output_format,
     )

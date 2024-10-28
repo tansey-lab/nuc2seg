@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 from scipy.special import softmax
 
@@ -28,3 +30,9 @@ def grid_graph_edges(rows, cols):
 def get_indices_for_ndarray(x_dim, y_dim):
     xy = np.mgrid[0:x_dim, 0:y_dim]
     return np.array(list(zip(xy[0].flatten(), xy[1].flatten())))
+
+
+def get_tile_idx(fn):
+    fn_clean = os.path.splitext(os.path.basename(fn))[0]
+    # search for `tile_{number}` and extract number with regex
+    return int(re.search(r"tile_(\d+)", fn_clean).group(1))

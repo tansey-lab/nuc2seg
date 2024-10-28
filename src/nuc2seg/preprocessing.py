@@ -223,7 +223,9 @@ def create_nuc2seg_dataset(
     return ds
 
 
-def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
+def tile_transcripts_to_disk(
+    transcripts, tile_size, overlap, output_dir, output_format: str
+):
     x_max = math.ceil(transcripts["x_location"].max())
     y_max = math.ceil(transcripts["y_location"].max())
 
@@ -249,8 +251,13 @@ def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
         filtered_df = filter_gdf_to_inside_polygon(transcripts, bbox)
         if len(filtered_df) == 0:
             continue
-        output_path = os.path.join(output_dir, f"tile_{idx}.csv")
-        pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
-            output_path, index=False
-        )
+        output_path = os.path.join(output_dir, f"tile_{idx}.{output_format}")
+        if output_format == "csv":
+            pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
+                output_path, index=False
+            )
+        elif output_format == "parquet":
+            pd.DataFrame(filtered_df.drop(columns="geometry")).to_parquet(
+                output_path, index=False
+            )
         pbar.update(len(filtered_df))
