@@ -6,7 +6,7 @@ process COMBINE_SEGMENTATIONS {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(dataset), path(predictions), path(transcripts), path(nuclei), path(cell_typing_results)
+    tuple val(meta), path(dataset), path(segmentations), path(adatas), path(shapefiles)
 
     output:
     tuple val(meta), path("${prefix}/segmentation.h5")                           , emit: segmentation
@@ -23,19 +23,15 @@ process COMBINE_SEGMENTATIONS {
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
-    def sample_area_arg = params.sample_area == null ? "" : "--sample-area ${params.sample_area}"
     """
     mkdir -p "${prefix}"
-    segment \
-        --output ${prefix}/segmentation.h5 \
-        --shapefile-output ${prefix}/shapes.parquet \
-        --anndata-output ${prefix}/anndata.h5ad \
-        --transcripts ${transcripts} \
-        --nuclei-file ${nuclei} \
-        --celltyping-results ${cell_typing_results} \
-        --dataset ${dataset} \
-        --predictions ${predictions} \
-        ${sample_area_arg} \
+    combine_segmentations \
+        --segmentation-outputs ${segmentations} \
+        --adatas ${adatas} \
+        --shapes ${shapefiles} \
+        --tile-width ${params.tile_width} \
+        --tile-height ${params.tile_height} \
+        --overlap-percentage ${params.overlap_percentage} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

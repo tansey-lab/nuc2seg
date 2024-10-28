@@ -6,7 +6,7 @@ include { SEGMENT } from '../../../modules/nf-core/segment/main'
 include { CREATE_SPATIALDATA } from '../../../modules/nf-core/create_spatialdata/main'
 include { CELLTYPING } from '../../../modules/nf-core/celltyping/main'
 include { TILE_DATASET } from '../../../modules/nf-core/tile_dataset/main'
-
+include { COMBINE_SEGMENTATIONS } from '../../../modules/nf-core/combine_segmentations/main'
 
 def create_parallel_sequence(meta, fn, n_par) {
     def output = []
@@ -126,7 +126,29 @@ workflow NUC2SEG {
 
     SEGMENT( segment_input )
 
-    SEGMENT.out.shapefile
+    if (params.dataset == null) {
+        PREPROCESS.out.dataset.join(
+            SEGMENT.out.segmentation.groupTuple()
+        ).join(
+            SEGMENT.out.shapefile.groupTuple()
+        ).join(
+            SEGMENT.out.anndata.groupTuple()
+        ).tap { combine_segmentations_input }
+    } else {
+        Channel.fromList([tuple( [ id: name, single_end:false ],
+          file(params.dataset, checkIfExists: true)
+        )]).join(
+            SEGMENT.out.segmentation.groupTuple()
+        ).join(
+            SEGMENT.out.shapefile.groupTuple()
+        ).join(
+            SEGMENT.out.anndata.groupTuple()
+        ).tap { combine_segmentations_input }
+    }
+
+    COMBINE_SEGMENTATIONS( combine_segmentations_input )
+
+    COMBINE_SEGMENTATIONS.out.shapefile
         .join(SEGMENT.out.anndata)
         .join(ch_input.map { tuple(it[0], it[1]) })
         .set{ create_spatialdata_input }
