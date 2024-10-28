@@ -270,7 +270,7 @@ def tile_nuclei_to_disk(
     tiler = TilingModule(
         tile_size=tile_size,
         tile_overlap=(overlap, overlap),
-        base_size=(bounds[2], bounds[3]),
+        base_size=(int(bounds[2]), int(bounds[3])),
     )
 
     total_n_nuclei = len(bounds)
@@ -291,9 +291,7 @@ def tile_nuclei_to_disk(
             continue
         output_path = os.path.join(output_dir, f"tile_{idx}.{output_format}")
         if output_format == "csv":
-            pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
-                output_path, index=False
-            )
+            pass
         elif output_format == "parquet":
             pd.DataFrame(filtered_df.drop(columns="geometry")).to_parquet(
                 output_path, index=False

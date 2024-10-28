@@ -104,7 +104,7 @@ workflow NUC2SEG {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }.tap { tiled_nuclei }
 
-    tiled_transcripts.join(tiled_nuclei, by=[0,1]).map {
+    tiled_transcripts.join(tiled_nuclei, by: [0,1]).map {
         tuple(it[0], it[2], it[3])
     }.tap { tiled_data }
 

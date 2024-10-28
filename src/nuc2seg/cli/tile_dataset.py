@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Divide transcripts into overlapping tiles."
+        description="Divide transcripts into overlapping tiles.", allow_abbrev=False
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
@@ -129,7 +129,7 @@ def main():
     transcripts["nucleus_id"] = 0
     transcripts.loc[mask, "nucleus_id"] = transcripts["cell_id"][mask]
 
-    logger.info(f"Writing CSVs to {args.output_dir}")
+    logger.info(f"Writing transcripts to {args.transcript_output_dir}")
     tile_transcripts_to_disk(
         transcripts=transcripts,
         tile_size=(args.tile_height, args.tile_width),
@@ -145,6 +145,7 @@ def main():
         transcripts["y_location"].max(),
     ]
 
+    logger.info(f"Writing nuclei to {args.nuclei_output_dir}")
     tile_nuclei_to_disk(
         nuclei_gdf=nuclei_gdf,
         bounds=bounds,

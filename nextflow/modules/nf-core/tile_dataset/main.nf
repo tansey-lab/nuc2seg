@@ -23,7 +23,7 @@ process TILE_DATASET {
     tile_dataset \
         --transcripts ${xenium_dir}/transcripts.parquet \
         --transcript-output-dir ${prefix}/tiled_transcripts \
-        --nuclei ${xenium_dir}/nucleus_boundaries.parquet \
+        --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
         --nuclei-output-dir ${prefix}/tiled_nuclei \
         --tile-width ${params.tile_width} \
         --tile-height ${params.tile_height} \
