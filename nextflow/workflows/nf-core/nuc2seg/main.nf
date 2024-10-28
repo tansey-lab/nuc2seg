@@ -5,6 +5,7 @@ include { PLOT_PREDICTIONS } from '../../../modules/nf-core/plot_predictions/mai
 include { SEGMENT } from '../../../modules/nf-core/segment/main'
 include { CREATE_SPATIALDATA } from '../../../modules/nf-core/create_spatialdata/main'
 include { CELLTYPING } from '../../../modules/nf-core/celltyping/main'
+include { TILE_TRANSCRIPTS } from '../../../modules/nf-core/tile_transcripts/main'
 
 
 def create_parallel_sequence(meta, fn, n_par) {
@@ -89,10 +90,12 @@ workflow NUC2SEG {
 
     PREDICT( predict_input )
 
+    TILE_TRANSCRIPTS( ch_input.map { tuple(it[0], it[1], "parquet")} )
+
     if (params.dataset == null || params.celltyping_results == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
-            .join(ch_input.map { tuple(it[0], it[1]) })
+            .join(TILE_TRANSCRIPTS.out.transcripts)
             .join(preprocess_input)
             .tap { segment_input }
     } else if (params.dataset != null && params.celltyping_results != null) {

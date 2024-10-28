@@ -6,7 +6,7 @@ from nuc2seg.xenium import (
     load_and_filter_transcripts,
     create_shapely_rectangle,
 )
-from nuc2seg.preprocessing import tile_transcripts_to_disk
+from nuc2seg.preprocessing import tile_transcripts_to_disk, tile_nuclei_to_disk
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,13 @@ def get_parser():
         help="Xenium transcripts in parquet format.",
         type=str,
         required=True,
+    )
+    parser.add_argument(
+        "--nuclei-file",
+        help="Path to the Xenium nuclei boundaries parquet file",
+        type=str,
+        required=False,
+        default=None,
     )
     parser.add_argument(
         "--sample-area",
@@ -118,3 +125,20 @@ def main():
         output_dir=args.output_dir,
         output_format=args.output_format,
     )
+
+    if args.nuclei_file:
+        bounds = [
+            0,
+            0,
+            transcripts["x_location"].max(),
+            transcripts["y_location"].max(),
+        ]
+
+        tile_nuclei_to_disk(
+            nuclei_gdf=transcripts,
+            bounds=bounds,
+            tile_size=(args.tile_height, args.tile_width),
+            overlap=args.overlap_percentage,
+            output_dir=args.output_dir,
+            output_format=args.output_format,
+        )

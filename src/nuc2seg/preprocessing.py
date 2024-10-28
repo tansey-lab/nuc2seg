@@ -261,3 +261,41 @@ def tile_transcripts_to_disk(
                 output_path, index=False
             )
         pbar.update(len(filtered_df))
+
+
+def tile_nuclei_to_disk(
+    nuclei_gdf, bounds, tile_size, overlap, output_dir, output_format: str
+):
+
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=(overlap, overlap),
+        base_size=(bounds[2], bounds[3]),
+    )
+
+    total_n_nuclei = len(bounds)
+    pbar = tqdm.tqdm(total=total_n_nuclei)
+
+    for idx, (x1, y1, x2, y2) in enumerate(
+        generate_tiles(
+            tiler,
+            x_extent=bounds[2],
+            y_extent=bounds[3],
+            overlap_fraction=overlap,
+            tile_size=tile_size,
+        )
+    ):
+        bbox = create_shapely_rectangle(x1, y1, x2, y2)
+        filtered_df = filter_gdf_to_inside_polygon(nuclei_gdf, bbox)
+        if len(filtered_df) == 0:
+            continue
+        output_path = os.path.join(output_dir, f"tile_{idx}.{output_format}")
+        if output_format == "csv":
+            pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
+                output_path, index=False
+            )
+        elif output_format == "parquet":
+            pd.DataFrame(filtered_df.drop(columns="geometry")).to_parquet(
+                output_path, index=False
+            )
+        pbar.update(len(filtered_df))

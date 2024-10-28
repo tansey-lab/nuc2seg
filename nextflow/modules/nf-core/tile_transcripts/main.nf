@@ -10,6 +10,7 @@ process TILE_TRANSCRIPTS {
 
     output:
     tuple val(meta), path("${prefix}/tiled_transcripts/*.${output_format}"), emit: transcripts, optional: true
+    tuple val(meta), path("${prefix}/tiled_nuclei/*.${output_format}"), emit: transcripts, optional: true
 
 
     script:
