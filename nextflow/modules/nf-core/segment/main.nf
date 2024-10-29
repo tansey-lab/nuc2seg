@@ -6,7 +6,7 @@ process SEGMENT {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(dataset), path(predictions), val(tile_idx), path(transcripts), path(cell_typing_results)
+    tuple val(meta), val(tile_idx), path(dataset), path(transcripts), path(predictions), path(cell_typing_results)
 
     output:
     tuple val(meta), path("${prefix}/segmentation_tile_*.h5")                    , emit: segmentation

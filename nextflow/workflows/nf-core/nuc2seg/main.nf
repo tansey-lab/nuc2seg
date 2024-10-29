@@ -6,6 +6,8 @@ include { SEGMENT } from '../../../modules/nf-core/segment/main'
 include { CREATE_SPATIALDATA } from '../../../modules/nf-core/create_spatialdata/main'
 include { CELLTYPING } from '../../../modules/nf-core/celltyping/main'
 include { TILE_DATASET } from '../../../modules/nf-core/tile_dataset/main'
+include { TILE_XENIUM } from '../../../modules/nf-core/tile_xenium/main'
+
 include { COMBINE_SEGMENTATIONS } from '../../../modules/nf-core/combine_segmentations/main'
 
 def create_parallel_sequence(meta, fn, n_par) {
@@ -93,29 +95,36 @@ workflow NUC2SEG {
         }
     }
 
+
+
     PREDICT( predict_input )
 
-    TILE_DATASET( ch_input.map { tuple(it[0], it[1], "parquet")} )
+    TILE_XENIUM( ch_input.map { tuple(it[0], it[1], "parquet")} )
 
-    TILE_DATASET.out.transcripts.transpose().map {
+    if (params.dataset == null ) {
+        PREPROCESS.out.dataset
+            .tap { tile_dataset_input }
+    } else {
+        tile_dataset_input = Channel.fromList([tuple( [ id: name, single_end:false ],
+                  file(params.dataset, checkIfExists: true))])
+    }
+
+    TILE_DATASET( tile_dataset_input )
+
+    TILE_XENIUM.out.transcripts.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }.tap { tiled_transcripts }
 
-    if (params.dataset == null || params.celltyping_results == null) {
-        PREPROCESS.out.dataset
-            .join(PREDICT.out.predictions)
-            .join(tiled_transcripts)
-            .join(celltyping_results)
-            .tap { segment_input }
-    } else if (params.dataset != null && params.celltyping_results != null) {
-        Channel.fromList([tuple( [ id: name, single_end:false ],
-          file(params.dataset, checkIfExists: true)
-        )])
-            .join(PREDICT.out.predictions)
-            .join(tiled_transcripts)
-            .join(celltyping_results)
-            .tap { segment_input }
-    }
+    TILE_DATASET.out.dataset.transpose().map {
+        tuple(it[0], extractTileNumber(it[1]), it[1])
+    }.tap { tiled_dataset }
+
+    tiled_dataset.join(tiled_transcripts, by: [0,1]).tap { tiled_data }
+
+    tiled_data
+        .join(PREDICT.out.predictions)
+        .join(celltyping_results)
+        .tap { segment_input }
 
     SEGMENT( segment_input )
 

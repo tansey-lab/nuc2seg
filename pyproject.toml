@@ -69,6 +69,7 @@ segment = "nuc2seg.cli.segment:main"
 celltyping = "nuc2seg.cli.celltyping:main"
 autofluorescence = "nuc2seg.cli.autofluorescence_benchmark:main"
 tile_dataset = "nuc2seg.cli.tile_dataset:main"
+tile_xenium = "nuc2seg.cli.tile_xenium:main"
 baysor_postprocess = "nuc2seg.cli.baysor_postprocess:main"
 combine_segmentations = "nuc2seg.cli.combine_segmentations:main"
 

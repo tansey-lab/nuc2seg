@@ -1,14 +1,8 @@
 import argparse
 import logging
-import pandas as pd
 
 from nuc2seg import log_config
-from nuc2seg.xenium import (
-    load_and_filter_transcripts,
-)
 from nuc2seg.preprocessing import (
-    tile_transcripts_to_disk,
-    tile_nuclei_to_disk,
     tile_dataset_to_disk,
 )
 from nuc2seg.data import Nuc2SegDataset
@@ -22,41 +16,16 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
-        "--transcript-output-dir",
-        help="Directory to save transcript tile files.",
+        "--output-dir",
+        help="Directory to save tile files.",
         type=str,
         required=True,
     )
     parser.add_argument(
-        "--nuclei-output-dir",
-        help="Directory to save nuclei tile files.",
+        "--dataset",
+        help="Nuc2SegDataset in h5 format.",
         type=str,
         required=True,
-    )
-    parser.add_argument(
-        "--transcripts",
-        help="Xenium transcripts in parquet format.",
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
-        "--nuclei-file",
-        help="Path to the Xenium nuclei boundaries parquet file",
-        type=str,
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "--sample-area",
-        default=None,
-        type=str,
-        help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
-    )
-    parser.add_argument(
-        "--min-qv",
-        help="Minimum quality value for a transcript to be included.",
-        type=float,
-        default=20.0,
     )
     parser.add_argument(
         "--tile-height",
@@ -76,13 +45,6 @@ def get_parser():
         type=float,
         default=0.5,
     )
-    parser.add_argument(
-        "--output-format",
-        help="Output format for transcript files",
-        type=str,
-        default="csv",
-        choices=("csv", "parquet"),
-    )
     return parser
 
 
@@ -101,42 +63,9 @@ def main():
 
     dataset = Nuc2SegDataset.load_h5(args.dataset)
 
-    bbox = dataset.bbox
-
-    transcripts = load_and_filter_transcripts(
-        transcripts_file=args.transcripts,
-        sample_area=bbox,
-        min_qv=args.min_qv,
-    )
-    transcripts["x_location"] = transcripts["x_location"] - bbox.bounds[0]
-    transcripts["y_location"] = transcripts["y_location"] - bbox.bounds[1]
-    transcripts["geometry"] = transcripts.translate(-bbox.bounds[0], -bbox.bounds[1])
-    nuclei_df = pd.read_parquet(args.nuclei_file)
-    nuclei_df["vertex_x"] = nuclei_df["vertex_x"].astype(float)
-    nuclei_df["vertex_y"] = nuclei_df["vertex_y"].astype(float)
-    nuclei_df["vertex_x"] = nuclei_df["vertex_x"] - bbox.bounds[0]
-    nuclei_df["vertex_y"] = nuclei_df["vertex_y"] - bbox.bounds[1]
-
-    mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
-
-    transcripts["nucleus_id"] = 0
-    transcripts.loc[mask, "nucleus_id"] = transcripts["cell_id"][mask]
-
-    logger.info(f"Writing transcripts to {args.transcript_output_dir}")
-    tile_transcripts_to_disk(
-        transcripts=transcripts,
+    tile_dataset_to_disk(
+        dataset=dataset,
+        output_dir=args.output_dir,
         tile_size=(args.tile_height, args.tile_width),
         overlap=args.overlap_percentage,
-        output_dir=args.transcript_output_dir,
-        output_format=args.output_format,
-    )
-
-    logger.info(f"Writing nuclei to {args.nuclei_output_dir}")
-    tile_nuclei_to_disk(
-        nuclei_df=nuclei_df,
-        bounds=bbox,
-        tile_size=(args.tile_height, args.tile_width),
-        overlap=args.overlap_percentage,
-        output_dir=args.nuclei_output_dir,
-        output_format=args.output_format,
     )

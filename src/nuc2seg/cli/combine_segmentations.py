@@ -85,7 +85,6 @@ def combine_segmentation_results(
     overlap: float,
     base_size: tuple[int, int],
 ):
-
     h5_fns = sorted(h5_fns)
     anndata_fns = sorted(anndata_fns)
     shapefile_fns = sorted(shapefile_fns)
@@ -136,7 +135,6 @@ def combine_segmentation_results(
 
     for h5_fn, anndata_fn, shapefile_fn in fns:
         tile_idx = get_tile_idx(h5_fn)
-        bbox = bbox_dict[tile_idx]
 
         segment_gpd = gpd.read_parquet(shapefile_fn)
 
@@ -153,25 +151,23 @@ def combine_segmentation_results(
             joined_to_centroids["tile_idx"] != tile_idx
         ].segment_id.unique()
 
-        segmentation_result[np.isin(segmentation_result, segments_to_filter)] = -2
-        segmentation_result[segmentation_result <= 0] = -2
-        segmentation_result[segmentation_result > 0] += current_n_segments
-
-        stitched_result[bbox[1] : bbox[3], bbox[0] : bbox[2]] = np.maximum(
-            stitched_result[bbox[1] : bbox[3], bbox[0] : bbox[2]],
-            segmentation_result,
-        )
-
         ad = anndata.read_h5ad(anndata_fn)
         ad = ad[~ad.obs["segment_id"].isin(segments_to_filter)].copy()
+
+        new_segment_id_map = dict(
+            zip(
+                sorted(ad.obs["segment_id"].unique()),
+                range(current_n_segments, current_n_segments + n_segments),
+            )
+        )
+        ad.obs["segment_id"] = ad.obs["segment_id"].map(new_segment_id_map)
 
         segment_gpd = segment_gpd[
             ~segment_gpd["segment_id"].isin(segments_to_filter)
         ].copy()
-        segment_gpd["segment_id"] += current_n_segments
+        segment_gpd["segment_id"] = segment_gpd["segment_id"].map(new_segment_id_map)
         gpd_results.append(segment_gpd)
 
-        ad.obs["segment_id"] += current_n_segments
         if concatenated_anndata:
             concatenated_anndata = anndata.concat([concatenated_anndata, ad])
         else:
@@ -180,7 +176,6 @@ def combine_segmentation_results(
         current_n_segments += n_segments
 
     return (
-        SegmentationResults(stitched_result),
         concatenated_anndata,
         pandas.concat(gpd_results),
     )
@@ -191,7 +186,7 @@ def main():
 
     dataset: Nuc2SegDataset = Nuc2SegDataset.load_h5(args.dataset)
 
-    stitched_segmentations, concatenated_anndata, gdf = combine_segmentation_results(
+    concatenated_anndata, gdf = combine_segmentation_results(
         h5_fns=args.segmentation_outputs,
         anndata_fns=args.adatas,
         shapefile_fns=args.shapes,
