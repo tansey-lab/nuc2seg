@@ -5,16 +5,20 @@ import pandas as pd
 from nuc2seg import log_config
 from nuc2seg.xenium import (
     load_and_filter_transcripts,
-    create_shapely_rectangle,
 )
-from nuc2seg.preprocessing import tile_transcripts_to_disk, tile_nuclei_to_disk
+from nuc2seg.preprocessing import (
+    tile_transcripts_to_disk,
+    tile_nuclei_to_disk,
+    tile_dataset_to_disk,
+)
+from nuc2seg.data import Nuc2SegDataset
 
 logger = logging.getLogger(__name__)
 
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Divide transcripts into overlapping tiles.", allow_abbrev=False
+        description="Divide xenium files into overlapping tiles.", allow_abbrev=False
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
@@ -95,37 +99,23 @@ def main():
 
     log_config.configure_logging(args)
 
-    logger.info(f"Loading transcripts from {args.transcripts}")
+    dataset = Nuc2SegDataset.load_h5(args.dataset)
 
-    if args.sample_area:
-        sample_area = create_shapely_rectangle(
-            *[float(x) for x in args.sample_area.split(",")]
-        )
-        transcripts = load_and_filter_transcripts(
-            transcripts_file=args.transcripts,
-            sample_area=sample_area,
-            min_qv=args.min_qv,
-        )
-        transcripts["x_location"] = transcripts["x_location"] - sample_area.bounds[0]
-        transcripts["y_location"] = transcripts["y_location"] - sample_area.bounds[1]
-        transcripts["geometry"] = transcripts.translate(
-            -sample_area.bounds[0], -sample_area.bounds[1]
-        )
-        nuclei_df = pd.read_parquet(args.nuclei_file)
-        nuclei_df["vertex_x"] = nuclei_df["vertex_x"].astype(float)
-        nuclei_df["vertex_y"] = nuclei_df["vertex_y"].astype(float)
-        nuclei_df["vertex_x"] = nuclei_df["vertex_x"] - sample_area.bounds[0]
-        nuclei_df["vertex_y"] = nuclei_df["vertex_y"] - sample_area.bounds[1]
-    else:
-        sample_area = None
-        transcripts = load_and_filter_transcripts(
-            transcripts_file=args.transcripts,
-            sample_area=sample_area,
-            min_qv=args.min_qv,
-        )
-        nuclei_df = pd.read_parquet(args.nuclei_file)
-        nuclei_df["vertex_x"] = nuclei_df["vertex_x"].astype(float)
-        nuclei_df["vertex_y"] = nuclei_df["vertex_y"].astype(float)
+    bbox = dataset.bbox
+
+    transcripts = load_and_filter_transcripts(
+        transcripts_file=args.transcripts,
+        sample_area=bbox,
+        min_qv=args.min_qv,
+    )
+    transcripts["x_location"] = transcripts["x_location"] - bbox.bounds[0]
+    transcripts["y_location"] = transcripts["y_location"] - bbox.bounds[1]
+    transcripts["geometry"] = transcripts.translate(-bbox.bounds[0], -bbox.bounds[1])
+    nuclei_df = pd.read_parquet(args.nuclei_file)
+    nuclei_df["vertex_x"] = nuclei_df["vertex_x"].astype(float)
+    nuclei_df["vertex_y"] = nuclei_df["vertex_y"].astype(float)
+    nuclei_df["vertex_x"] = nuclei_df["vertex_x"] - bbox.bounds[0]
+    nuclei_df["vertex_y"] = nuclei_df["vertex_y"] - bbox.bounds[1]
 
     mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
 
@@ -141,17 +131,10 @@ def main():
         output_format=args.output_format,
     )
 
-    bounds = [
-        0,
-        0,
-        transcripts["x_location"].max(),
-        transcripts["y_location"].max(),
-    ]
-
     logger.info(f"Writing nuclei to {args.nuclei_output_dir}")
     tile_nuclei_to_disk(
         nuclei_df=nuclei_df,
-        bounds=bounds,
+        bounds=bbox,
         tile_size=(args.tile_height, args.tile_width),
         overlap=args.overlap_percentage,
         output_dir=args.nuclei_output_dir,

@@ -6,14 +6,12 @@ process SEGMENT {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(dataset), path(predictions), path(transcripts), path(nuclei), path(cell_typing_results)
+    tuple val(meta), path(dataset), path(predictions), val(tile_idx), path(transcripts), path(cell_typing_results)
 
     output:
-    tuple val(meta), path("${prefix}/segmentation.h5")                           , emit: segmentation
-    tuple val(meta), path("${prefix}/shapes.parquet")                            , emit: shapefile
-    tuple val(meta), path("${prefix}/anndata.h5ad")                              , emit: anndata
-    tuple val(meta), path("${prefix}/*.png")                                     , emit: plot
-    tuple val(meta), path("${prefix}/celltype_probability_plots/*.png")          , emit: celltype_probability_plots
+    tuple val(meta), path("${prefix}/segmentation_tile_*.h5")                    , emit: segmentation
+    tuple val(meta), path("${prefix}/shapes_tile_*.parquet")                     , emit: shapefile
+    tuple val(meta), path("${prefix}/anndata_tile_*.h5ad")                       , emit: anndata
     path  "versions.yml"                                                         , emit: versions
 
 
@@ -23,19 +21,16 @@ process SEGMENT {
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
-    def sample_area_arg = params.sample_area == null ? "" : "--sample-area ${params.sample_area}"
     """
     mkdir -p "${prefix}"
     segment \
-        --output ${prefix}/segmentation.h5 \
-        --shapefile-output ${prefix}/shapes.parquet \
-        --anndata-output ${prefix}/anndata.h5ad \
+        --output ${prefix}/segmentation_tile_${tile_idx}.h5 \
+        --shapefile-output ${prefix}/shapes_tile_${tile_idx}.parquet \
+        --anndata-output ${prefix}/anndata_tile_${tile_idx}.h5ad \
         --transcripts ${transcripts} \
-        --nuclei-file ${nuclei} \
         --celltyping-results ${cell_typing_results} \
         --dataset ${dataset} \
         --predictions ${predictions} \
-        ${sample_area_arg} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

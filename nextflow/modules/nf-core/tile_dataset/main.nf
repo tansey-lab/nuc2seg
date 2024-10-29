@@ -6,12 +6,12 @@ process TILE_DATASET {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(xenium_dir), val(output_format)
+    tuple val(meta), path(xenium_dir), path(dataset), val(output_format)
 
     output:
     tuple val(meta), path("${prefix}/tiled_transcripts/*.${output_format}"), emit: transcripts, optional: true
     tuple val(meta), path("${prefix}/tiled_nuclei/*.${output_format}"), emit: nuclei, optional: true
-
+    tuple val(meta), path("${prefix}/tiled_dataset/*.${output_format}"), emit: dataset, optional: true
 
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
@@ -25,6 +25,8 @@ process TILE_DATASET {
         --transcript-output-dir ${prefix}/tiled_transcripts \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
         --nuclei-output-dir ${prefix}/tiled_nuclei \
+        --dataset ${dataset} \
+        --dataset-output-dir ${prefix}/tiled_dataset \
         --tile-width ${params.tile_width} \
         --tile-height ${params.tile_height} \
         --overlap-percentage ${params.overlap_percentage} \

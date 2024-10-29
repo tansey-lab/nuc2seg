@@ -300,3 +300,24 @@ def tile_nuclei_to_disk(
         elif output_format == "parquet":
             filtered_df.to_parquet(output_path, index=False)
         pbar.update(len(filtered_df))
+
+
+def tile_dataset_to_disk(dataset: Nuc2SegDataset, tile_size, overlap, output_dir):
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=(overlap, overlap),
+        base_size=(dataset.x_extent_pixels, dataset.y_extent_pixels),
+    )
+
+    for idx, (x1, y1, x2, y2) in enumerate(
+        generate_tiles(
+            tiler,
+            x_extent=dataset.x_extent_pixels,
+            y_extent=dataset.y_extent_pixels,
+            overlap_fraction=overlap,
+            tile_size=tile_size,
+        )
+    ):
+        dataset_tile = dataset.clip((x1, y1, x2, y2))
+        output_path = os.path.join(output_dir, f"dataset_tile_{idx}.h5")
+        dataset_tile.save_h5(output_path)

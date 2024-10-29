@@ -101,18 +101,10 @@ workflow NUC2SEG {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }.tap { tiled_transcripts }
 
-    TILE_DATASET.out.nuclei.transpose().map {
-        tuple(it[0], extractTileNumber(it[1]), it[1])
-    }.tap { tiled_nuclei }
-
-    tiled_transcripts.join(tiled_nuclei, by: [0,1]).map {
-        tuple(it[0], it[2], it[3])
-    }.tap { tiled_data }
-
     if (params.dataset == null || params.celltyping_results == null) {
         PREPROCESS.out.dataset
             .join(PREDICT.out.predictions)
-            .join(tiled_data)
+            .join(tiled_transcripts)
             .join(celltyping_results)
             .tap { segment_input }
     } else if (params.dataset != null && params.celltyping_results != null) {
@@ -120,7 +112,7 @@ workflow NUC2SEG {
           file(params.dataset, checkIfExists: true)
         )])
             .join(PREDICT.out.predictions)
-            .join(tiled_data)
+            .join(tiled_transcripts)
             .join(celltyping_results)
             .tap { segment_input }
     }

@@ -177,6 +177,10 @@ class Nuc2SegDataset:
     def y_extent_pixels(self):
         return self.labels.shape[1]
 
+    @property
+    def n_nuclei(self):
+        return len(np.unique(self.labels[self.labels > 0]))
+
     def get_background_frequencies(self):
         """
         Returns the probability of observing a gene in a background pixel

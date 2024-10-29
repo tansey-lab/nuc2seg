@@ -6,7 +6,7 @@ process COMBINE_SEGMENTATIONS {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(dataset), path(segmentations), path(adatas), path(shapefiles)
+    tuple val(meta), path(dataset), path(segmentations), path(shapefiles), path(adatas)
 
     output:
     tuple val(meta), path("${prefix}/segmentation.h5")                           , emit: segmentation

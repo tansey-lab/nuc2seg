@@ -445,6 +445,9 @@ def predict_celltypes_for_anndata(
     gene_names: list[str] = None,
     chunk_size: int = 10_000,
 ):
+    if len(ad) == 0:
+        return None
+
     results = []
     ad = ad[:, ad.var_names.isin(gene_names)]
     current_index = 0

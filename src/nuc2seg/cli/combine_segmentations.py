@@ -140,7 +140,7 @@ def combine_segmentation_results(
 
         segment_gpd = gpd.read_parquet(shapefile_fn)
 
-        segmentation_result = SegmentationResults.load_h5(h5_fn)
+        segmentation_result = SegmentationResults.load_h5(h5_fn).segmentation
 
         segmentation_gdf = segmentation_array_to_shapefile(segmentation_result)
         joined_to_centroids = gpd.sjoin_nearest(
@@ -149,11 +149,9 @@ def combine_segmentation_results(
         )
         joined_to_centroids = joined_to_centroids.drop_duplicates(subset=["segment_id"])
         n_segments = (joined_to_centroids["tile_idx"] == tile_idx).sum()
-        segments_to_filter = (
-            joined_to_centroids[joined_to_centroids["tile_idx"] != tile_idx]
-            .segment_id.unique()
-            .values
-        )
+        segments_to_filter = joined_to_centroids[
+            joined_to_centroids["tile_idx"] != tile_idx
+        ].segment_id.unique()
 
         segmentation_result[np.isin(segmentation_result, segments_to_filter)] = -2
         segmentation_result[segmentation_result <= 0] = -2
@@ -191,16 +189,16 @@ def combine_segmentation_results(
 def main():
     args = get_parser().parse_args()
 
-    dataset = Nuc2SegDataset.load_h5(args.dataset)
+    dataset: Nuc2SegDataset = Nuc2SegDataset.load_h5(args.dataset)
 
     stitched_segmentations, concatenated_anndata, gdf = combine_segmentation_results(
         h5_fns=args.segmentation_outputs,
         anndata_fns=args.adatas,
         shapefile_fns=args.shapes,
-        labels=dataset.segmentation,
+        labels=dataset.labels,
         tile_size=(args.tile_height, args.tile_width),
         overlap=args.overlap_percentage,
-        base_size=dataset.segmentation.shape,
+        base_size=dataset.labels.shape,
     )
 
     logger.info(f"Plotting segmentation and class assignment.")
