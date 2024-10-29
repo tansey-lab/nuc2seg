@@ -446,12 +446,17 @@ def predict_celltypes_for_anndata(
     chunk_size: int = 10_000,
 ):
     results = []
-    ad = ad[:, gene_names]
+    ad = ad[:, ad.var_names.isin(gene_names)]
     current_index = 0
     pbar = tqdm.tqdm(total=len(ad), desc="predict_celltypes")
     while current_index < len(ad):
         ad_chunk = ad[current_index : current_index + chunk_size]
-        gene_counts = ad_chunk.to_df().values
+        gene_counts = ad_chunk.to_df()
+
+        for g in gene_names:
+            if g not in gene_counts.columns:
+                gene_counts[g] = 0
+        gene_counts = gene_counts[gene_names].values
 
         results.append(
             estimate_cell_types(

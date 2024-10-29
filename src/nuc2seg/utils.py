@@ -1,7 +1,6 @@
 import re
-
+import os
 import numpy as np
-from scipy.special import softmax
 
 
 def sqexp(x1, x2, bandwidth=2, scale=1, axis=None):

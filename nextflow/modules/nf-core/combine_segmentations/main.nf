@@ -26,6 +26,7 @@ process COMBINE_SEGMENTATIONS {
     """
     mkdir -p "${prefix}"
     combine_segmentations \
+        --dataset ${dataset} \
         --segmentation-outputs ${segmentations} \
         --adatas ${adatas} \
         --shapes ${shapefiles} \

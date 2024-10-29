@@ -251,7 +251,7 @@ def tile_transcripts_to_disk(
         filtered_df = filter_gdf_to_inside_polygon(transcripts, bbox)
         if len(filtered_df) == 0:
             continue
-        output_path = os.path.join(output_dir, f"tile_{idx}.{output_format}")
+        output_path = os.path.join(output_dir, f"transcript_tile_{idx}.{output_format}")
         if output_format == "csv":
             pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
                 output_path, index=False
@@ -264,9 +264,8 @@ def tile_transcripts_to_disk(
 
 
 def tile_nuclei_to_disk(
-    nuclei_gdf, bounds, tile_size, overlap, output_dir, output_format: str
+    nuclei_df, bounds, tile_size, overlap, output_dir, output_format: str
 ):
-
     tiler = TilingModule(
         tile_size=tile_size,
         tile_overlap=(overlap, overlap),
@@ -285,15 +284,19 @@ def tile_nuclei_to_disk(
             tile_size=tile_size,
         )
     ):
-        bbox = create_shapely_rectangle(x1, y1, x2, y2)
-        filtered_df = filter_gdf_to_inside_polygon(nuclei_gdf, bbox)
+        selection = (
+            (nuclei_df["vertex_x"] >= x1)
+            & (nuclei_df["vertex_x"] < x2)
+            & (nuclei_df["vertex_y"] >= y1)
+            & (nuclei_df["vertex_y"] < y2)
+        )
+        filtered_df = nuclei_df[selection]
+
         if len(filtered_df) == 0:
             continue
-        output_path = os.path.join(output_dir, f"tile_{idx}.{output_format}")
+        output_path = os.path.join(output_dir, f"nuclei_tile_{idx}.{output_format}")
         if output_format == "csv":
-            pass
+            filtered_df.to_csv(output_path, index=False)
         elif output_format == "parquet":
-            pd.DataFrame(filtered_df.drop(columns="geometry")).to_parquet(
-                output_path, index=False
-            )
+            filtered_df.to_parquet(output_path, index=False)
         pbar.update(len(filtered_df))
