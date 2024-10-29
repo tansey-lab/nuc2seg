@@ -181,6 +181,10 @@ class Nuc2SegDataset:
     def n_nuclei(self):
         return len(np.unique(self.labels[self.labels > 0]))
 
+    @property
+    def shape(self):
+        return self.labels.shape
+
     def get_background_frequencies(self):
         """
         Returns the probability of observing a gene in a background pixel
@@ -296,9 +300,12 @@ class Nuc2SegDataset:
         )
 
     def clip(self, bbox):
-        transcript_selector = np.isin(
-            self.transcripts[:, 0], np.arange(bbox[0], bbox[2])
-        ) & np.isin(self.transcripts[:, 1], np.arange(bbox[1], bbox[3]))
+        transcript_selector = (
+            (bbox[0] <= self.transcripts[:, 0])
+            & (self.transcripts[:, 0] < bbox[2])
+            & (bbox[1] <= self.transcripts[:, 1])
+            & (self.transcripts[:, 1] < bbox[3])
+        )
         new_bbox = np.array(
             [
                 bbox[0] + self.bbox[0],
@@ -311,7 +318,7 @@ class Nuc2SegDataset:
         return Nuc2SegDataset(
             labels=self.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
             angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
-            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3], :].copy(),
+            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
             transcripts=self.transcripts[transcript_selector].copy(),
             bbox=new_bbox,
             n_classes=self.n_classes,
@@ -524,6 +531,9 @@ class ModelPredictions:
             classes = f["classes"][:]
             foreground = f["foreground"][:]
         return ModelPredictions(angles=angles, classes=classes, foreground=foreground)
+
+    def shape(self):
+        return self.angles.shape
 
     def clip(self, bbox):
         return ModelPredictions(

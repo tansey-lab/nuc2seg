@@ -6,10 +6,11 @@ import numpy as np
 import torch
 
 from nuc2seg import log_config
-from nuc2seg.segment import stitch_predictions
+from nuc2seg.segment import forward_pass_result_to_obj
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
 from nuc2seg.data import Nuc2SegDataset, TiledDataset
 from pytorch_lightning import Trainer
+from torch.utils.data.dataset import random_split
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,13 @@ def get_parser():
         default="auto",
         choices=["cpu", "gpu", "tpu", "ipu", "mps", "auto"],
     )
+    parser.add_argument(
+        "--n-jobs",
+        help="Number of jobs to use for parallel prediction",
+        type=int,
+        default=None,
+    )
+    parser.add_argument("--job-index", help="current job index", type=int, default=None)
     return parser
 
 
@@ -103,14 +111,19 @@ def main():
         tile_width=args.tile_width,
         tile_overlap=args.overlap_percentage,
         num_workers=args.num_dataloader_workers,
+        predict_n_threads=args.n_jobs,
+        predict_thread_idx=args.job_index,
     )
 
     trainer = Trainer(
         accelerator=args.device,
         default_root_dir=os.path.dirname(args.model_weights),
     )
-    results = torch.stack(trainer.predict(model, dm)).squeeze()
 
-    model_predictions = stitch_predictions(results=results, tiler=tiled_dataset.tiler)
-
-    model_predictions.save_h5(args.output)
+    for item in trainer.predict(model, dm):
+        value = item["value"]
+        tile_index = item["tile_index"]
+        model_prediction = forward_pass_result_to_obj(value)
+        model_prediction.save_h5(
+            os.path.join(args.output_dir, f"model_prediction_tile_{tile_index}.h5")
+        )

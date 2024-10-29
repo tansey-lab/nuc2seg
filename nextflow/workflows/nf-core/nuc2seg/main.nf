@@ -95,8 +95,6 @@ workflow NUC2SEG {
         }
     }
 
-
-
     PREDICT( predict_input )
 
     TILE_XENIUM( ch_input.map { tuple(it[0], it[1], "parquet")} )
@@ -115,11 +113,17 @@ workflow NUC2SEG {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }.tap { tiled_transcripts }
 
+    tiled_transcripts.view()
+
     TILE_DATASET.out.dataset.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }.tap { tiled_dataset }
 
+    tiled_dataset.view()
+
     tiled_dataset.join(tiled_transcripts, by: [0,1]).tap { tiled_data }
+
+    tiled_data.view()
 
     tiled_data
         .join(PREDICT.out.predictions)

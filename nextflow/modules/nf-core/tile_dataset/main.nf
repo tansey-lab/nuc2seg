@@ -9,13 +9,12 @@ process TILE_DATASET {
     tuple val(meta), path(dataset)
 
     output:
-    tuple val(meta), path("${prefix}/tiled_dataset/*.${output_format}"), emit: dataset, optional: true
+    tuple val(meta), path("${prefix}/tiled_dataset/*.h5"), emit: dataset, optional: true
 
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
     """
-    mkdir -p "${prefix}/tiled_transcripts"
     mkdir -p "${prefix}/tiled_dataset"
     tile_dataset \
         --dataset ${dataset} \

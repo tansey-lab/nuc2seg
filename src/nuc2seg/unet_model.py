@@ -12,6 +12,7 @@ from nuc2seg.evaluate import (
     angle_accuracy,
     celltype_accuracy,
 )
+from typing import Optional
 from torch.utils.data import DataLoader, random_split
 
 
@@ -503,7 +504,7 @@ class SparseUNet(LightningModule):
 
     def predict_step(self, batch, batch_idx):
         x, y, z = batch["X"], batch["Y"], batch["gene"]
-        return self.forward(x, y, z)
+        return {"value": self.forward(x, y, z), "tile_index": batch_idx}
 
     def on_validation_epoch_end(self):
         if len(self.validation_step_outputs) == 0:
@@ -529,6 +530,30 @@ class SparseUNet(LightningModule):
         self.validation_step_outputs.clear()
 
 
+def equal_length_splits(total_size: int, n_splits: int) -> list[int]:
+    """
+    Create a list of roughly equal integer splits that sum to total_size.
+
+    Args:
+        total_size: Total number of items to split
+        n_splits: Number of groups to split into
+
+    Returns:
+        List of integer lengths that sum to total_size
+
+    Example:
+        >>> equal_length_splits(100, 3)
+        [34, 33, 33]
+        >>> equal_length_splits(10, 3)
+        [4, 3, 3]
+    """
+    base_size = total_size // n_splits
+    remainder = total_size % n_splits
+
+    # First 'remainder' groups get an extra item to distribute the remainder
+    return [base_size + 1 if i < remainder else base_size for i in range(n_splits)]
+
+
 class Nuc2SegDataModule(LightningDataModule):
     def __init__(
         self,
@@ -541,6 +566,8 @@ class Nuc2SegDataModule(LightningDataModule):
         tile_width: int = 64,
         tile_overlap: float = 0.25,
         num_workers: int = 0,
+        predict_n_threads: Optional[int] = None,
+        predict_thread_idx: Optional[int] = None,
     ):
         super().__init__()
         self.preprocessed_data_path = preprocessed_data_path
@@ -556,6 +583,8 @@ class Nuc2SegDataModule(LightningDataModule):
         self.tile_width = tile_width
         self.tile_overlap = tile_overlap
         self.num_workers = num_workers
+        self.predict_n_threads = predict_n_threads
+        self.predict_thread_idx = predict_thread_idx
 
     def prepare_data(self):
         # download
@@ -576,7 +605,12 @@ class Nuc2SegDataModule(LightningDataModule):
         if n_val <= 0 or n_train <= 0:
             raise ValueError("Not enough data to split into train and validation sets")
 
-        self.predict_set = dataset
+        if self.predict_n_threads and self.predict_thread_idx:
+            self.predict_set = random_split(
+                dataset, equal_length_splits(len(dataset), self.predict_n_threads)
+            )[self.predict_thread_idx]
+        else:
+            self.predict_set = dataset
 
         self.train_set, self.val_set = random_split(dataset, [n_train, n_val])
 
