@@ -223,7 +223,9 @@ def create_nuc2seg_dataset(
     return ds
 
 
-def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
+def tile_transcripts_to_disk(
+    transcripts, tile_size, overlap, output_dir, output_format: str
+):
     x_max = math.ceil(transcripts["x_location"].max())
     y_max = math.ceil(transcripts["y_location"].max())
 
@@ -249,8 +251,74 @@ def tile_transcripts_to_csv(transcripts, tile_size, overlap, output_dir):
         filtered_df = filter_gdf_to_inside_polygon(transcripts, bbox)
         if len(filtered_df) == 0:
             continue
-        output_path = os.path.join(output_dir, f"tile_{idx}.csv")
-        pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
-            output_path, index=False
-        )
+        output_path = os.path.join(output_dir, f"transcript_tile_{idx}.{output_format}")
+        if output_format == "csv":
+            pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
+                output_path, index=False
+            )
+        elif output_format == "parquet":
+            pd.DataFrame(filtered_df.drop(columns="geometry")).to_parquet(
+                output_path, index=False
+            )
         pbar.update(len(filtered_df))
+
+
+def tile_nuclei_to_disk(
+    nuclei_df, bounds, tile_size, overlap, output_dir, output_format: str
+):
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=(overlap, overlap),
+        base_size=(int(bounds[2]), int(bounds[3])),
+    )
+
+    total_n_nuclei = len(bounds)
+    pbar = tqdm.tqdm(total=total_n_nuclei)
+
+    for idx, (x1, y1, x2, y2) in enumerate(
+        generate_tiles(
+            tiler,
+            x_extent=bounds[2],
+            y_extent=bounds[3],
+            overlap_fraction=overlap,
+            tile_size=tile_size,
+        )
+    ):
+        selection = (
+            (nuclei_df["vertex_x"] >= x1)
+            & (nuclei_df["vertex_x"] < x2)
+            & (nuclei_df["vertex_y"] >= y1)
+            & (nuclei_df["vertex_y"] < y2)
+        )
+        filtered_df = nuclei_df[selection]
+
+        if len(filtered_df) == 0:
+            continue
+        output_path = os.path.join(output_dir, f"nuclei_tile_{idx}.{output_format}")
+        if output_format == "csv":
+            filtered_df.to_csv(output_path, index=False)
+        elif output_format == "parquet":
+            filtered_df.to_parquet(output_path, index=False)
+        pbar.update(len(filtered_df))
+
+
+def tile_dataset_to_disk(dataset: Nuc2SegDataset, tile_size, overlap, output_dir):
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=(overlap, overlap),
+        base_size=(dataset.x_extent_pixels, dataset.y_extent_pixels),
+    )
+
+    for idx, (x1, y1, x2, y2) in enumerate(
+        generate_tiles(
+            tiler,
+            x_extent=dataset.x_extent_pixels,
+            y_extent=dataset.y_extent_pixels,
+            overlap_fraction=overlap,
+            tile_size=tile_size,
+        )
+    ):
+        dataset_tile = dataset.clip((x1, y1, x2, y2))
+
+        output_path = os.path.join(output_dir, f"dataset_tile_{idx}.h5")
+        dataset_tile.save_h5(output_path)

@@ -7,10 +7,10 @@ process PREDICT {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(dataset), path(model_weights)
+    tuple val(meta), path(dataset), path(model_weights), val(job_index), val(n_jobs)
 
     output:
-    tuple val(meta), path("${prefix}/predictions.h5"), emit: predictions
+    tuple val(meta), path("${prefix}/predictions/*.h5"), emit: predictions
     path  "versions.yml"                , emit: versions
 
 
@@ -21,14 +21,16 @@ process PREDICT {
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
     """
-    mkdir -p "${prefix}"
+    mkdir -p "${prefix}/predictions"
     predict \
-        --output ${prefix}/predictions.h5 \
+        --output-dir "${prefix}/predictions" \
         --dataset ${dataset} \
         --model-weights ${model_weights} \
         --tile-width ${params.tile_width} \
         --tile-height ${params.tile_height} \
         --overlap-percentage ${params.overlap_percentage} \
+        --n-jobs ${n_jobs} \
+        --job-index ${job_index} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

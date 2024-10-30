@@ -59,6 +59,21 @@ def stitch_predictions(results, tiler: TilingModule):
     )
 
 
+def forward_pass_result_to_obj(value):
+    foreground = torch.sigmoid(value[..., 0]).squeeze()
+    angles = torch.sigmoid(value[..., 1]).squeeze() * 2 * torch.pi - torch.pi
+    classes = torch.softmax(value[..., 2:], dim=-1).squeeze()
+    vector_x = 0.5 * torch.cos(angles)
+    vector_y = 0.5 * torch.sin(angles)
+    angles_stitched = torch.atan2(vector_y, vector_x)
+
+    return ModelPredictions(
+        angles=angles_stitched.detach().cpu().numpy(),
+        foreground=foreground.detach().cpu().numpy(),
+        classes=classes.detach().cpu().numpy(),
+    )
+
+
 def update_labels_with_flow_values(
     labels: np.array,
     update_mask: np.array,
@@ -535,10 +550,10 @@ def segmentation_array_to_shapefile(segmentation):
 
 
 def convert_segmentation_to_shapefile(
-    segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
+    segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions, translate=True
 ):
     records = []
-    classes = predictions.classes.transpose(1, 2, 0)
+    classes = predictions.classes
     segmentation_flattened = segmentation.flatten().astype(int)
     segmentation_flattened[segmentation_flattened == -1] = 0
     x, y = np.indices(segmentation.shape)
@@ -570,11 +585,12 @@ def convert_segmentation_to_shapefile(
     for cell_id, coords in tqdm.tqdm(list(zip(cell_ids, coordinates))):
         record = {}
         poly = pixel_coords_to_polygon(coords)
-        poly = affinity.translate(
-            poly,
-            xoff=dataset.bbox[0],
-            yoff=dataset.bbox[1],
-        )
+        if translate:
+            poly = affinity.translate(
+                poly,
+                xoff=dataset.bbox[0],
+                yoff=dataset.bbox[1],
+            )
 
         record["geometry"] = poly
         gb_idx = groupby_idx_lookup[cell_id]

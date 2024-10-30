@@ -2,7 +2,7 @@ import pytest
 import pandas
 import geopandas
 import shapely
-from nuc2seg.preprocessing import create_rasterized_dataset, tile_transcripts_to_csv
+from nuc2seg.preprocessing import create_rasterized_dataset, tile_transcripts_to_disk
 import numpy as np
 import tempfile
 import shutil
@@ -184,11 +184,12 @@ def test_tile_transcripts_to_csv(test_transcripts_df):
     output_dir = tempfile.mkdtemp()
 
     try:
-        tile_transcripts_to_csv(
+        tile_transcripts_to_disk(
             transcripts=test_transcripts_df,
             tile_size=(10, 10),
             overlap=0.5,
             output_dir=output_dir,
+            output_format="csv",
         )
         output_fns = list(glob.glob(os.path.join(output_dir, "*.csv")))
 

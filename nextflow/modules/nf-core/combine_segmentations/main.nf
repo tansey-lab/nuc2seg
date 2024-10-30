@@ -1,4 +1,4 @@
-process SEGMENT {
+process COMBINE_SEGMENTATIONS {
     tag "$meta.id"
     label 'process_medium'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -6,12 +6,12 @@ process SEGMENT {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), val(tile_idx), path(dataset), path(transcripts), path(predictions), path(cell_typing_results)
+    tuple val(meta), path(dataset), path(segmentations), path(shapefiles), path(adatas)
 
     output:
-    tuple val(meta), path("${prefix}/segmentation_tile_*.h5")                    , emit: segmentation
-    tuple val(meta), path("${prefix}/shapes_tile_*.parquet")                     , emit: shapefile, optional: true
-    tuple val(meta), path("${prefix}/anndata_tile_*.h5ad")                       , emit: anndata, optional: true
+    tuple val(meta), path("${prefix}/shapes.parquet")                            , emit: shapefile
+    tuple val(meta), path("${prefix}/anndata.h5ad")                              , emit: anndata
+    tuple val(meta), path("${prefix}/*.png")                                     , emit: plots
     path  "versions.yml"                                                         , emit: versions
 
 
@@ -23,14 +23,15 @@ process SEGMENT {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    segment \
-        --output ${prefix}/segmentation_tile_${tile_idx}.h5 \
-        --shapefile-output ${prefix}/shapes_tile_${tile_idx}.parquet \
-        --anndata-output ${prefix}/anndata_tile_${tile_idx}.h5ad \
-        --transcripts ${transcripts} \
-        --celltyping-results ${cell_typing_results} \
+    combine_segmentations \
+        --output-dir "${prefix}" \
         --dataset ${dataset} \
-        --predictions ${predictions} \
+        --segmentation-outputs ${segmentations} \
+        --adatas ${adatas} \
+        --shapes ${shapefiles} \
+        --tile-width ${params.tile_width} \
+        --tile-height ${params.tile_height} \
+        --overlap-percentage ${params.overlap_percentage} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

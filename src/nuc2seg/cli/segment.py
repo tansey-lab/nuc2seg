@@ -47,12 +47,6 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--nuclei-file",
-        help="Path to the Xenium nuclei boundaries parquet file",
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
         "--celltyping-results",
         help="Path to one or more celltyping results files.",
         type=str,
@@ -97,12 +91,6 @@ def get_parser():
         default=0.5,
     )
     parser.add_argument(
-        "--sample-area",
-        default=None,
-        type=str,
-        help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
-    )
-    parser.add_argument(
         "--use-connected-components",
         help="Use connected components seed segmentation instead of nuclei labels",
         action="store_true",
@@ -125,19 +113,9 @@ def get_parser():
 
 def main():
     args = get_parser().parse_args()
-
-    if args.sample_area:
-        sample_area = create_shapely_rectangle(
-            *[float(x) for x in args.sample_area.split(",")]
-        )
-
-    else:
-        sample_area = None
+    dataset = Nuc2SegDataset.load_h5(args.dataset)
 
     transcripts = read_transcripts_into_points(args.transcripts)
-    nuclei_gdf = load_nuclei(nuclei_file=args.nuclei_file, sample_area=sample_area)
-
-    dataset = Nuc2SegDataset.load_h5(args.dataset)
     predictions = ModelPredictions.load_h5(args.predictions)
 
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
@@ -161,15 +139,26 @@ def main():
     result.save_h5(args.output)
 
     gdf = convert_segmentation_to_shapefile(
-        segmentation=result.segmentation, dataset=dataset, predictions=predictions
+        segmentation=result.segmentation,
+        dataset=dataset,
+        predictions=predictions,
+        translate=False,
     )
 
     logger.info("Creating anndata")
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
     )
+    if "centroid_x" in ad.obs.columns:
+        ad.obs["centroid_x"] = gdf["centroid_x"] + dataset.bbox[0]
+    if "centroid_y" in ad.obs.columns:
+        ad.obs["centroid_y"] = gdf["centroid_y"] + dataset.bbox[1]
 
     logger.info("Predicting celltypes")
+
+    if len(ad) == 0:
+        logger.warning("No cells found in segmentation, skipping celltyping")
+        return
 
     celltype_predictions = predict_celltypes_for_anndata(
         prior_probs=celltyping_results.prior_probs[best_k],
@@ -177,6 +166,7 @@ def main():
         ad=ad,
         gene_names=celltyping_results.gene_names,
     )
+
     cell_type_labels = np.argmax(celltype_predictions, axis=1)
     cell_type_labels = pandas.Categorical(
         cell_type_labels,
@@ -200,42 +190,8 @@ def main():
     ad.write_h5ad(args.anndata_output)
 
     logger.info(f"Saving shapefile to {args.shapefile_output}")
+
+    # translate back to original coordinates
+    gdf["geometry"] = gdf.translate(*dataset.bbox[:2])
+
     gdf.to_parquet(args.shapefile_output)
-
-    logger.info(f"Plotting segmentation and class assignment.")
-    plot_final_segmentation(
-        nuclei_gdf=nuclei_gdf,
-        segmentation_gdf=gdf,
-        output_path=os.path.join(os.path.dirname(args.output), "segmentation.png"),
-    )
-    plot_segmentation_class_assignment(
-        segmentation_gdf=gdf,
-        output_path=os.path.join(os.path.dirname(args.output), "class_assignment.png"),
-        cat_column="celltype_assignment",
-    )
-    celltype_area_violin(
-        segmentation_gdf=gdf,
-        output_path=os.path.join(
-            os.path.dirname(args.output), "celltype_area_violin.pdf"
-        ),
-        cat_column="celltype_assignment",
-    )
-    celltype_histogram(
-        segmentation_gdf=gdf,
-        output_path=os.path.join(
-            os.path.dirname(args.output), "celltype_histograms.pdf"
-        ),
-        cat_column="celltype_assignment",
-    )
-    celltype_probability_plots_dir = os.path.join(
-        os.path.dirname(args.output), "celltype_probability_plots"
-    )
-
-    os.makedirs(celltype_probability_plots_dir, exist_ok=True)
-
-    plot_class_probabilities_image(
-        model_predictions=predictions,
-        segmentation_shapes=gdf,
-        nuclei_shapes=nuclei_gdf,
-        output_dir=celltype_probability_plots_dir,
-    )

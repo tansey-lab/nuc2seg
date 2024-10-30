@@ -138,6 +138,17 @@ class Nuc2SegDataset:
     def __init__(
         self, labels, angles, classes, transcripts, bbox, n_classes, n_genes, resolution
     ):
+        """
+        :param labels: array of shape (x, y) of pixel labels,
+            0 is background, -1 is border, > 1 is a unique contiguous nucleus
+        :param angles: array of shape (x, y) of angles in radians
+        :param classes: array of shape (x, y, k) of cell type probabilities
+        :param transcripts: array of shape (n_transcripts, 3), where the columns are x, y, gene_id
+        :param bbox: array of shape (4,) of the bounding box of the dataset
+        :param n_classes: int of the number of cell types
+        :param n_genes: int of the number of genes
+        :param resolution: float of the resolution of the dataset (width of a pixel in microns)
+        """
         self.labels = labels
         self.angles = angles
         self.classes = classes
@@ -165,6 +176,14 @@ class Nuc2SegDataset:
     @property
     def y_extent_pixels(self):
         return self.labels.shape[1]
+
+    @property
+    def n_nuclei(self):
+        return len(np.unique(self.labels[self.labels > 0]))
+
+    @property
+    def shape(self):
+        return self.labels.shape
 
     def get_background_frequencies(self):
         """
@@ -281,9 +300,12 @@ class Nuc2SegDataset:
         )
 
     def clip(self, bbox):
-        transcript_selector = np.isin(
-            self.transcripts[:, 0], np.arange(bbox[0], bbox[2])
-        ) & np.isin(self.transcripts[:, 1], np.arange(bbox[1], bbox[3]))
+        transcript_selector = (
+            (bbox[0] <= self.transcripts[:, 0])
+            & (self.transcripts[:, 0] < bbox[2])
+            & (bbox[1] <= self.transcripts[:, 1])
+            & (self.transcripts[:, 1] < bbox[3])
+        )
         new_bbox = np.array(
             [
                 bbox[0] + self.bbox[0],
@@ -293,11 +315,24 @@ class Nuc2SegDataset:
             ]
         )
 
+        new_transcripts = self.transcripts[transcript_selector].copy()
+        new_transcripts[:, 0] = new_transcripts[:, 0] - bbox[0]
+        new_transcripts[:, 1] = new_transcripts[:, 1] - bbox[1]
+
+        new_labels = self.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy()
+        current_labels = np.unique(new_labels)
+        current_labels = current_labels[current_labels > 0]
+
+        for current_nuc_index, monotonically_increasing_index in zip(
+            current_labels, range(1, len(current_labels) + 1)
+        ):
+            new_labels[new_labels == current_nuc_index] = monotonically_increasing_index
+
         return Nuc2SegDataset(
-            labels=self.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            labels=new_labels,
             angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
-            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3], :].copy(),
-            transcripts=self.transcripts[transcript_selector].copy(),
+            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            transcripts=new_transcripts,
             bbox=new_bbox,
             n_classes=self.n_classes,
             n_genes=self.n_genes,
@@ -489,7 +524,7 @@ class ModelPredictions:
     def __init__(self, angles, classes, foreground):
         """
         :param angles: array of shape (x, y) of angles in radians
-        :param classes: array of shape (n_classes, x, y) of class predictions
+        :param classes: array of shape (x, y, n_classes) of class predictions
         :param foreground: array of shape (x, y) of foreground probabilities
         """
         self.angles = angles
@@ -510,6 +545,9 @@ class ModelPredictions:
             foreground = f["foreground"][:]
         return ModelPredictions(angles=angles, classes=classes, foreground=foreground)
 
+    def shape(self):
+        return self.angles.shape
+
     def clip(self, bbox):
         return ModelPredictions(
             angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
@@ -520,6 +558,10 @@ class ModelPredictions:
 
 class SegmentationResults:
     def __init__(self, segmentation):
+        """
+        :param segmentation: array of shape (x, y) of segment ids, 0 is background, -1 is border,
+            > 1 is a unique contiguous segment
+        """
         self.segmentation = segmentation
 
     def save_h5(self, path):

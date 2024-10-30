@@ -2,7 +2,6 @@ import argparse
 import logging
 import math
 import os.path
-import re
 
 import numpy as np
 import pandas
@@ -26,6 +25,7 @@ from nuc2seg.postprocess import (
 from nuc2seg.segment import (
     convert_transcripts_to_anndata,
 )
+from nuc2seg.utils import get_tile_idx
 from nuc2seg.xenium import (
     read_transcripts_into_points,
     load_nuclei,
@@ -119,12 +119,6 @@ def get_args():
     return args
 
 
-def get_tile_idx(fn):
-    fn_clean = os.path.splitext(os.path.basename(fn))[0]
-    # search for `tile_{number}` and extract number with regex
-    return int(re.search(r"tile_(\d+)", fn_clean).group(1))
-
-
 def main():
     args = get_args()
 
@@ -180,6 +174,13 @@ def main():
         )
     )
 
+    logger.info("Saving baysor_nucleus_intersecting_shapes")
+    baysor_nucleus_intersection.to_parquet(
+        os.path.join(
+            os.path.dirname(args.output), "baysor_nucleus_intersecting_shapes.parquet"
+        )
+    )
+
     logger.info("Creating anndata")
     adata = convert_transcripts_to_anndata(
         transcript_gdf=transcript_df,
@@ -214,13 +215,6 @@ def main():
 
     logger.info("Saving anndata")
     adata.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5ad"))
-
-    logger.info("Saving shapefile")
-    baysor_nucleus_intersection.to_parquet(
-        os.path.join(
-            os.path.dirname(args.output), "baysor_nucleus_intersecting_shapes.parquet"
-        )
-    )
 
     logger.info("Plotting final segmentation")
     plot_final_segmentation(
