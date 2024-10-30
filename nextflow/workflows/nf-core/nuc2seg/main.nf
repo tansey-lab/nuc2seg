@@ -145,8 +145,6 @@ workflow NUC2SEG {
         .combine(celltyping_results, by: 0)
         .tap { segment_input }
 
-    segment_input.view()
-
     SEGMENT( segment_input )
 
     if (params.dataset == null) {
