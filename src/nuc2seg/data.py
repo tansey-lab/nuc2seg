@@ -511,7 +511,7 @@ class ModelPredictions:
     def __init__(self, angles, classes, foreground):
         """
         :param angles: array of shape (x, y) of angles in radians
-        :param classes: array of shape (n_classes, x, y) of class predictions
+        :param classes: array of shape (x, y, n_classes) of class predictions
         :param foreground: array of shape (x, y) of foreground probabilities
         """
         self.angles = angles

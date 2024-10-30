@@ -60,9 +60,9 @@ def stitch_predictions(results, tiler: TilingModule):
 
 
 def forward_pass_result_to_obj(value):
-    foreground = torch.sigmoid(value[..., 0])
-    angles = torch.sigmoid(value[..., 1]) * 2 * torch.pi - torch.pi
-    classes = torch.softmax(value[..., 2:], dim=-1)
+    foreground = torch.sigmoid(value[..., 0]).squeeze()
+    angles = torch.sigmoid(value[..., 1]).squeeze() * 2 * torch.pi - torch.pi
+    classes = torch.softmax(value[..., 2:], dim=-1).squeeze()
     vector_x = 0.5 * torch.cos(angles)
     vector_y = 0.5 * torch.sin(angles)
     angles_stitched = torch.atan2(vector_y, vector_x)
@@ -553,7 +553,7 @@ def convert_segmentation_to_shapefile(
     segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
 ):
     records = []
-    classes = predictions.classes.transpose(1, 2, 0)
+    classes = predictions.classes
     segmentation_flattened = segmentation.flatten().astype(int)
     segmentation_flattened[segmentation_flattened == -1] = 0
     x, y = np.indices(segmentation.shape)

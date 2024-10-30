@@ -2,15 +2,11 @@ import argparse
 import logging
 import os.path
 
-import numpy as np
-import torch
+from pytorch_lightning import Trainer
 
 from nuc2seg import log_config
 from nuc2seg.segment import forward_pass_result_to_obj
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
-from nuc2seg.data import Nuc2SegDataset, TiledDataset
-from pytorch_lightning import Trainer
-from torch.utils.data.dataset import random_split
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +17,8 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
-        "--output",
-        help="Model prediction output in h5 format.",
+        "--output-dir",
+        help="Model prediction output dir.",
         type=str,
         required=True,
     )
@@ -94,15 +90,6 @@ def main():
 
     logger.info(f"Loading dataset from {args.dataset}")
 
-    ds = Nuc2SegDataset.load_h5(args.dataset)
-
-    tiled_dataset = TiledDataset(
-        ds,
-        tile_height=args.tile_height,
-        tile_width=args.tile_width,
-        tile_overlap=args.overlap_percentage,
-    )
-
     model = SparseUNet.load_from_checkpoint(args.model_weights)
 
     dm = Nuc2SegDataModule(
@@ -119,6 +106,8 @@ def main():
         accelerator=args.device,
         default_root_dir=os.path.dirname(args.model_weights),
     )
+
+    logger.info(f"Writing output to {args.dataset}")
 
     for item in trainer.predict(model, dm):
         value = item["value"]

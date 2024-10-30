@@ -62,7 +62,9 @@ workflow NUC2SEG {
         TRAIN( PREPROCESS.out.dataset.map {tuple(it[0], it[1], [])} )
 
         PREPROCESS.out.dataset
+            .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
             .join(TRAIN.out.weights)
+            .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
             .tap { predict_input }
     }
     else if (params.resume_weights != null) {
@@ -72,8 +74,9 @@ workflow NUC2SEG {
         )])
         TRAIN( train_input )
         train_input
-          .map { tuple(it[0], it[1]) }
+          .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
           .join(TRAIN.out.weights)
+          .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
           .tap { predict_input }
     }
     else {
@@ -83,18 +86,24 @@ workflow NUC2SEG {
                   []
             )])
             TRAIN( train_input )
+
             train_input
-                .map { tuple(it[0], it[1]) }
+                .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
                 .join(TRAIN.out.weights)
+                .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
                 .tap { predict_input }
         } else {
-            predict_input = Channel.fromList([tuple( [ id: name, single_end:false ], // meta map
-              file(params.dataset, checkIfExists: true),
-              file(params.weights, checkIfExists: true)
-            )])
+            Channel.fromList([tuple( [ id: name, single_end:false ],
+                file(params.dataset, checkIfExists: true))])
+              .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
+              .join(
+                Channel.fromList([tuple( [ id: name, single_end:false ],
+                  file(params.weights, checkIfExists: true))])
+              )
+              .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
+              .tap { predict_input }
         }
     }
-
     PREDICT( predict_input )
 
     TILE_XENIUM( ch_input.map { tuple(it[0], it[1], "parquet")} )
@@ -113,20 +122,22 @@ workflow NUC2SEG {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }.tap { tiled_transcripts }
 
-    tiled_transcripts.view()
-
     TILE_DATASET.out.dataset.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }.tap { tiled_dataset }
 
-    tiled_dataset.view()
+    PREDICT.out.predictions.transpose().map {
+        tuple(it[0], extractTileNumber(it[1]), it[1])
+    }.tap { tiled_predictions }
 
-    tiled_dataset.join(tiled_transcripts, by: [0,1]).tap { tiled_data }
+    tiled_dataset
+        .join(tiled_transcripts, by: [0,1])
+        .join(tiled_predictions, by: [0,1])
+        .tap { tiled_data }
 
     tiled_data.view()
 
     tiled_data
-        .join(PREDICT.out.predictions)
         .join(celltyping_results)
         .tap { segment_input }
 
