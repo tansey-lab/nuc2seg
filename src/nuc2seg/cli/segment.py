@@ -156,6 +156,10 @@ def main():
 
     logger.info("Predicting celltypes")
 
+    if len(ad) == 0:
+        logger.warning("No cells found in segmentation, skipping celltyping")
+        return
+
     celltype_predictions = predict_celltypes_for_anndata(
         prior_probs=celltyping_results.prior_probs[best_k],
         expression_profiles=celltyping_results.expression_profiles[best_k],
@@ -163,25 +167,24 @@ def main():
         gene_names=celltyping_results.gene_names,
     )
 
-    if celltype_predictions:
-        cell_type_labels = np.argmax(celltype_predictions, axis=1)
-        cell_type_labels = pandas.Categorical(
-            cell_type_labels,
-            categories=sorted(np.unique(cell_type_labels)),
-            ordered=True,
-        )
+    cell_type_labels = np.argmax(celltype_predictions, axis=1)
+    cell_type_labels = pandas.Categorical(
+        cell_type_labels,
+        categories=sorted(np.unique(cell_type_labels)),
+        ordered=True,
+    )
 
-        columns = [f"celltype_{i}_prob" for i in range(celltype_predictions.shape[1])]
-        celltype_df = pandas.DataFrame(celltype_predictions, columns=columns)
-        celltype_df["celltype_assignment"] = cell_type_labels
-        celltype_df["segment_id"] = ad.obs["segment_id"].values
+    columns = [f"celltype_{i}_prob" for i in range(celltype_predictions.shape[1])]
+    celltype_df = pandas.DataFrame(celltype_predictions, columns=columns)
+    celltype_df["celltype_assignment"] = cell_type_labels
+    celltype_df["segment_id"] = ad.obs["segment_id"].values
 
-        gdf = gdf.merge(
-            celltype_df, left_on="segment_id", right_on="segment_id", how="left"
-        )
-        ad.obs = ad.obs.merge(
-            celltype_df, left_on="segment_id", right_on="segment_id", how="left"
-        )
+    gdf = gdf.merge(
+        celltype_df, left_on="segment_id", right_on="segment_id", how="left"
+    )
+    ad.obs = ad.obs.merge(
+        celltype_df, left_on="segment_id", right_on="segment_id", how="left"
+    )
 
     logger.info(f"Saving anndata to {args.anndata_output}")
     ad.write_h5ad(args.anndata_output)

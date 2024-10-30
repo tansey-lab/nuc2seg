@@ -315,11 +315,24 @@ class Nuc2SegDataset:
             ]
         )
 
+        new_transcripts = self.transcripts[transcript_selector].copy()
+        new_transcripts[:, 0] = new_transcripts[:, 0] - bbox[0]
+        new_transcripts[:, 1] = new_transcripts[:, 1] - bbox[1]
+
+        new_labels = self.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy()
+        current_labels = np.unique(new_labels)
+        current_labels = current_labels[current_labels > 0]
+
+        for current_nuc_index, monotonically_increasing_index in zip(
+            current_labels, range(1, len(current_labels) + 1)
+        ):
+            new_labels[new_labels == current_nuc_index] = monotonically_increasing_index
+
         return Nuc2SegDataset(
-            labels=self.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            labels=new_labels,
             angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
             classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
-            transcripts=self.transcripts[transcript_selector].copy(),
+            transcripts=new_transcripts,
             bbox=new_bbox,
             n_classes=self.n_classes,
             n_genes=self.n_genes,

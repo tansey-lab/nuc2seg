@@ -151,25 +151,28 @@ def combine_segmentation_results(
             segmentation_gdf,
             centroid_gdf,
         )
-        joined_to_centroids = joined_to_centroids.drop_duplicates(subset=["segment_id"])
-        n_segments = (joined_to_centroids["tile_idx"] == tile_idx).sum()
-        segments_to_filter = joined_to_centroids[
-            joined_to_centroids["tile_idx"] != tile_idx
+
+        joined_to_centroids = joined_to_centroids.drop_duplicates(
+            subset=["segment_id"], keep="first"
+        )
+        segments_to_keep = joined_to_centroids[
+            joined_to_centroids["tile_idx"] == tile_idx
         ].segment_id.unique()
 
         ad = anndata.read_h5ad(anndata_fn)
-        ad = ad[~ad.obs["segment_id"].isin(segments_to_filter)].copy()
+        ad = ad[ad.obs["segment_id"].isin(segments_to_keep)].copy()
 
         new_segment_id_map = dict(
             zip(
-                sorted(ad.obs["segment_id"].unique()),
-                range(current_n_segments, current_n_segments + n_segments),
+                sorted(segments_to_keep),
+                range(current_n_segments, current_n_segments + len(segments_to_keep)),
             )
         )
+
         ad.obs["segment_id"] = ad.obs["segment_id"].map(new_segment_id_map)
 
         segment_gpd = segment_gpd[
-            ~segment_gpd["segment_id"].isin(segments_to_filter)
+            segment_gpd["segment_id"].isin(segments_to_keep)
         ].copy()
         segment_gpd["segment_id"] = segment_gpd["segment_id"].map(new_segment_id_map)
         gpd_results.append(segment_gpd)
@@ -179,11 +182,11 @@ def combine_segmentation_results(
         else:
             concatenated_anndata = ad
 
-        current_n_segments += n_segments
+        current_n_segments += len(segments_to_keep)
 
     return (
         concatenated_anndata,
-        pandas.concat(gpd_results),
+        pandas.concat(gpd_results, ignore_index=True),
     )
 
 
@@ -209,22 +212,16 @@ def main():
     logger.info(f"Plotting segmentation and class assignment.")
     plot_segmentation_class_assignment(
         segmentation_gdf=gdf,
-        output_path=os.path.join(
-            os.path.dirname(args.output_dir), "class_assignment.png"
-        ),
+        output_path=os.path.join(args.output_dir, "class_assignment.png"),
         cat_column="celltype_assignment",
     )
     celltype_area_violin(
         segmentation_gdf=gdf,
-        output_path=os.path.join(
-            os.path.dirname(args.output_dir), "celltype_area_violin.pdf"
-        ),
+        output_path=os.path.join(args.output_dir, "celltype_area_violin.png"),
         cat_column="celltype_assignment",
     )
     celltype_histogram(
         segmentation_gdf=gdf,
-        output_path=os.path.join(
-            os.path.dirname(args.output_dir), "celltype_histograms.pdf"
-        ),
+        output_path=os.path.join(args.output_dir, "celltype_histograms.png"),
         cat_column="celltype_assignment",
     )

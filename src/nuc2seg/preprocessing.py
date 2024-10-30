@@ -320,15 +320,5 @@ def tile_dataset_to_disk(dataset: Nuc2SegDataset, tile_size, overlap, output_dir
     ):
         dataset_tile = dataset.clip((x1, y1, x2, y2))
 
-        current_labels = np.unique(dataset_tile.labels)
-        current_labels = current_labels[current_labels > 0]
-
-        for current_nuc_index, monotonically_increasing_index in zip(
-            current_labels, range(1, len(current_labels) + 1)
-        ):
-            dataset_tile.labels[dataset_tile.labels == current_nuc_index] = (
-                monotonically_increasing_index
-            )
-
         output_path = os.path.join(output_dir, f"dataset_tile_{idx}.h5")
         dataset_tile.save_h5(output_path)

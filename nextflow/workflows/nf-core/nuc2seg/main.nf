@@ -120,26 +120,32 @@ workflow NUC2SEG {
 
     TILE_XENIUM.out.transcripts.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
-    }.tap { tiled_transcripts }
+    }
+        .tap { tiled_transcripts }
+
 
     TILE_DATASET.out.dataset.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
-    }.tap { tiled_dataset }
+    }
+        .tap { tiled_dataset }
+
 
     PREDICT.out.predictions.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
-    }.tap { tiled_predictions }
+    }
+        .tap { tiled_predictions }
+
 
     tiled_dataset
         .join(tiled_transcripts, by: [0,1])
         .join(tiled_predictions, by: [0,1])
         .tap { tiled_data }
 
-    tiled_data.view()
-
     tiled_data
-        .join(celltyping_results)
+        .combine(celltyping_results, by: 0)
         .tap { segment_input }
+
+    segment_input.view()
 
     SEGMENT( segment_input )
 

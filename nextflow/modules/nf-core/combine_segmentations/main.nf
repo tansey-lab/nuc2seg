@@ -11,8 +11,7 @@ process COMBINE_SEGMENTATIONS {
     output:
     tuple val(meta), path("${prefix}/shapes.parquet")                            , emit: shapefile
     tuple val(meta), path("${prefix}/anndata.h5ad")                              , emit: anndata
-    tuple val(meta), path("${prefix}/*.png")                                     , emit: plot
-    tuple val(meta), path("${prefix}/celltype_probability_plots/*.png")          , emit: celltype_probability_plots
+    tuple val(meta), path("${prefix}/*.png")                                     , emit: plots
     path  "versions.yml"                                                         , emit: versions
 
 
