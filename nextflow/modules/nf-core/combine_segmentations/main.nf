@@ -9,7 +9,6 @@ process COMBINE_SEGMENTATIONS {
     tuple val(meta), path(dataset), path(segmentations), path(shapefiles), path(adatas)
 
     output:
-    tuple val(meta), path("${prefix}/segmentation.h5")                           , emit: segmentation
     tuple val(meta), path("${prefix}/shapes.parquet")                            , emit: shapefile
     tuple val(meta), path("${prefix}/anndata.h5ad")                              , emit: anndata
     tuple val(meta), path("${prefix}/*.png")                                     , emit: plot
@@ -26,6 +25,7 @@ process COMBINE_SEGMENTATIONS {
     """
     mkdir -p "${prefix}"
     combine_segmentations \
+        --output-dir "${prefix}" \
         --dataset ${dataset} \
         --segmentation-outputs ${segmentations} \
         --adatas ${adatas} \

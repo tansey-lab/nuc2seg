@@ -139,13 +139,20 @@ def main():
     result.save_h5(args.output)
 
     gdf = convert_segmentation_to_shapefile(
-        segmentation=result.segmentation, dataset=dataset, predictions=predictions
+        segmentation=result.segmentation,
+        dataset=dataset,
+        predictions=predictions,
+        translate=False,
     )
 
     logger.info("Creating anndata")
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
     )
+    if "centroid_x" in ad.obs.columns:
+        ad.obs["centroid_x"] = gdf["centroid_x"] + dataset.bbox[0]
+    if "centroid_y" in ad.obs.columns:
+        ad.obs["centroid_y"] = gdf["centroid_y"] + dataset.bbox[1]
 
     logger.info("Predicting celltypes")
 
@@ -180,4 +187,8 @@ def main():
     ad.write_h5ad(args.anndata_output)
 
     logger.info(f"Saving shapefile to {args.shapefile_output}")
+
+    # translate back to original coordinates
+    gdf["geometry"] = gdf.translate(*dataset.bbox[:2])
+
     gdf.to_parquet(args.shapefile_output)

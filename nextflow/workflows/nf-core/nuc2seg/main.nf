@@ -171,20 +171,4 @@ workflow NUC2SEG {
         .set{ create_spatialdata_input }
 
     CREATE_SPATIALDATA( create_spatialdata_input )
-
-    if (params.dataset == null) {
-        PREPROCESS.out.dataset
-            .join(PREDICT.out.predictions)
-            .join(SEGMENT.out.segmentation)
-            .tap { plot_input }
-    } else {
-        Channel.fromList([tuple( [ id: name, single_end:false ],
-          file(params.dataset, checkIfExists: true)
-        )])
-            .join(PREDICT.out.predictions)
-            .join(SEGMENT.out.segmentation)
-            .tap { plot_input }
-    }
-
-    PLOT_PREDICTIONS( plot_input )
 }

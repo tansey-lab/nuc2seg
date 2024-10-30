@@ -550,7 +550,7 @@ def segmentation_array_to_shapefile(segmentation):
 
 
 def convert_segmentation_to_shapefile(
-    segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions
+    segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions, translate=True
 ):
     records = []
     classes = predictions.classes
@@ -585,11 +585,12 @@ def convert_segmentation_to_shapefile(
     for cell_id, coords in tqdm.tqdm(list(zip(cell_ids, coordinates))):
         record = {}
         poly = pixel_coords_to_polygon(coords)
-        poly = affinity.translate(
-            poly,
-            xoff=dataset.bbox[0],
-            yoff=dataset.bbox[1],
-        )
+        if translate:
+            poly = affinity.translate(
+                poly,
+                xoff=dataset.bbox[0],
+                yoff=dataset.bbox[1],
+            )
 
         record["geometry"] = poly
         gb_idx = groupby_idx_lookup[cell_id]

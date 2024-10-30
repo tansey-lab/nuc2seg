@@ -29,6 +29,12 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
+        "--output-dir",
+        help="Directory to save combined files.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
         "--dataset",
         help="Path to dataset in h5 format.",
         type=str,
@@ -196,23 +202,29 @@ def main():
         base_size=dataset.labels.shape,
     )
 
+    concatenated_anndata.write_h5ad(os.path.join(args.output_dir, "anndata.h5ad"))
+
+    gdf.to_parquet(os.path.join(args.output_dir, "shapes.parquet"))
+
     logger.info(f"Plotting segmentation and class assignment.")
     plot_segmentation_class_assignment(
         segmentation_gdf=gdf,
-        output_path=os.path.join(os.path.dirname(args.output), "class_assignment.png"),
+        output_path=os.path.join(
+            os.path.dirname(args.output_dir), "class_assignment.png"
+        ),
         cat_column="celltype_assignment",
     )
     celltype_area_violin(
         segmentation_gdf=gdf,
         output_path=os.path.join(
-            os.path.dirname(args.output), "celltype_area_violin.pdf"
+            os.path.dirname(args.output_dir), "celltype_area_violin.pdf"
         ),
         cat_column="celltype_assignment",
     )
     celltype_histogram(
         segmentation_gdf=gdf,
         output_path=os.path.join(
-            os.path.dirname(args.output), "celltype_histograms.pdf"
+            os.path.dirname(args.output_dir), "celltype_histograms.pdf"
         ),
         cat_column="celltype_assignment",
     )
