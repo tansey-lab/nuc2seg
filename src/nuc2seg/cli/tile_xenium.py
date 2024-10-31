@@ -123,17 +123,10 @@ def main():
     transcripts["x_location"] = transcripts["x_location"] - bounds[0]
     transcripts["y_location"] = transcripts["y_location"] - bounds[1]
     transcripts["geometry"] = transcripts.translate(-bounds[0], -bounds[1])
-    nuclei_df = pd.read_parquet(args.nuclei_file)
-    nuclei_df["vertex_x"] = nuclei_df["vertex_x"].astype(float)
-    nuclei_df["vertex_y"] = nuclei_df["vertex_y"].astype(float)
-    nuclei_df["vertex_x"] = nuclei_df["vertex_x"] - bounds[0]
-    nuclei_df["vertex_y"] = nuclei_df["vertex_y"] - bounds[1]
-
     mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
 
     transcripts["nucleus_id"] = 0
     transcripts.loc[mask, "nucleus_id"] = transcripts["cell_id"][mask]
-
     logger.info(f"Writing transcripts to {args.transcript_output_dir}")
     tile_transcripts_to_disk(
         transcripts=transcripts,
@@ -142,6 +135,15 @@ def main():
         output_dir=args.transcript_output_dir,
         output_format=args.output_format,
     )
+
+    del transcripts
+
+    logger.info("loading nuclei")
+    nuclei_df = pd.read_parquet(args.nuclei_file)
+    nuclei_df["vertex_x"] = nuclei_df["vertex_x"].astype(float)
+    nuclei_df["vertex_y"] = nuclei_df["vertex_y"].astype(float)
+    nuclei_df["vertex_x"] = nuclei_df["vertex_x"] - bounds[0]
+    nuclei_df["vertex_y"] = nuclei_df["vertex_y"] - bounds[1]
 
     logger.info(f"Writing nuclei to {args.nuclei_output_dir}")
     tile_nuclei_to_disk(
