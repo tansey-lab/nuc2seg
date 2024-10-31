@@ -605,7 +605,7 @@ class Nuc2SegDataModule(LightningDataModule):
         if n_val <= 0 or n_train <= 0:
             raise ValueError("Not enough data to split into train and validation sets")
 
-        if self.predict_n_threads and self.predict_thread_idx:
+        if self.predict_n_threads is not None and self.predict_thread_idx is not None:
             self.predict_set = random_split(
                 dataset, equal_length_splits(len(dataset), self.predict_n_threads)
             )[self.predict_thread_idx]

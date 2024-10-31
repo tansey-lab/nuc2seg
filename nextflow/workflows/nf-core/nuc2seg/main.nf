@@ -63,7 +63,7 @@ workflow NUC2SEG {
 
         PREPROCESS.out.dataset
             .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
-            .join(TRAIN.out.weights)
+            .combine(TRAIN.out.weights, by: 0)
             .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
             .tap { predict_input }
     }
@@ -75,7 +75,7 @@ workflow NUC2SEG {
         TRAIN( train_input )
         train_input
           .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
-          .join(TRAIN.out.weights)
+          .combine(TRAIN.out.weights, by: 0)
           .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
           .tap { predict_input }
     }
@@ -89,21 +89,23 @@ workflow NUC2SEG {
 
             train_input
                 .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
-                .join(TRAIN.out.weights)
+                .combine(TRAIN.out.weights, by: 0)
                 .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
                 .tap { predict_input }
         } else {
             Channel.fromList([tuple( [ id: name, single_end:false ],
                 file(params.dataset, checkIfExists: true))])
               .flatMap { create_parallel_sequence(it[0], it[1], params.n_predict_jobs) }
-              .join(
+              .combine(
                 Channel.fromList([tuple( [ id: name, single_end:false ],
-                  file(params.weights, checkIfExists: true))])
+                  file(params.weights, checkIfExists: true))]), by: 0
               )
               .map { tuple(it[0], it[1], it[4], it[2], it[3]) }
               .tap { predict_input }
         }
     }
+
+
     PREDICT( predict_input )
 
     TILE_XENIUM( ch_input.map { tuple(it[0], it[1], "parquet")} )
