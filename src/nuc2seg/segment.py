@@ -601,10 +601,12 @@ def convert_segmentation_to_shapefile(
         record["unet_celltype_assignment"] = class_assignment
         for i, val in enumerate(mean_probs):
             record[f"unet_celltype_{i}_prob"] = val
-        record["segment_id"] = cell_id
+        record["segment_id"] = cell_id - 1
         records.append(record)
 
     gdf = geopandas.GeoDataFrame(records, geometry="geometry")
+
+    gdf["geometry"] = gdf.translate(dataset.bbox[0], dataset.bbox[1])
 
     gdf.reset_index(inplace=True, drop=True)
 

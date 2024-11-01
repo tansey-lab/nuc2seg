@@ -224,15 +224,19 @@ def create_nuc2seg_dataset(
 
 
 def tile_transcripts_to_disk(
-    transcripts, tile_size, overlap, output_dir, output_format: str
+    transcripts, bounds, tile_size, overlap, output_dir, output_format: str
 ):
-    x_max = math.ceil(transcripts["x_location"].max())
-    y_max = math.ceil(transcripts["y_location"].max())
+    if bounds is None:
+        x_offset = 0
+        y_offset = 0
+    else:
+        x_offset = bounds[0]
+        y_offset = bounds[1]
 
     tiler = TilingModule(
         tile_size=tile_size,
         tile_overlap=(overlap, overlap),
-        base_size=(x_max, y_max),
+        base_size=(bounds[2] - bounds[0], bounds[3] - bounds[1]),
     )
 
     total_n_transcripts = len(transcripts)
@@ -241,19 +245,33 @@ def tile_transcripts_to_disk(
     for idx, (x1, y1, x2, y2) in enumerate(
         generate_tiles(
             tiler,
-            x_extent=x_max,
-            y_extent=y_max,
+            x_extent=(bounds[2] - bounds[0]),
+            y_extent=(bounds[3] - bounds[1]),
             overlap_fraction=overlap,
             tile_size=tile_size,
         )
     ):
-        selection = (
-            (transcripts["x_location"] >= x1)
-            & (transcripts["x_location"] < x2)
-            & (transcripts["y_location"] >= y1)
-            & (transcripts["y_location"] < y2)
+
+        print(
+            (
+                (x1 + x_offset),
+                (x2 + x_offset),
+                (y1 + y_offset),
+                (y2 + y_offset),
+            )
         )
+        selection = (
+            (transcripts["x_location"] >= (x1 + x_offset))
+            & (transcripts["x_location"] < (x2 + x_offset))
+            & (transcripts["y_location"] >= (y1 + y_offset))
+            & (transcripts["y_location"] < (y2 + y_offset))
+        )
+
         if selection.sum() == 0:
+            print(transcripts.head())
+            print(transcripts.count())
+            print((transcripts["x_location"].min(), transcripts["x_location"].max()))
+            print((transcripts["y_location"].min(), transcripts["y_location"].max()))
             continue
 
         transcripts_view = transcripts[selection]
@@ -269,34 +287,46 @@ def tile_transcripts_to_disk(
 def tile_nuclei_to_disk(
     nuclei_df, bounds, tile_size, overlap, output_dir, output_format: str
 ):
+    if bounds is None:
+        x_offset = 0
+        y_offset = 0
+    else:
+        x_offset = bounds[0]
+        y_offset = bounds[1]
+
     tiler = TilingModule(
         tile_size=tile_size,
         tile_overlap=(overlap, overlap),
-        base_size=(int(bounds[2]), int(bounds[3])),
+        base_size=(bounds[2] - bounds[0], bounds[3] - bounds[1]),
     )
 
-    total_n_nuclei = len(bounds)
+    total_n_nuclei = len(nuclei_df)
     pbar = tqdm.tqdm(total=total_n_nuclei)
 
     for idx, (x1, y1, x2, y2) in enumerate(
         generate_tiles(
             tiler,
-            x_extent=bounds[2],
-            y_extent=bounds[3],
+            x_extent=(bounds[2] - bounds[0]),
+            y_extent=(bounds[3] - bounds[1]),
             overlap_fraction=overlap,
             tile_size=tile_size,
         )
     ):
         selection = (
-            (nuclei_df["vertex_x"] >= x1)
-            & (nuclei_df["vertex_x"] < x2)
-            & (nuclei_df["vertex_y"] >= y1)
-            & (nuclei_df["vertex_y"] < y2)
+            (nuclei_df["vertex_x"] >= (x1 + x_offset))
+            & (nuclei_df["vertex_x"] < (x2 + x_offset))
+            & (nuclei_df["vertex_y"] >= (y1 + y_offset))
+            & (nuclei_df["vertex_y"] < (y2 + y_offset))
         )
         filtered_df = nuclei_df[selection]
 
+        unique_nuclei_ids = filtered_df["cell_id"].unique()
+
+        filtered_df = filtered_df[filtered_df["cell_id"].isin(unique_nuclei_ids)]
+
         if len(filtered_df) == 0:
             continue
+
         output_path = os.path.join(output_dir, f"nuclei_tile_{idx}.{output_format}")
         if output_format == "csv":
             filtered_df.to_csv(output_path, index=False)

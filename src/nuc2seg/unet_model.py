@@ -13,7 +13,7 @@ from nuc2seg.evaluate import (
     celltype_accuracy,
 )
 from typing import Optional
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, Subset
 
 
 class UNet(nn.Module):
@@ -503,8 +503,13 @@ class SparseUNet(LightningModule):
         )
 
     def predict_step(self, batch, batch_idx):
-        x, y, z = batch["X"], batch["Y"], batch["gene"]
-        return {"value": self.forward(x, y, z), "tile_index": batch_idx}
+        x, y, z, tile_index = (
+            batch["X"],
+            batch["Y"],
+            batch["gene"],
+            batch["tile_index"].item(),
+        )
+        return {"value": self.forward(x, y, z), "tile_index": tile_index}
 
     def on_validation_epoch_end(self):
         if len(self.validation_step_outputs) == 0:
@@ -530,7 +535,7 @@ class SparseUNet(LightningModule):
         self.validation_step_outputs.clear()
 
 
-def equal_length_splits(total_size: int, n_splits: int) -> list[int]:
+def equal_length_splits(total_size: int, n_splits: int) -> list[list[int]]:
     """
     Create a list of roughly equal integer splits that sum to total_size.
 
@@ -551,7 +556,15 @@ def equal_length_splits(total_size: int, n_splits: int) -> list[int]:
     remainder = total_size % n_splits
 
     # First 'remainder' groups get an extra item to distribute the remainder
-    return [base_size + 1 if i < remainder else base_size for i in range(n_splits)]
+    sizes = [base_size + 1 if i < remainder else base_size for i in range(n_splits)]
+
+    idx_gen = iter(range(total_size))
+
+    output = []
+
+    for s in sizes:
+        output.append([next(idx_gen) for _ in range(s)])
+    return output
 
 
 class Nuc2SegDataModule(LightningDataModule):
@@ -606,9 +619,12 @@ class Nuc2SegDataModule(LightningDataModule):
             raise ValueError("Not enough data to split into train and validation sets")
 
         if self.predict_n_threads is not None and self.predict_thread_idx is not None:
-            self.predict_set = random_split(
-                dataset, equal_length_splits(len(dataset), self.predict_n_threads)
-            )[self.predict_thread_idx]
+            self.predict_set = Subset(
+                dataset,
+                equal_length_splits(len(dataset), self.predict_n_threads)[
+                    self.predict_thread_idx
+                ],
+            )
         else:
             self.predict_set = dataset
 

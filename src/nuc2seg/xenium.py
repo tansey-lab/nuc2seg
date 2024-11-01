@@ -120,7 +120,7 @@ def load_and_filter_transcripts_as_table(
         & (transcripts_df[y_column_name] < sample_area.bounds[3])
     )
 
-    transcripts_df.drop(transcripts_df[sample_area_filter].index, inplace=True, axis=0)
+    transcripts_df = transcripts_df[sample_area_filter].copy()
 
     transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
 
@@ -195,9 +195,7 @@ def filter_and_preprocess_transcripts(transcripts_df, min_qv):
         inplace=True,
         axis=0,
     )
-    transcripts_df.drop(
-        transcripts_df[(transcripts_df["qv"] < min_qv)].index, inplace=True, axis=0
-    )
+    transcripts_df = transcripts_df[(transcripts_df["qv"] < min_qv)].copy()
 
     # Assign a unique integer ID to each gene
     gene_ids = transcripts_df["feature_name"].unique()

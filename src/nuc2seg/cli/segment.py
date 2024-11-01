@@ -1,31 +1,22 @@
 import argparse
 import logging
-import os.path
+
 import numpy as np
 import pandas
 
 from nuc2seg import log_config
+from nuc2seg.celltyping import (
+    predict_celltypes_for_anndata,
+    select_best_celltyping_chain,
+)
+from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
 from nuc2seg.segment import (
     greedy_cell_segmentation,
     convert_segmentation_to_shapefile,
     convert_transcripts_to_anndata,
 )
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
-from nuc2seg.plotting import (
-    plot_final_segmentation,
-    plot_segmentation_class_assignment,
-    celltype_histogram,
-    celltype_area_violin,
-    plot_class_probabilities_image,
-)
 from nuc2seg.xenium import (
     load_and_filter_transcripts_as_points,
-    load_nuclei,
-    create_shapely_rectangle,
-)
-from nuc2seg.celltyping import (
-    predict_celltypes_for_anndata,
-    select_best_celltyping_chain,
 )
 
 logger = logging.getLogger(__name__)

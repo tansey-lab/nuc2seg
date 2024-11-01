@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pandas as pd
+import math
 
 from nuc2seg import log_config
 from nuc2seg.xenium import (
@@ -101,7 +102,7 @@ def main():
     log_config.configure_logging(args)
 
     if args.sample_area is not None:
-        bounds = list(map(float, args.sample_area.split(",")))
+        bounds = list(map(int, args.sample_area.split(",")))
         sample_area = box(*bounds)
     else:
         sample_area = None
@@ -116,12 +117,9 @@ def main():
         bounds = [
             0,
             0,
-            transcripts["x_location"].max(),
-            transcripts["y_location"].max(),
+            math.ceil(transcripts["x_location"].max()),
+            math.ceil(transcripts["y_location"].max()),
         ]
-
-    transcripts["x_location"] = transcripts["x_location"] - bounds[0]
-    transcripts["y_location"] = transcripts["y_location"] - bounds[1]
 
     mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
 
@@ -130,6 +128,7 @@ def main():
     logger.info(f"Writing transcripts to {args.transcript_output_dir}")
     tile_transcripts_to_disk(
         transcripts=transcripts,
+        bounds=bounds,
         tile_size=(args.tile_height, args.tile_width),
         overlap=args.overlap_percentage,
         output_dir=args.transcript_output_dir,
@@ -140,10 +139,6 @@ def main():
 
     logger.info("loading nuclei")
     nuclei_df = pd.read_parquet(args.nuclei_file)
-    nuclei_df["vertex_x"] = nuclei_df["vertex_x"].astype(float)
-    nuclei_df["vertex_y"] = nuclei_df["vertex_y"].astype(float)
-    nuclei_df["vertex_x"] = nuclei_df["vertex_x"] - bounds[0]
-    nuclei_df["vertex_y"] = nuclei_df["vertex_y"] - bounds[1]
 
     logger.info(f"Writing nuclei to {args.nuclei_output_dir}")
     tile_nuclei_to_disk(
