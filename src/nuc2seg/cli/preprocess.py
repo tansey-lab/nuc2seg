@@ -7,7 +7,7 @@ from nuc2seg import log_config
 from matplotlib import pyplot as plt
 from nuc2seg.xenium import (
     load_nuclei,
-    load_and_filter_transcripts,
+    load_transcripts_as_points,
     create_shapely_rectangle,
 )
 from nuc2seg.celltyping import (
@@ -130,7 +130,7 @@ def main():
         sample_area=sample_area,
     )
 
-    tx_geo_df = load_and_filter_transcripts(
+    tx_geo_df = load_transcripts_as_points(
         transcripts_file=args.transcripts_file,
         sample_area=sample_area,
         min_qv=args.min_qv,

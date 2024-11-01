@@ -5,7 +5,7 @@ import numpy as np
 from nuc2seg import log_config
 from nuc2seg.xenium import (
     load_nuclei,
-    load_and_filter_transcripts,
+    load_transcripts_as_points,
     create_shapely_rectangle,
 )
 from nuc2seg.celltyping import fit_celltyping_on_segments_and_transcripts
@@ -132,7 +132,7 @@ def main():
         after_size = len(nuclei_geo_df)
         logger.info(f"Downsampled nuclei from {prior_size} to {after_size}")
 
-    tx_geo_df = load_and_filter_transcripts(
+    tx_geo_df = load_transcripts_as_points(
         transcripts_file=args.transcripts_file,
         sample_area=sample_area,
         min_qv=args.min_qv,

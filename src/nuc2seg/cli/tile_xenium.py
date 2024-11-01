@@ -4,7 +4,7 @@ import pandas as pd
 
 from nuc2seg import log_config
 from nuc2seg.xenium import (
-    load_and_filter_transcripts,
+    load_transcripts_as_points,
 )
 from nuc2seg.preprocessing import (
     tile_transcripts_to_disk,
@@ -106,7 +106,7 @@ def main():
     else:
         sample_area = None
 
-    transcripts = load_and_filter_transcripts(
+    transcripts = load_transcripts_as_points(
         transcripts_file=args.transcripts,
         sample_area=sample_area,
         min_qv=args.min_qv,
