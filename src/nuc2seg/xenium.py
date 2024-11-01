@@ -33,10 +33,7 @@ def get_bounding_box(poly: shapely.Polygon):
 def filter_gdf_to_inside_polygon(gdf, polygon=None):
     if polygon is None:
         return gdf
-
-    gdf.drop(~(gdf.geometry.intersects(polygon)).index, inplace=True, axis=0)
-
-    return gdf
+    return gdf[gdf.geometry.intersects(polygon)]
 
 
 def read_boundaries_into_polygons(
@@ -116,8 +113,6 @@ def load_and_filter_transcripts_as_table(
         ],
     )
 
-    transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
-
     sample_area_filter = (
         (transcripts_df[x_column_name] >= sample_area.bounds[0])
         & (transcripts_df[x_column_name] < sample_area.bounds[2])
@@ -126,6 +121,8 @@ def load_and_filter_transcripts_as_table(
     )
 
     transcripts_df.drop(transcripts_df[sample_area_filter].index, inplace=True, axis=0)
+
+    transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
 
     return transcripts_df
 
@@ -206,7 +203,7 @@ def filter_and_preprocess_transcripts(transcripts_df, min_qv):
     gene_ids = transcripts_df["feature_name"].unique()
     mapping = dict(zip(sorted(gene_ids), np.arange(len(gene_ids))))
     transcripts_df["gene_id"] = transcripts_df["feature_name"].apply(
-        lambda x: mapping.get(x, 0)
+        lambda x: mapping[x]
     )
 
     return transcripts_df
@@ -216,7 +213,9 @@ def load_and_filter_transcripts_as_points(
     transcripts_file: str, sample_area: Optional[shapely.Polygon] = None, min_qv=20.0
 ):
     transcripts_df = read_transcripts_into_points(transcripts_file)
-    filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
+
+    if transcripts_df.empty:
+        raise ValueError("No transcripts found in the sample area")
 
     original_count = len(transcripts_df)
 
@@ -225,12 +224,11 @@ def load_and_filter_transcripts_as_points(
 
     count_after_bbox = len(transcripts_df)
 
+    transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
+
     logger.info(
         f"{original_count - count_after_bbox} tx filtered after bounding to {sample_area}"
     )
-
-    if transcripts_df.empty:
-        raise ValueError("No transcripts found in the sample area")
 
     return transcripts_df
 
