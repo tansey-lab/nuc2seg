@@ -19,7 +19,7 @@ from nuc2seg.plotting import (
     plot_class_probabilities_image,
 )
 from nuc2seg.xenium import (
-    read_transcripts_into_points,
+    load_and_filter_transcripts_as_points,
     load_nuclei,
     create_shapely_rectangle,
 )
@@ -115,7 +115,7 @@ def main():
     args = get_parser().parse_args()
     dataset = Nuc2SegDataset.load_h5(args.dataset)
 
-    transcripts = read_transcripts_into_points(args.transcripts)
+    transcripts = load_and_filter_transcripts_as_points(args.transcripts)
     predictions = ModelPredictions.load_h5(args.predictions)
 
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]

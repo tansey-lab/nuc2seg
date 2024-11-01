@@ -4,7 +4,7 @@ import pandas as pd
 
 from nuc2seg import log_config
 from nuc2seg.xenium import (
-    load_transcripts_as_points,
+    load_and_filter_transcripts_as_table,
 )
 from nuc2seg.preprocessing import (
     tile_transcripts_to_disk,
@@ -106,7 +106,7 @@ def main():
     else:
         sample_area = None
 
-    transcripts = load_transcripts_as_points(
+    transcripts = load_and_filter_transcripts_as_table(
         transcripts_file=args.transcripts,
         sample_area=sample_area,
         min_qv=args.min_qv,
@@ -122,7 +122,7 @@ def main():
 
     transcripts["x_location"] = transcripts["x_location"] - bounds[0]
     transcripts["y_location"] = transcripts["y_location"] - bounds[1]
-    transcripts["geometry"] = transcripts.translate(-bounds[0], -bounds[1])
+
     mask = (transcripts["cell_id"] > 0) & (transcripts["overlaps_nucleus"].astype(bool))
 
     transcripts["nucleus_id"] = 0

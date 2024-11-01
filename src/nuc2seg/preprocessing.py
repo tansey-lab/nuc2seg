@@ -247,20 +247,23 @@ def tile_transcripts_to_disk(
             tile_size=tile_size,
         )
     ):
-        bbox = create_shapely_rectangle(x1, y1, x2, y2)
-        filtered_df = filter_gdf_to_inside_polygon(transcripts, bbox)
-        if len(filtered_df) == 0:
+        selection = (
+            (transcripts["x_location"] >= x1)
+            & (transcripts["x_location"] < x2)
+            & (transcripts["y_location"] >= y1)
+            & (transcripts["y_location"] < y2)
+        )
+        if selection.sum() == 0:
             continue
+
+        transcripts_view = transcripts[selection]
+
         output_path = os.path.join(output_dir, f"transcript_tile_{idx}.{output_format}")
         if output_format == "csv":
-            pd.DataFrame(filtered_df.drop(columns="geometry")).to_csv(
-                output_path, index=False
-            )
+            transcripts_view.to_csv(output_path, index=False)
         elif output_format == "parquet":
-            pd.DataFrame(filtered_df.drop(columns="geometry")).to_parquet(
-                output_path, index=False
-            )
-        pbar.update(len(filtered_df))
+            transcripts_view.to_parquet(output_path, index=False)
+        pbar.update(len(transcripts_view))
 
 
 def tile_nuclei_to_disk(

@@ -11,7 +11,6 @@ from shapely import Polygon
 from shapely.geometry import box
 from typing import Optional
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -94,8 +93,10 @@ def read_transcripts_into_points(
     return tx_geo_df
 
 
-def read_transcripts_as_table(
-    transcripts_file,
+def load_and_filter_transcripts_as_table(
+    transcripts_file: str,
+    sample_area: Optional[shapely.Polygon] = None,
+    min_qv=20.0,
     x_column_name="x_location",
     y_column_name="y_location",
     feature_name_column="feature_name",
@@ -103,7 +104,7 @@ def read_transcripts_as_table(
     cell_id_column="cell_id",
     overlaps_nucleus_column="overlaps_nucleus",
 ):
-    transcripts = pd.read_parquet(
+    transcripts_df = pd.read_parquet(
         transcripts_file,
         columns=[
             feature_name_column,
@@ -115,6 +116,19 @@ def read_transcripts_as_table(
         ],
     )
 
+    transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
+
+    sample_area_filter = (
+        (transcripts_df[x_column_name] >= sample_area.bounds[0])
+        & (transcripts_df[x_column_name] < sample_area.bounds[2])
+        & (transcripts_df[y_column_name] >= sample_area.bounds[1])
+        & (transcripts_df[y_column_name] < sample_area.bounds[3])
+    )
+
+    transcripts_df.drop(transcripts_df[sample_area_filter].index, inplace=True, axis=0)
+
+    return transcripts_df
+
 
 def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None):
     nuclei_geo_df = read_boundaries_into_polygons(nuclei_file)
@@ -124,7 +138,7 @@ def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None)
     nuclei_geo_df = filter_gdf_to_inside_polygon(nuclei_geo_df, sample_area)
 
     logger.info(
-        f"{original_n_nuclei-nuclei_geo_df.shape[0]} nuclei filtered after bounding to {sample_area}"
+        f"{original_n_nuclei - nuclei_geo_df.shape[0]} nuclei filtered after bounding to {sample_area}"
     )
 
     if nuclei_geo_df.empty:
@@ -198,7 +212,7 @@ def filter_and_preprocess_transcripts(transcripts_df, min_qv):
     return transcripts_df
 
 
-def load_transcripts_as_points(
+def load_and_filter_transcripts_as_points(
     transcripts_file: str, sample_area: Optional[shapely.Polygon] = None, min_qv=20.0
 ):
     transcripts_df = read_transcripts_into_points(transcripts_file)
@@ -212,7 +226,7 @@ def load_transcripts_as_points(
     count_after_bbox = len(transcripts_df)
 
     logger.info(
-        f"{original_count-count_after_bbox} tx filtered after bounding to {sample_area}"
+        f"{original_count - count_after_bbox} tx filtered after bounding to {sample_area}"
     )
 
     if transcripts_df.empty:

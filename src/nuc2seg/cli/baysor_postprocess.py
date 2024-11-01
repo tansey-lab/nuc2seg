@@ -27,7 +27,7 @@ from nuc2seg.segment import (
 )
 from nuc2seg.utils import get_tile_idx
 from nuc2seg.xenium import (
-    read_transcripts_into_points,
+    load_and_filter_transcripts_as_points,
     load_nuclei,
     create_shapely_rectangle,
 )
@@ -129,7 +129,7 @@ def main():
         )
     else:
         sample_area = None
-    transcript_df = read_transcripts_into_points(args.transcripts)
+    transcript_df = load_and_filter_transcripts_as_points(args.transcripts)
 
     x_extent = math.ceil(transcript_df["x_location"].astype(float).max())
     y_extent = math.ceil(transcript_df["y_location"].astype(float).max())
