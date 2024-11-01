@@ -140,10 +140,6 @@ def main():
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
     )
-    if "centroid_x" in ad.obs.columns:
-        ad.obs["centroid_x"] = gdf["centroid_x"] + dataset.bbox[0]
-    if "centroid_y" in ad.obs.columns:
-        ad.obs["centroid_y"] = gdf["centroid_y"] + dataset.bbox[1]
 
     logger.info("Predicting celltypes")
 
