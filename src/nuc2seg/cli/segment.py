@@ -136,6 +136,8 @@ def main():
         translate=False,
     )
 
+    gdf["geometry"] = gdf.translate(*dataset.bbox[:2])
+
     logger.info("Creating anndata")
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
