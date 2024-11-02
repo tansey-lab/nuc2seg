@@ -279,7 +279,8 @@ def fit_celltyping_on_segments_and_transcripts(
         tx_geo_df, nuclei_geo_df, distance_col="nucleus_distance"
     )
 
-    n_genes = tx_geo_df["gene_id"].nunique()
+    n_genes = tx_geo_df["gene_id"].max() + 1
+    gene_id_to_name = dict(zip(tx_geo_df["gene_id"], tx_geo_df["feature_name"]))
 
     nuclei_count_geo_df = tx_nuclei_geo_df[
         tx_nuclei_geo_df["nucleus_distance"] <= foreground_nucleus_distance

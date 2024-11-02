@@ -21,6 +21,7 @@ process COMBINE_SEGMENTATIONS {
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
+    def sample_area_arg = params.sample_area == null ? "" : "--sample-area ${params.sample_area}"
     """
     mkdir -p "${prefix}"
     combine_segmentations \
@@ -32,6 +33,7 @@ process COMBINE_SEGMENTATIONS {
         --tile-width ${params.tile_width} \
         --tile-height ${params.tile_height} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${sample_area_arg} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

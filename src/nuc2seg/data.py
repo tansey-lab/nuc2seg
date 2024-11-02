@@ -301,9 +301,9 @@ class Nuc2SegDataset:
 
     def clip(self, bbox):
         transcript_selector = (
-            (bbox[0] <= self.transcripts[:, 0])
+            (self.transcripts[:, 0] >= bbox[0])
             & (self.transcripts[:, 0] < bbox[2])
-            & (bbox[1] <= self.transcripts[:, 1])
+            & (self.transcripts[:, 1] >= bbox[1])
             & (self.transcripts[:, 1] < bbox[3])
         )
         new_bbox = np.array(

@@ -11,7 +11,6 @@ from shapely import Polygon
 from shapely.geometry import box
 from typing import Optional
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -34,11 +33,7 @@ def get_bounding_box(poly: shapely.Polygon):
 def filter_gdf_to_inside_polygon(gdf, polygon=None):
     if polygon is None:
         return gdf
-
-    gdf_filtered = gdf[gdf.geometry.intersects(polygon)]
-
-    logging.info(f"Filtering {len(gdf)} points to {len(gdf_filtered)} inside polygon")
-    return gdf_filtered
+    return gdf[gdf.geometry.intersects(polygon)]
 
 
 def read_boundaries_into_polygons(
@@ -95,6 +90,43 @@ def read_transcripts_into_points(
     return tx_geo_df
 
 
+def load_and_filter_transcripts_as_table(
+    transcripts_file: str,
+    sample_area: Optional[shapely.Polygon] = None,
+    min_qv=20.0,
+    x_column_name="x_location",
+    y_column_name="y_location",
+    feature_name_column="feature_name",
+    qv_column="qv",
+    cell_id_column="cell_id",
+    overlaps_nucleus_column="overlaps_nucleus",
+):
+    transcripts_df = pd.read_parquet(
+        transcripts_file,
+        columns=[
+            feature_name_column,
+            x_column_name,
+            y_column_name,
+            qv_column,
+            cell_id_column,
+            overlaps_nucleus_column,
+        ],
+    )
+
+    sample_area_filter = (
+        (transcripts_df[x_column_name] >= sample_area.bounds[0])
+        & (transcripts_df[x_column_name] < sample_area.bounds[2])
+        & (transcripts_df[y_column_name] >= sample_area.bounds[1])
+        & (transcripts_df[y_column_name] < sample_area.bounds[3])
+    )
+
+    transcripts_df = transcripts_df[sample_area_filter].copy()
+
+    transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
+
+    return transcripts_df
+
+
 def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None):
     nuclei_geo_df = read_boundaries_into_polygons(nuclei_file)
 
@@ -103,7 +135,7 @@ def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None)
     nuclei_geo_df = filter_gdf_to_inside_polygon(nuclei_geo_df, sample_area)
 
     logger.info(
-        f"{original_n_nuclei-nuclei_geo_df.shape[0]} nuclei filtered after bounding to {sample_area}"
+        f"{original_n_nuclei - nuclei_geo_df.shape[0]} nuclei filtered after bounding to {sample_area}"
     )
 
     if nuclei_geo_df.empty:
@@ -119,11 +151,7 @@ def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None)
     return nuclei_geo_df
 
 
-def load_and_filter_transcripts(
-    transcripts_file: str, sample_area: Optional[shapely.Polygon] = None, min_qv=20.0
-):
-    transcripts_df = read_transcripts_into_points(transcripts_file)
-
+def filter_and_preprocess_transcripts(transcripts_df, min_qv):
     if np.issubdtype(transcripts_df["cell_id"].dtype, np.integer):
         pass
     else:
@@ -139,17 +167,6 @@ def load_and_filter_transcripts(
         transcripts_df["cell_id"] = (
             transcripts_df["cell_id"].apply(lambda x: mapping.get(x, 0)).astype(int)
         )
-
-    original_count = len(transcripts_df)
-
-    if sample_area is not None:
-        transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
-
-    count_after_bbox = len(transcripts_df)
-
-    logger.info(
-        f"{original_count-count_after_bbox} tx filtered after bounding to {sample_area}"
-    )
 
     all_feature_names = transcripts_df["feature_name"].unique()
 
@@ -171,30 +188,44 @@ def load_and_filter_transcripts(
         to_include_features.add(feature_name)
 
     # Filter out controls and low quality transcripts
-    transcripts_df = transcripts_df[
-        transcripts_df["feature_name"].isin(to_include_features)
-    ]
-    transcripts_df = transcripts_df[(transcripts_df["qv"] >= min_qv)]
-
-    count_after_quality_filtering = len(transcripts_df)
-
-    logger.info(
-        f"{count_after_bbox-count_after_quality_filtering} tx filtered after quality filtering"
+    transcripts_df.drop(
+        transcripts_df[
+            ~(transcripts_df["feature_name"].isin(to_include_features))
+        ].index,
+        inplace=True,
+        axis=0,
     )
+    transcripts_df = transcripts_df[(transcripts_df["qv"] < min_qv)].copy()
+
+    # Assign a unique integer ID to each gene
+    gene_ids = transcripts_df["feature_name"].unique()
+    mapping = dict(zip(sorted(gene_ids), np.arange(len(gene_ids))))
+    transcripts_df["gene_id"] = transcripts_df["feature_name"].apply(
+        lambda x: mapping[x]
+    )
+
+    return transcripts_df
+
+
+def load_and_filter_transcripts_as_points(
+    transcripts_file: str, sample_area: Optional[shapely.Polygon] = None, min_qv=20.0
+):
+    transcripts_df = read_transcripts_into_points(transcripts_file)
 
     if transcripts_df.empty:
         raise ValueError("No transcripts found in the sample area")
 
-    # Assign a unique integer ID to each gene
-    gene_ids = transcripts_df["feature_name"].unique()
-    n_genes = len(gene_ids)
-    mapping = dict(zip(sorted(gene_ids), np.arange(len(gene_ids))))
-    transcripts_df["gene_id"] = transcripts_df["feature_name"].apply(
-        lambda x: mapping.get(x, 0)
-    )
+    original_count = len(transcripts_df)
+
+    if sample_area is not None:
+        transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
+
+    count_after_bbox = len(transcripts_df)
+
+    transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
 
     logger.info(
-        f"Loaded {count_after_quality_filtering} transcripts. {n_genes} unique genes."
+        f"{original_count - count_after_bbox} tx filtered after bounding to {sample_area}"
     )
 
     return transcripts_df

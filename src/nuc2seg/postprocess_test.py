@@ -89,7 +89,7 @@ def test_stitch_shapes():
             bottom_right_shape,
         ),
     ]
-    result = stitch_shapes(shapes, (10, 10), (20, 20), 0.5)
+    result = stitch_shapes(shapes, (10, 10), box(0, 0, 20, 20), 0.5)
 
     assert len(result) == 4
 
@@ -131,7 +131,7 @@ def test_stitch_shapes():
             bottom_right_shape,
         ),
     ]
-    result = stitch_shapes(shapes, (10, 10), (20, 20), 0.5)
+    result = stitch_shapes(shapes, (10, 10), box(0, 0, 20, 20), 0.5)
     assert len(result) == 1
 
 
