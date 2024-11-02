@@ -180,7 +180,4 @@ def main():
 
     logger.info(f"Saving shapefile to {args.shapefile_output}")
 
-    # translate back to original coordinates
-    gdf["geometry"] = gdf.translate(*dataset.bbox[:2])
-
     gdf.to_parquet(args.shapefile_output)

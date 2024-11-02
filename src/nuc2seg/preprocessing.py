@@ -268,10 +268,6 @@ def tile_transcripts_to_disk(
         )
 
         if selection.sum() == 0:
-            print(transcripts.head())
-            print(transcripts.count())
-            print((transcripts["x_location"].min(), transcripts["x_location"].max()))
-            print((transcripts["y_location"].min(), transcripts["y_location"].max()))
             continue
 
         transcripts_view = transcripts[selection]

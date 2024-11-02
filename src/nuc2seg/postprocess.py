@@ -1,3 +1,5 @@
+import math
+
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -63,18 +65,24 @@ def filter_gdf_to_tile_boundary(
 
 
 def stitch_shapes(
-    shapes: list[tuple[int, gpd.GeoDataFrame]], tile_size, base_size, overlap
+    shapes: list[tuple[int, gpd.GeoDataFrame]],
+    tile_size,
+    sample_area: shapely.Polygon,
+    overlap,
 ):
+    x_extent = math.ceil(sample_area.bounds[2] - sample_area.bounds[0])
+    y_extent = math.ceil(sample_area.bounds[3] - sample_area.bounds[1])
+
     tiler = TilingModule(
         tile_size=tile_size,
         tile_overlap=(overlap, overlap),
-        base_size=base_size,
+        base_size=(x_extent, y_extent),
     )
 
     bboxes = generate_tiles(
         tiler,
-        x_extent=base_size[0],
-        y_extent=base_size[1],
+        x_extent=x_extent,
+        y_extent=y_extent,
         tile_size=tile_size,
         overlap_fraction=overlap,
     )
@@ -86,7 +94,8 @@ def stitch_shapes(
             {
                 "tile_idx": idx,
                 "geometry": shapely.Point(
-                    (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+                    ((bbox[0] + bbox[2]) / 2) + sample_area.bounds[0],
+                    ((bbox[1] + bbox[3]) / 2) + sample_area.bounds[1],
                 ),
             }
         )

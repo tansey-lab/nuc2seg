@@ -7,6 +7,8 @@ import geopandas as gpd
 import numpy as np
 import pandas
 import shapely
+from typing import Optional
+from shapely.geometry import Polygon
 from blended_tiling import TilingModule
 
 from nuc2seg import log_config
@@ -19,6 +21,7 @@ from nuc2seg.plotting import (
 )
 from nuc2seg.segment import segmentation_array_to_shapefile
 from nuc2seg.utils import get_tile_idx
+from nuc2seg.preprocessing import create_shapely_rectangle
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +82,12 @@ def get_parser():
         type=float,
         default=0.25,
     )
+    parser.add_argument(
+        "--sample-area",
+        default=None,
+        type=str,
+        help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
+    )
     return parser
 
 
@@ -90,10 +99,16 @@ def combine_segmentation_results(
     tile_size: tuple[int, int],
     overlap: float,
     base_size: tuple[int, int],
+    sample_area: Optional[Polygon] = None,
 ):
     h5_fns = sorted(h5_fns)
     anndata_fns = sorted(anndata_fns)
     shapefile_fns = sorted(shapefile_fns)
+
+    if sample_area:
+        x_offset, y_offset, _, _ = sample_area.bounds
+    else:
+        x_offset, y_offset = 0, 0
 
     if len(h5_fns) != len(anndata_fns) != len(shapefile_fns):
         raise ValueError("Number of h5 files, shapefiles, anndata files must match")
@@ -124,7 +139,8 @@ def combine_segmentation_results(
             {
                 "tile_idx": idx,
                 "geometry": shapely.Point(
-                    (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+                    ((bbox[0] + bbox[2]) / 2) + x_offset,
+                    ((bbox[1] + bbox[3]) / 2) + y_offset,
                 ),
             }
         )
@@ -142,11 +158,8 @@ def combine_segmentation_results(
     for h5_fn, anndata_fn, shapefile_fn in fns:
         tile_idx = get_tile_idx(h5_fn)
 
-        segment_gpd = gpd.read_parquet(shapefile_fn)
+        segmentation_gdf = gpd.read_parquet(shapefile_fn)
 
-        segmentation_result = SegmentationResults.load_h5(h5_fn).segmentation
-
-        segmentation_gdf = segmentation_array_to_shapefile(segmentation_result)
         joined_to_centroids = gpd.sjoin_nearest(
             segmentation_gdf,
             centroid_gdf,
@@ -171,11 +184,13 @@ def combine_segmentation_results(
 
         ad.obs["segment_id"] = ad.obs["segment_id"].map(new_segment_id_map)
 
-        segment_gpd = segment_gpd[
-            segment_gpd["segment_id"].isin(segments_to_keep)
+        segmentation_gdf = segmentation_gdf[
+            segmentation_gdf["segment_id"].isin(segments_to_keep)
         ].copy()
-        segment_gpd["segment_id"] = segment_gpd["segment_id"].map(new_segment_id_map)
-        gpd_results.append(segment_gpd)
+        segmentation_gdf["segment_id"] = segmentation_gdf["segment_id"].map(
+            new_segment_id_map
+        )
+        gpd_results.append(segmentation_gdf)
 
         if concatenated_anndata:
             concatenated_anndata = anndata.concat([concatenated_anndata, ad])
@@ -193,6 +208,13 @@ def combine_segmentation_results(
 def main():
     args = get_parser().parse_args()
 
+    if args.sample_area:
+        sample_area = create_shapely_rectangle(
+            *[float(x) for x in args.sample_area.split(",")]
+        )
+    else:
+        sample_area = None
+
     dataset: Nuc2SegDataset = Nuc2SegDataset.load_h5(args.dataset)
 
     concatenated_anndata, gdf = combine_segmentation_results(
@@ -203,6 +225,7 @@ def main():
         tile_size=(args.tile_height, args.tile_width),
         overlap=args.overlap_percentage,
         base_size=dataset.labels.shape,
+        sample_area=sample_area,
     )
 
     concatenated_anndata.write_h5ad(os.path.join(args.output_dir, "anndata.h5ad"))
