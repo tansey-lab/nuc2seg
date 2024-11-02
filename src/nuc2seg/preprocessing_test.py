@@ -190,10 +190,11 @@ def test_tile_transcripts_to_csv(test_transcripts_df):
             overlap=0.5,
             output_dir=output_dir,
             output_format="csv",
+            bounds=(0, 0, 20, 20),
         )
         output_fns = list(glob.glob(os.path.join(output_dir, "*.csv")))
 
-        assert len(output_fns) == 8
+        assert len(output_fns) == 6
         for fn in output_fns:
             df = pandas.read_csv(fn)
     finally:

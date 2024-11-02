@@ -1,6 +1,7 @@
 import logging
 
 import shapely
+import math
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -113,14 +114,15 @@ def load_and_filter_transcripts_as_table(
         ],
     )
 
-    sample_area_filter = (
-        (transcripts_df[x_column_name] >= sample_area.bounds[0])
-        & (transcripts_df[x_column_name] < sample_area.bounds[2])
-        & (transcripts_df[y_column_name] >= sample_area.bounds[1])
-        & (transcripts_df[y_column_name] < sample_area.bounds[3])
-    )
+    if sample_area is not None:
+        sample_area_filter = (
+            (transcripts_df[x_column_name] >= sample_area.bounds[0])
+            & (transcripts_df[x_column_name] < sample_area.bounds[2])
+            & (transcripts_df[y_column_name] >= sample_area.bounds[1])
+            & (transcripts_df[y_column_name] < sample_area.bounds[3])
+        )
 
-    transcripts_df = transcripts_df[sample_area_filter].copy()
+        transcripts_df = transcripts_df[sample_area_filter].copy()
 
     transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
 
@@ -188,14 +190,10 @@ def filter_and_preprocess_transcripts(transcripts_df, min_qv):
         to_include_features.add(feature_name)
 
     # Filter out controls and low quality transcripts
-    transcripts_df.drop(
-        transcripts_df[
-            ~(transcripts_df["feature_name"].isin(to_include_features))
-        ].index,
-        inplace=True,
-        axis=0,
-    )
-    transcripts_df = transcripts_df[(transcripts_df["qv"] < min_qv)].copy()
+    transcripts_df = transcripts_df[
+        transcripts_df["feature_name"].isin(to_include_features)
+    ].copy()
+    transcripts_df = transcripts_df[(transcripts_df["qv"] >= min_qv)].copy()
 
     # Assign a unique integer ID to each gene
     gene_ids = transcripts_df["feature_name"].unique()
