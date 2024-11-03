@@ -8,6 +8,8 @@ import pandas as pd
 import tqdm
 import os.path
 
+from multiprocessing.pool import ThreadPool
+
 from nuc2seg.data import (
     RasterizedDataset,
     CelltypingResults,
@@ -224,7 +226,7 @@ def create_nuc2seg_dataset(
 
 
 def tile_transcripts_to_disk(
-    transcripts, bounds, tile_size, overlap, output_dir, output_format: str
+    transcripts, bounds, tile_size, overlap, output_dir, output_format: str, n_threads=8
 ):
     if bounds is None:
         x_offset = 0
@@ -240,35 +242,17 @@ def tile_transcripts_to_disk(
     )
 
     total_n_transcripts = len(transcripts)
+    thread_pool = ThreadPool(n_threads)
     pbar = tqdm.tqdm(total=total_n_transcripts)
 
-    for idx, (x1, y1, x2, y2) in enumerate(
-        generate_tiles(
-            tiler,
-            x_extent=(bounds[2] - bounds[0]),
-            y_extent=(bounds[3] - bounds[1]),
-            overlap_fraction=overlap,
-            tile_size=tile_size,
-        )
-    ):
-
-        print(
-            (
-                (x1 + x_offset),
-                (x2 + x_offset),
-                (y1 + y_offset),
-                (y2 + y_offset),
-            )
-        )
+    def write_tile(tpl):
+        (idx, x1, y1, x2, y2) = tpl
         selection = (
             (transcripts["x_location"] >= (x1 + x_offset))
             & (transcripts["x_location"] < (x2 + x_offset))
             & (transcripts["y_location"] >= (y1 + y_offset))
             & (transcripts["y_location"] < (y2 + y_offset))
         )
-
-        if selection.sum() == 0:
-            continue
 
         transcripts_view = transcripts[selection]
 
@@ -279,9 +263,27 @@ def tile_transcripts_to_disk(
             transcripts_view.to_parquet(output_path, index=False)
         pbar.update(len(transcripts_view))
 
+    index_generator = [
+        (idx, x1, y1, x2, y2)
+        for idx, (x1, y1, x2, y2) in enumerate(
+            generate_tiles(
+                tiler,
+                x_extent=(bounds[2] - bounds[0]),
+                y_extent=(bounds[3] - bounds[1]),
+                overlap_fraction=overlap,
+                tile_size=tile_size,
+            )
+        )
+    ]
+
+    async_result = thread_pool.map_async(write_tile, index_generator)
+    async_result.get()
+    thread_pool.close()
+    thread_pool.join()
+
 
 def tile_nuclei_to_disk(
-    nuclei_df, bounds, tile_size, overlap, output_dir, output_format: str
+    nuclei_df, bounds, tile_size, overlap, output_dir, output_format: str, n_threads=8
 ):
     if bounds is None:
         x_offset = 0
@@ -298,16 +300,10 @@ def tile_nuclei_to_disk(
 
     total_n_nuclei = len(nuclei_df)
     pbar = tqdm.tqdm(total=total_n_nuclei)
+    thread_pool = ThreadPool(n_threads)
 
-    for idx, (x1, y1, x2, y2) in enumerate(
-        generate_tiles(
-            tiler,
-            x_extent=(bounds[2] - bounds[0]),
-            y_extent=(bounds[3] - bounds[1]),
-            overlap_fraction=overlap,
-            tile_size=tile_size,
-        )
-    ):
+    def write_tile(tpl):
+        (idx, x1, y1, x2, y2) = tpl
         selection = (
             (nuclei_df["vertex_x"] >= (x1 + x_offset))
             & (nuclei_df["vertex_x"] < (x2 + x_offset))
@@ -320,9 +316,6 @@ def tile_nuclei_to_disk(
 
         filtered_df = filtered_df[filtered_df["cell_id"].isin(unique_nuclei_ids)]
 
-        if len(filtered_df) == 0:
-            continue
-
         output_path = os.path.join(output_dir, f"nuclei_tile_{idx}.{output_format}")
         if output_format == "csv":
             filtered_df.to_csv(output_path, index=False)
@@ -330,24 +323,59 @@ def tile_nuclei_to_disk(
             filtered_df.to_parquet(output_path, index=False)
         pbar.update(len(filtered_df))
 
+    index_generator = [
+        (idx, x1, y1, x2, y2)
+        for idx, (x1, y1, x2, y2) in enumerate(
+            generate_tiles(
+                tiler,
+                x_extent=(bounds[2] - bounds[0]),
+                y_extent=(bounds[3] - bounds[1]),
+                overlap_fraction=overlap,
+                tile_size=tile_size,
+            )
+        )
+    ]
 
-def tile_dataset_to_disk(dataset: Nuc2SegDataset, tile_size, overlap, output_dir):
+    async_result = thread_pool.map_async(write_tile, index_generator)
+    async_result.get()
+    thread_pool.close()
+    thread_pool.join()
+
+
+def tile_dataset_to_disk(
+    dataset: Nuc2SegDataset, tile_size, overlap, output_dir, n_threads=8
+):
     tiler = TilingModule(
         tile_size=tile_size,
         tile_overlap=(overlap, overlap),
         base_size=(dataset.x_extent_pixels, dataset.y_extent_pixels),
     )
 
-    for idx, (x1, y1, x2, y2) in enumerate(
-        generate_tiles(
-            tiler,
-            x_extent=dataset.x_extent_pixels,
-            y_extent=dataset.y_extent_pixels,
-            overlap_fraction=overlap,
-            tile_size=tile_size,
-        )
-    ):
-        dataset_tile = dataset.clip((x1, y1, x2, y2))
+    thread_pool = ThreadPool(n_threads)
 
+    pbar = tqdm.tqdm(total=tiler.num_tiles(), desc="Tiling dataset")
+
+    def write_tile(tpl):
+        (idx, x1, y1, x2, y2) = tpl
+        dataset_tile = dataset.clip((x1, y1, x2, y2))
         output_path = os.path.join(output_dir, f"dataset_tile_{idx}.h5")
         dataset_tile.save_h5(output_path)
+        pbar.update(1)
+
+    index_generator = [
+        (idx, x1, y1, x2, y2)
+        for idx, (x1, y1, x2, y2) in enumerate(
+            generate_tiles(
+                tiler,
+                x_extent=dataset.x_extent_pixels,
+                y_extent=dataset.y_extent_pixels,
+                overlap_fraction=overlap,
+                tile_size=tile_size,
+            )
+        )
+    ]
+
+    async_result = thread_pool.map_async(write_tile, index_generator)
+    async_result.get()
+    thread_pool.close()
+    thread_pool.join()

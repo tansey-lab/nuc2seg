@@ -10,9 +10,7 @@ from nuc2seg.xenium import (
 from nuc2seg.preprocessing import (
     tile_transcripts_to_disk,
     tile_nuclei_to_disk,
-    tile_dataset_to_disk,
 )
-from nuc2seg.data import Nuc2SegDataset
 from shapely import box
 
 logger = logging.getLogger(__name__)
