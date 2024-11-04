@@ -101,18 +101,26 @@ def combine_segmentation_results(
     base_size: tuple[int, int],
     sample_area: Optional[Polygon] = None,
 ):
-    h5_fns = sorted(h5_fns)
-    anndata_fns = sorted(anndata_fns)
-    shapefile_fns = sorted(shapefile_fns)
+    h5_fns = {get_tile_idx(fn): fn for fn in h5_fns}
+    anndata_fns = {get_tile_idx(fn): fn for fn in anndata_fns}
+    shapefile_fns = {get_tile_idx(fn): fn for fn in shapefile_fns}
 
     if sample_area:
         x_offset, y_offset, _, _ = sample_area.bounds
     else:
         x_offset, y_offset = 0, 0
 
-    if len(h5_fns) != len(anndata_fns) != len(shapefile_fns):
-        raise ValueError("Number of h5 files, shapefiles, anndata files must match")
-    fns = zip(h5_fns, anndata_fns, shapefile_fns)
+    common_tiles = sorted(
+        list(set(h5_fns.keys()) & set(anndata_fns.keys()) & set(shapefile_fns.keys()))
+    )
+
+    logger.info(f"Found {len(common_tiles)} common tiles")
+
+    fns = zip(
+        [h5_fns[tile_idx] for tile_idx in common_tiles],
+        [anndata_fns[tile_idx] for tile_idx in common_tiles],
+        [shapefile_fns[tile_idx] for tile_idx in common_tiles],
+    )
     stitched_result = labels.copy()
     stitched_result[stitched_result > 0] = -1
 
