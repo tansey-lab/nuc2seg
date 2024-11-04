@@ -359,7 +359,7 @@ def tile_dataset_to_disk(
         (idx, x1, y1, x2, y2) = tpl
         dataset_tile = dataset.clip((x1, y1, x2, y2))
         output_path = os.path.join(output_dir, f"dataset_tile_{idx}.h5")
-        dataset_tile.save_h5(output_path)
+        dataset_tile.save_h5(output_path, compression=None)
         pbar.update(1)
 
     index_generator = [
