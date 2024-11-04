@@ -81,10 +81,15 @@ workflow NUC2SEG {
     }
     else {
         if (params.dataset != null && params.weights == null) {
-            train_input = Channel.fromList([tuple( [ id: name, single_end:false ],
-                  file(params.dataset, checkIfExists: true),
-                  []
-            )])
+            train_input = Channel.fromList(
+                [
+                    tuple(
+                        [ id: name, single_end:false ],
+                        file(params.dataset, checkIfExists: true),
+                        []
+                    )
+                ]
+            )
             TRAIN( train_input )
 
             train_input
@@ -109,41 +114,56 @@ workflow NUC2SEG {
         PREDICT( predict_input )
         prediction_results = PREDICT.out.predictions
     } else {
-        prediction_results = Channel.fromList([
-            tuple( [ id: name, single_end:false ],
-                file(params.prediction_results, checkIfExists: true)
-            )
-        ])
+        prediction_results = Channel.fromList(
+            [
+                tuple(
+                    [ id: name, single_end:false ],
+                    file(params.prediction_results, checkIfExists: true)
+                )
+            ]
+        )
     }
 
     if (params.tiled_transcripts == null) {
         TILE_XENIUM( ch_input.map { tuple(it[0], it[1], "parquet")} )
         tiled_transcripts = TILE_XENIUM.out.transcripts
     } else {
-        tiled_transcripts = Channel.fromList([
-            tuple(
-                [ id: name, single_end:false ],
-                file(params.tiled_transcripts, checkIfExists: true)
-            )
-        ])
+        tiled_transcripts = Channel.fromList(
+            [
+                tuple(
+                    [ id: name, single_end:false ],
+                    file(params.tiled_transcripts, checkIfExists: true)
+                )
+            ]
+        )
     }
 
     if (params.dataset == null ) {
         PREPROCESS.out.dataset
             .tap { tile_dataset_input }
     } else {
-        tile_dataset_input = Channel.fromList([tuple( [ id: name, single_end:false ],
-                  file(params.dataset, checkIfExists: true))])
+        tile_dataset_input = Channel.fromList(
+            [
+                tuple(
+                    [ id: name, single_end:false ],
+                    file(params.dataset, checkIfExists: true)
+                )
+            ]
+        )
     }
 
     if (params.tiled_datasets == null) {
         TILE_DATASET( tile_dataset_input )
         tiled_dataset = TILE_DATASET.out.dataset
     } else {
-        tiled_dataset = Channel.fromList([
-            tuple( [ id: name, single_end:false ]),
-            file(params.tiled_datasets, checkIfExists: true)
-            ])
+        tiled_dataset = Channel.fromList(
+            [
+                tuple(
+                    [ id: name, single_end:false ],
+                    file(params.tiled_datasets, checkIfExists: true)
+                )
+            ]
+        )
     }
 
     tiled_transcripts.transpose().map {
