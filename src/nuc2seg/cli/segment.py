@@ -110,6 +110,7 @@ def main():
 
     if transcripts is None:
         logger.warning("No transcripts found, exiting")
+        return
 
     predictions = ModelPredictions.load_h5(args.predictions)
 
