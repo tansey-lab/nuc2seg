@@ -136,6 +136,10 @@ def main():
         translate=False,
     )
 
+    if gdf is None:
+        logger.warning("No cells found in segmentation, exiting")
+        return
+
     gdf["geometry"] = gdf.translate(*dataset.bbox[:2])
 
     logger.info("Creating anndata")

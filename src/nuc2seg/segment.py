@@ -565,6 +565,9 @@ def convert_segmentation_to_shapefile(
 
     segmentation_df = segmentation_df[~segmentation_df["segmentation"].isin([-1, 0])]
 
+    if len(segmentation_df) == 0:
+        return None
+
     bag_of_coordinates_for_each_segment = segmentation_df.groupby("segmentation").apply(
         lambda x: list(zip(x["x"], x["y"]))
     )
