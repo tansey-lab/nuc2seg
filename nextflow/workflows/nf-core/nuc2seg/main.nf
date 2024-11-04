@@ -105,10 +105,28 @@ workflow NUC2SEG {
         }
     }
 
+    if (params.prediction_results == null) {
+        PREDICT( predict_input )
+        prediction_results = PREDICT.out.predictions
+    } else {
+        prediction_results = Channel.fromList([
+            tuple( [ id: name, single_end:false ],
+                file(params.prediction_results, checkIfExists: true)
+            )
+        ])
+    }
 
-    PREDICT( predict_input )
-
-    TILE_XENIUM( ch_input.map { tuple(it[0], it[1], "parquet")} )
+    if (params.tiled_transcripts == null) {
+        TILE_XENIUM( ch_input.map { tuple(it[0], it[1], "parquet")} )
+        tiled_transcripts = TILE_XENIUM.out.transcripts
+    } else {
+        tiled_transcripts = Channel.fromList([
+            tuple(
+                [ id: name, single_end:false ],
+                file(params.tiled_transcripts, checkIfExists: true)
+            )
+        ])
+    }
 
     if (params.dataset == null ) {
         PREPROCESS.out.dataset
@@ -118,21 +136,29 @@ workflow NUC2SEG {
                   file(params.dataset, checkIfExists: true))])
     }
 
-    TILE_DATASET( tile_dataset_input )
+    if (params.tiled_datasets == null) {
+        TILE_DATASET( tile_dataset_input )
+        tiled_dataset = TILE_DATASET.out.dataset
+    } else {
+        tiled_dataset = Channel.fromList([
+            tuple( [ id: name, single_end:false ]),
+            file(params.tiled_datasets, checkIfExists: true)
+            ])
+    }
 
-    TILE_XENIUM.out.transcripts.transpose().map {
+    tiled_transcripts.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }
         .tap { tiled_transcripts }
 
 
-    TILE_DATASET.out.dataset.transpose().map {
+    tiled_dataset.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }
         .tap { tiled_dataset }
 
 
-    PREDICT.out.predictions.transpose().map {
+    prediction_results.transpose().map {
         tuple(it[0], extractTileNumber(it[1]), it[1])
     }
         .tap { tiled_predictions }
