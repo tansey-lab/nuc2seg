@@ -158,12 +158,14 @@ class Nuc2SegDataset:
         self.n_genes = n_genes
         self.resolution = resolution
 
-    def save_h5(self, path):
+    def save_h5(self, path, compression="gzip"):
         with h5py.File(path, "w") as f:
-            f.create_dataset("labels", data=self.labels, compression="gzip")
-            f.create_dataset("angles", data=self.angles, compression="gzip")
-            f.create_dataset("classes", data=self.classes, compression="gzip")
-            f.create_dataset("transcripts", data=self.transcripts, compression="gzip")
+            f.create_dataset("labels", data=self.labels, compression=compression)
+            f.create_dataset("angles", data=self.angles, compression=compression)
+            f.create_dataset("classes", data=self.classes, compression=compression)
+            f.create_dataset(
+                "transcripts", data=self.transcripts, compression=compression
+            )
             f.create_dataset("bbox", data=self.bbox)
             f.attrs["n_classes"] = self.n_classes
             f.attrs["n_genes"] = self.n_genes

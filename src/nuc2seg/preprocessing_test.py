@@ -194,7 +194,7 @@ def test_tile_transcripts_to_csv(test_transcripts_df):
         )
         output_fns = list(glob.glob(os.path.join(output_dir, "*.csv")))
 
-        assert len(output_fns) == 6
+        assert len(output_fns) == 9
         for fn in output_fns:
             df = pandas.read_csv(fn)
     finally:
