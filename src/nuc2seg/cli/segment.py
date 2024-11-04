@@ -107,6 +107,10 @@ def main():
     dataset = Nuc2SegDataset.load_h5(args.dataset)
 
     transcripts = load_and_filter_transcripts_as_points(args.transcripts)
+
+    if transcripts is None:
+        logger.warning("No transcripts found, exiting")
+
     predictions = ModelPredictions.load_h5(args.predictions)
 
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]

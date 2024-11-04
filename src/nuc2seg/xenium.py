@@ -211,7 +211,7 @@ def load_and_filter_transcripts_as_points(
     transcripts_df = read_transcripts_into_points(transcripts_file)
 
     if transcripts_df.empty:
-        raise ValueError("No transcripts found in the sample area")
+        return None
 
     original_count = len(transcripts_df)
 
