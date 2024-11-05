@@ -1,4 +1,6 @@
-FROM python:3.10
+FROM bitnami/pytorch:latest
+
+USER root
 
 RUN --mount=type=cache,target=/.cache/pip pip install --upgrade pip
 RUN pip install 'sopa[cellpose,baysor,tangram]'
