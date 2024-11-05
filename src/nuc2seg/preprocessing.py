@@ -14,8 +14,8 @@ from nuc2seg.data import (
     RasterizedDataset,
     CelltypingResults,
     Nuc2SegDataset,
-    generate_tiles,
 )
+from nuc2seg.utils import generate_tiles
 from nuc2seg.xenium import (
     get_bounding_box,
     logger,

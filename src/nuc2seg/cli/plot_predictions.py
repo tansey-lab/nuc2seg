@@ -10,8 +10,8 @@ from nuc2seg.data import (
     TiledDataset,
     ModelPredictions,
     SegmentationResults,
-    generate_tiles,
 )
+from nuc2seg.utils import generate_tiles
 from nuc2seg.plotting import plot_model_predictions
 
 logger = logging.getLogger(__name__)

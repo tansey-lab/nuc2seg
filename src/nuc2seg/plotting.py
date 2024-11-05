@@ -289,7 +289,7 @@ def plot_segmentation_comparison(
         nuclei = nuclei[nuclei.geometry.within(bbox)]
         if transcripts is not None:
             transcripts = transcripts[transcripts.geometry.within(bbox)].copy()
-            transcripts["geometry"] = transcripts.geometry.buffer(0.2)
+            transcripts["geometry"] = transcripts.geometry.buffer(0.05)
     fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     ax.invert_yaxis()
     seg_a.plot(ax=ax, color="blue", alpha=0.5, edgecolor="white", linewidth=0.5)

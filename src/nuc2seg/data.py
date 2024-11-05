@@ -8,6 +8,8 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from blended_tiling import TilingModule
 
+from nuc2seg.utils import generate_tiles
+
 logger = logging.getLogger(__name__)
 
 
@@ -340,27 +342,6 @@ class Nuc2SegDataset:
             n_genes=self.n_genes,
             resolution=self.resolution,
         )
-
-
-def generate_tiles(
-    tiler: TilingModule, x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None
-):
-    """
-    A generator function to yield overlapping tiles
-
-    Yields:
-    - BBox extent in pixels for each tile (non inclusive end) x1, y1, x2, y2
-    """
-    # Generate tiles
-    tile_id = 0
-    for x in tiler._calc_tile_coords(x_extent, tile_size[0], overlap_fraction)[0]:
-        for y in tiler._calc_tile_coords(y_extent, tile_size[1], overlap_fraction)[0]:
-            if tile_ids is not None:
-                if tile_id in tile_ids:
-                    yield x, y, x + tile_size[0], y + tile_size[1]
-            else:
-                yield x, y, x + tile_size[0], y + tile_size[1]
-            tile_id += 1
 
 
 def collate_tiles(data):

@@ -11,6 +11,7 @@ from nuc2seg.segment import (
     fill_in_surrounded_unlabelled_pixels,
     update_labels_with_flow_values,
     greedy_expansion_step,
+    cull_empty_pixels_from_segmentation,
 )
 from nuc2seg.preprocessing import cart2pol
 from nuc2seg.utils import get_indices_for_ndarray
@@ -536,6 +537,31 @@ def test_update_labels_with_flow_values():
                 [1, 0, 0],
                 [1, 1, -1],
                 [0, 0, 0],
+            ]
+        ),
+    )
+
+
+def test_cull_empty_pixels_from_segmentation():
+    segmentation = np.array(
+        [
+            [0, 1, 0],
+            [0, 1, 0],
+            [0, 1, 0],
+        ]
+    )
+
+    transcripts = np.array([[1, 1, 1], [2, 1, 2]])
+
+    result = cull_empty_pixels_from_segmentation(segmentation, transcripts)
+
+    np.testing.assert_array_equal(
+        result,
+        np.array(
+            [
+                [0, 0, 0],
+                [0, 1, 0],
+                [0, 1, 0],
             ]
         ),
     )
