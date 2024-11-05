@@ -3,10 +3,10 @@ import pytest
 from nuc2seg.data import (
     Nuc2SegDataset,
     TiledDataset,
-    generate_tiles,
     CelltypingResults,
     RasterizedDataset,
 )
+from nuc2seg.utils import generate_tiles
 import numpy as np
 import tempfile
 import os.path

@@ -7,7 +7,8 @@ from unittest import mock
 import anndata
 import pandas
 
-from nuc2seg.data import generate_tiles, CelltypingResults
+from nuc2seg.data import CelltypingResults
+from nuc2seg.utils import generate_tiles
 from blended_tiling import TilingModule
 import numpy as np
 import math

@@ -1,6 +1,8 @@
 import re
 import os
 import numpy as np
+from blended_tiling import TilingModule
+from shapely import box, Polygon
 
 
 def sqexp(x1, x2, bandwidth=2, scale=1, axis=None):
@@ -35,3 +37,67 @@ def get_tile_idx(fn):
     fn_clean = os.path.splitext(os.path.basename(fn))[0]
     # search for `tile_{number}` and extract number with regex
     return int(re.search(r"tile_(\d+)", fn_clean).group(1))
+
+
+def get_indexed_tiles(extent, tile_size, overlap):
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=overlap,
+        base_size=extent,
+    )
+
+    result = {}
+    for idx, (x1, y1, x2, y2) in enumerate(
+        generate_tiles(
+            tiler,
+            x_extent=extent[0],
+            y_extent=extent[1],
+            overlap_fraction=overlap,
+            tile_size=tile_size,
+        )
+    ):
+        result[idx] = (x1, y1, x2, y2)
+    return result
+
+
+def get_tile_ids_for_bbox(extent, tile_size, overlap, bbox: Polygon):
+    tiler = TilingModule(
+        tile_size=tile_size,
+        tile_overlap=overlap,
+        base_size=extent,
+    )
+
+    result = []
+    for idx, (x1, y1, x2, y2) in enumerate(
+        generate_tiles(
+            tiler,
+            x_extent=extent[0],
+            y_extent=extent[1],
+            overlap_fraction=overlap,
+            tile_size=tile_size,
+        )
+    ):
+        if box(x1, y1, x2, y2).intersects(bbox):
+            result.append(idx)
+    return result
+
+
+def generate_tiles(
+    tiler: TilingModule, x_extent, y_extent, tile_size, overlap_fraction, tile_ids=None
+):
+    """
+    A generator function to yield overlapping tiles
+
+    Yields:
+    - BBox extent in pixels for each tile (non inclusive end) x1, y1, x2, y2
+    """
+    # Generate tiles
+    tile_id = 0
+    for x in tiler._calc_tile_coords(x_extent, tile_size[0], overlap_fraction)[0]:
+        for y in tiler._calc_tile_coords(y_extent, tile_size[1], overlap_fraction)[0]:
+            if tile_ids is not None:
+                if tile_id in tile_ids:
+                    yield x, y, x + tile_size[0], y + tile_size[1]
+            else:
+                yield x, y, x + tile_size[0], y + tile_size[1]
+            tile_id += 1

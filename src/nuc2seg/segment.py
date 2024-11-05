@@ -1,3 +1,4 @@
+import pandas
 import shapely
 import torch
 import logging
@@ -547,6 +548,51 @@ def segmentation_array_to_shapefile(segmentation):
     gdf.reset_index(inplace=True, drop=False, names="segment_id")
 
     return gdf
+
+
+def cull_empty_pixels_from_segmentation(segmentation, transcripts, labels=None):
+
+    x_extent, y_extent = segmentation.shape
+
+    per_pixel_transcript_mask = np.zeros((x_extent, y_extent)).astype(bool)
+
+    df = pandas.DataFrame(transcripts[:, :2], columns=["x", "y"])
+    df = df.drop_duplicates()
+
+    per_pixel_transcript_mask[df.x.values, df.y.values] = True
+
+    modified = True
+    while modified:
+        modified = False
+        for x_idx in range(x_extent):
+            for y_idx in range(x_extent):
+                if segmentation[x_idx, y_idx] <= 0:
+                    continue
+
+                surrounding_pixels = np.array(
+                    [
+                        [max(x_idx - 1, 0), y_idx],
+                        [x_idx, max(y_idx - 1, 0)],
+                        [x_idx, min(y_idx + 1, y_extent - 1)],
+                        [min(x_idx + 1, x_extent - 1), y_idx],
+                    ]
+                )
+
+                is_border = (
+                    segmentation[
+                        surrounding_pixels[:, 0], surrounding_pixels[:, 1]
+                    ].min()
+                    <= 0
+                )
+
+                if is_border and not per_pixel_transcript_mask[x_idx, y_idx]:
+                    if (labels is not None) and labels[x_idx, y_idx] > 0:
+                        continue
+                    else:
+                        segmentation[x_idx, y_idx] = 0
+                    modified = True
+
+    return segmentation
 
 
 def convert_segmentation_to_shapefile(

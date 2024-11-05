@@ -274,18 +274,29 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
 
 
 def plot_segmentation_comparison(
-    seg_a, seg_b, nuclei, output_path, seg_a_name="sega", seg_b_name="segb", bbox=None
+    seg_a,
+    seg_b,
+    nuclei,
+    output_path,
+    transcripts=None,
+    seg_a_name="sega",
+    seg_b_name="segb",
+    bbox=None,
 ):
     if bbox:
         seg_a = seg_a[seg_a.geometry.within(bbox)]
         seg_b = seg_b[seg_b.geometry.within(bbox)]
         nuclei = nuclei[nuclei.geometry.within(bbox)]
-
+        if transcripts is not None:
+            transcripts = transcripts[transcripts.geometry.within(bbox)].copy()
+            transcripts["geometry"] = transcripts.geometry.buffer(0.05)
     fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
     ax.invert_yaxis()
     seg_a.plot(ax=ax, color="blue", alpha=0.5, edgecolor="white", linewidth=0.5)
     seg_b.plot(ax=ax, color="red", alpha=0.5, edgecolor="white", linewidth=0.5)
     nuclei.plot(ax=ax, color="black", alpha=0.5, edgecolor="white", linewidth=0.5)
+    if transcripts is not None:
+        transcripts.plot(ax=ax, color="green", alpha=0.8, linewidth=0)
 
     ax.legend(
         handles=[

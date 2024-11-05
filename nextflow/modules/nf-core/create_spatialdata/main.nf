@@ -1,7 +1,7 @@
 process CREATE_SPATIALDATA {
     tag "$meta.id"
     label 'process_medium'
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/spatialdata:latest' :
         'docker.io/jeffquinnmsk/spatialdata:latest' }"
 

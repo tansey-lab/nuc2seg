@@ -10,7 +10,7 @@ import logging
 import anndata
 
 from scipy.sparse import csr_matrix
-from nuc2seg.data import generate_tiles
+from nuc2seg.utils import generate_tiles
 from blended_tiling import TilingModule
 from shapely import box
 
