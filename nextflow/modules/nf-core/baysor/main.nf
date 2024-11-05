@@ -2,7 +2,7 @@ process BAYSOR {
     tag "$meta.id"
     label 'process_long'
     label 'process_high'
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         'docker://jeffquinnmsk/baysor:latest' :
         'docker.io/jeffquinnmsk/baysor:latest' }"
     errorStrategy { task.exitStatus == 1 ? 'ignore' : 'retry' }

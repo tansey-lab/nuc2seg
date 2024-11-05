@@ -39,6 +39,16 @@ jobs:
             jeffquinnmsk/spatialdata:latest
             jeffquinnmsk/spatialdata:${{ github.sha }}
           cache-from: type=registry,ref=jeffquinnmsk/spatialdata:latest
+      - name: Build and push container
+        uses: docker/build-push-action@v3
+        with:
+          context: containers/sopa
+          file: containers/sopa/Dockerfile
+          push: true
+          tags: |
+            jeffquinnmsk/sopa:latest
+            jeffquinnmsk/sopa:${{ github.sha }}
+          cache-from: type=registry,ref=jeffquinnmsk/sopa:latest
   nextflow-integration:
     runs-on: ubuntu-20.04
     name: pytest
