@@ -1,4 +1,4 @@
-FROM bitnami/pytorch:latest
+FROM pytorch/pytorch:latest
 
 USER root
 RUN apt-get update && apt-get install -y ffmpeg libsm6 libxext6
