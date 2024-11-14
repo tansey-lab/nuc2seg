@@ -1,3 +1,7 @@
+import geopandas
+import numpy as np
+from shapely import Polygon, Point
+
 from nuc2seg.celltyping import (
     fit_celltype_em_model,
     fit_celltyping_on_segments_and_transcripts,
@@ -6,10 +10,6 @@ from nuc2seg.celltyping import (
     predict_celltypes_for_segments_and_transcripts,
     predict_celltype_probabilities_for_all_segments,
 )
-import numpy as np
-import geopandas
-from shapely import Polygon, Point
-from nuc2seg.data import CelltypingResults
 
 
 def test_fit_celltype_em_model():

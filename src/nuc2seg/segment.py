@@ -1,31 +1,28 @@
-import pandas
-import shapely
-import torch
 import logging
+from typing import Callable, Optional
+
 import geopandas
 import numpy as np
-import anndata
-import tqdm
-import pandas as pd
 import numpy_groupies as npg
+import pandas
+import pandas as pd
+import shapely
+import torch
+import tqdm
+from blended_tiling import TilingModule
+from numpy.linalg import norm
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
+from shapely import affinity, box
 
-from shapely import affinity
-from nuc2seg.preprocessing import pol2cart
 from nuc2seg.celltyping import predict_celltype_probabilities_for_all_segments
 from nuc2seg.data import (
     ModelPredictions,
     Nuc2SegDataset,
     SegmentationResults,
-    CelltypingResults,
 )
-from typing import Callable, Optional
+from nuc2seg.preprocessing import pol2cart
 from nuc2seg.utils import get_indices_for_ndarray
-from scipy.sparse import csr_matrix
-from shapely import Polygon, affinity, box
-from blended_tiling import TilingModule
-from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import connected_components
-from numpy.linalg import norm
 
 logger = logging.getLogger(__name__)
 
@@ -658,144 +655,3 @@ def convert_segmentation_to_shapefile(
     gdf.reset_index(inplace=True, drop=True)
 
     return gdf
-
-
-def spatial_join_polygons_and_transcripts(
-    boundaries: geopandas.GeoDataFrame, transcripts: geopandas.GeoDataFrame
-):
-    joined_gdf = geopandas.sjoin(boundaries, transcripts, how="inner")
-
-    return joined_gdf
-
-
-def convert_transcripts_to_anndata(
-    transcript_gdf,
-    segmentation_gdf,
-    gene_name_column="feature_name",
-    min_molecules_per_cell=None,
-):
-    segmentation_gdf["area"] = segmentation_gdf.geometry.area
-    segmentation_gdf["centroid_x"] = segmentation_gdf.geometry.centroid.x
-    segmentation_gdf["centroid_y"] = segmentation_gdf.geometry.centroid.y
-    if "index" in transcript_gdf.columns:
-        del transcript_gdf["index"]
-    if "index" in segmentation_gdf.columns:
-        del segmentation_gdf["index"]
-
-    sjoined_gdf = spatial_join_polygons_and_transcripts(
-        boundaries=segmentation_gdf, transcripts=transcript_gdf
-    )
-    sjoined_gdf.reset_index(inplace=True, drop=False, names="index")
-
-    before_dedupe = len(sjoined_gdf)
-
-    # if more than one row has the same index_right value, drop until index_right is unique
-    sjoined_gdf = sjoined_gdf.drop_duplicates(subset="index_right")
-
-    after_dedupe = len(sjoined_gdf)
-
-    logger.info(
-        f"Dropped {before_dedupe - after_dedupe} transcripts assigned to multiple segments"
-    )
-
-    # filter transcripts mapped to cell where the total number of transcripts for that cell is less than
-    # min_molecules_per_cell
-    if min_molecules_per_cell is not None:
-        before_min_molecules = len(sjoined_gdf)
-
-        sjoined_gdf = sjoined_gdf.groupby("index").filter(
-            lambda x: len(x) >= min_molecules_per_cell
-        )
-
-        after_min_molecules = len(sjoined_gdf)
-        logger.info(
-            f"Dropped {before_min_molecules - after_min_molecules} cells with fewer than {min_molecules_per_cell} transcripts"
-        )
-
-    summed_counts_per_cell = (
-        sjoined_gdf.groupby(["index", gene_name_column])
-        .size()
-        .reset_index(name="count")
-    ).rename(columns={"index": "cell_id"})
-
-    cell_u = list(sorted(summed_counts_per_cell["cell_id"].unique()))
-    gene_u = list(sorted(transcript_gdf[gene_name_column].unique()))
-
-    summed_counts_per_cell["cell_id_idx"] = pd.Categorical(
-        summed_counts_per_cell["cell_id"], categories=cell_u, ordered=True
-    )
-
-    summed_counts_per_cell[gene_name_column] = pd.Categorical(
-        summed_counts_per_cell[gene_name_column], categories=gene_u, ordered=True
-    )
-
-    data = summed_counts_per_cell["count"].tolist()
-    row = summed_counts_per_cell["cell_id_idx"].cat.codes
-    col = summed_counts_per_cell[gene_name_column].cat.codes
-
-    sparse_matrix = csr_matrix((data, (row, col)), shape=(len(cell_u), len(gene_u)))
-
-    shapefile_index = summed_counts_per_cell["cell_id"].unique()
-    shapefile_index.sort()
-
-    additional_columns = [x for x in segmentation_gdf.columns if x != "geometry"]
-
-    adata = anndata.AnnData(
-        X=sparse_matrix,
-        obsm={
-            "spatial": segmentation_gdf.loc[shapefile_index][
-                ["centroid_x", "centroid_y"]
-            ].values
-        },
-        obs=segmentation_gdf.loc[shapefile_index][additional_columns],
-        var=pd.DataFrame(index=gene_u),
-    )
-
-    adata.obs_names.name = "cell_id"
-
-    return adata
-
-
-def calculate_average_intersection_over_union(
-    seg_a, seg_b, overlap_area_threshold=2.0, overlap_area_col="intersection"
-):
-
-    seg_a = seg_a.reset_index(names="segment_id_a")
-    seg_b = seg_b.reset_index(names="segment_id_b")
-
-    overlay_gdf = geopandas.overlay(
-        seg_a, seg_b, how="intersection", keep_geom_type=False
-    )
-    overlay_gdf[overlap_area_col] = overlay_gdf.geometry.area
-
-    overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_col] > overlap_area_threshold]
-    max_overlay_gdf = overlay_gdf.loc[
-        overlay_gdf.groupby("segment_id_a")[[overlap_area_col]]
-        .idxmax()
-        .values.squeeze(),
-        :,
-    ]
-
-    max_overlay_gdf = max_overlay_gdf[
-        ["segment_id_a", "segment_id_b", overlap_area_col]
-    ]
-
-    result = max_overlay_gdf.merge(
-        seg_a[["geometry", "segment_id_a"]],
-        left_on="segment_id_a",
-        right_on="segment_id_a",
-    ).merge(
-        seg_b[["geometry", "segment_id_b"]],
-        left_on="segment_id_b",
-        right_on="segment_id_b",
-    )
-
-    result["union"] = result.apply(
-        lambda row: row["geometry_x"].union(row["geometry_y"]).area, axis=1
-    )
-
-    result["iou"] = result.apply(
-        lambda row: row[overlap_area_col] / row["union"], axis=1
-    )
-
-    return result

@@ -1,5 +1,11 @@
+import os.path
 import shutil
+import tempfile
+
+import numpy as np
 import pytest
+from blended_tiling import TilingModule
+
 from nuc2seg.data import (
     Nuc2SegDataset,
     TiledDataset,
@@ -7,10 +13,6 @@ from nuc2seg.data import (
     RasterizedDataset,
 )
 from nuc2seg.utils import generate_tiles
-import numpy as np
-import tempfile
-import os.path
-from blended_tiling import TilingModule
 
 
 @pytest.fixture(scope="package")

@@ -1,30 +1,25 @@
 import math
+import os.path
+from multiprocessing.pool import ThreadPool
 
 import geopandas
 import geopandas as gpd
 import numpy as np
-import shapely
 import pandas as pd
+import shapely
 import tqdm
-import os.path
-
-from multiprocessing.pool import ThreadPool
+from blended_tiling import TilingModule
+from scipy.spatial import KDTree
 
 from nuc2seg.data import (
     RasterizedDataset,
-    CelltypingResults,
     Nuc2SegDataset,
 )
 from nuc2seg.utils import generate_tiles
 from nuc2seg.xenium import (
     get_bounding_box,
     logger,
-    create_shapely_rectangle,
-    filter_gdf_to_inside_polygon,
 )
-from nuc2seg.celltyping import get_best_k
-from blended_tiling import TilingModule
-from scipy.spatial import KDTree
 
 
 def cart2pol(x, y):

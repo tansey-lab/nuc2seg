@@ -1,3 +1,14 @@
+import os
+import shutil
+import tempfile
+
+import numpy as np
+import torch
+from pytorch_lightning import Trainer
+from torch import nn
+
+from nuc2seg.data import Nuc2SegDataset
+from nuc2seg.preprocessing import cart2pol
 from nuc2seg.unet_model import (
     SparseUNet,
     Nuc2SegDataModule,
@@ -5,15 +16,6 @@ from nuc2seg.unet_model import (
     calculate_even_weights,
     calculate_unlabeled_foreground_loss,
 )
-import torch
-import shutil
-import numpy as np
-from pytorch_lightning import Trainer
-from nuc2seg.data import Nuc2SegDataset
-from nuc2seg.preprocessing import cart2pol
-import tempfile
-import os
-from torch import nn
 
 
 def test_model_predict():

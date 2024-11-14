@@ -1,3 +1,17 @@
+import os.path
+import shutil
+import tempfile
+
+import anndata
+import geopandas
+import numpy as np
+import pytest
+import torch
+from blended_tiling import TilingModule
+from shapely import Polygon, Point
+
+from nuc2seg.data import ModelPredictions, Nuc2SegDataset
+from nuc2seg.preprocessing import cart2pol
 from nuc2seg.segment import (
     greedy_expansion,
     label_connected_components,
@@ -6,27 +20,14 @@ from nuc2seg.segment import (
     raster_to_polygon,
     stitch_predictions,
     convert_segmentation_to_shapefile,
-    convert_transcripts_to_anndata,
     collinear,
     fill_in_surrounded_unlabelled_pixels,
     update_labels_with_flow_values,
     greedy_expansion_step,
     cull_empty_pixels_from_segmentation,
 )
-from nuc2seg.preprocessing import cart2pol
+from nuc2seg.postprocess import convert_transcripts_to_anndata
 from nuc2seg.utils import get_indices_for_ndarray
-import numpy as np
-import pytest
-import torch
-import geopandas
-import shutil
-import os.path
-import tempfile
-import anndata
-
-from shapely import Polygon, Point
-from blended_tiling import TilingModule
-from nuc2seg.data import ModelPredictions, Nuc2SegDataset
 
 
 def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():

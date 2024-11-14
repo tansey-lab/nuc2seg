@@ -1,14 +1,13 @@
-import tqdm
-import numpy as np
-import geopandas
 import anndata
-
+import geopandas
+import numpy as np
+import tqdm
 from kneed import KneeLocator
-
-from scipy.special import softmax
-from nuc2seg.xenium import logger
-from nuc2seg.data import CelltypingResults
 from scipy.special import logsumexp
+from scipy.special import softmax
+
+from nuc2seg.data import CelltypingResults
+from nuc2seg.xenium import logger
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):

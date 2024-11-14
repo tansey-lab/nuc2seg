@@ -3,12 +3,12 @@ import os.path
 import geopandas
 import numpy as np
 import pandas
+import seaborn as sns
 import tqdm
 from matplotlib import cm, gridspec, animation
 from matplotlib import pyplot as plt
 from shapely import box
-import seaborn as sns
-from nuc2seg.segment import greedy_cell_segmentation
+
 from nuc2seg.data import (
     Nuc2SegDataset,
     ModelPredictions,
@@ -16,6 +16,7 @@ from nuc2seg.data import (
     CelltypingResults,
 )
 from nuc2seg.preprocessing import pol2cart
+from nuc2seg.segment import greedy_cell_segmentation
 
 
 def plot_tiling(bboxes, output_path):
