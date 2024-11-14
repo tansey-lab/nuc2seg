@@ -13,7 +13,7 @@ def create_parallel_sequence(meta, n_par) {
     return output
 }
 
-workflow SOPA_SEGMENTATION {
+workflow SOPA {
     def name = params.name == null ? "nuc2seg" : params.name
 
     ch_input = Channel.fromList([
