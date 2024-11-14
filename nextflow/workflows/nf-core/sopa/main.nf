@@ -35,11 +35,11 @@ workflow SOPA {
 
     SOPA_PATCHIFY.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
 
-    sopa_segment_input = SOPA_READ.out.zarr.combine( sopa_patches, by: 0 )
+    sopa_segment_input = sopa_read_output.combine( sopa_patches, by: 0 )
 
     SOPA_SEGMENT( sopa_segment_input )
 
-    SOPA_READ.out.zarr.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
+    sopa_read_output.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
 
     SOPA_RESOLVE( sopa_resolve_input )
 }
