@@ -22,7 +22,8 @@ workflow SOPA {
     ])
 
     if (params.zarr_file == null) {
-        SOPA_READ( ch_input ).out.zarr.tap { sopa_read_output }
+        SOPA_READ( ch_input )
+        SOPA_READ.out.zarr.tap { sopa_read_output }
     } else {
         sopa_read_output = Channel.fromList([
             tuple( [ id: name, single_end:false ], file(params.zarr_file, checkIfExists: true))
