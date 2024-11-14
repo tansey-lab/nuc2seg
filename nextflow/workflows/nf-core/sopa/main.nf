@@ -31,7 +31,7 @@ workflow SOPA {
 
     SOPA_SEGMENT( sopa_segment_input )
 
-    ch_input.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
+    SOPA_READ.out.zarr.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
 
     SOPA_RESOLVE( sopa_resolve_input )
 }
