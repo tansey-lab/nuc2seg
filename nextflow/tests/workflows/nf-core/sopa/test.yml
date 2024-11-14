@@ -1,0 +1,9 @@
+- name: sopa_workflow
+  command: |
+    nextflow -C ./nextflow/tests/workflows/nf-core/sopa/nextflow.config,./nextflow/tests/config/nextflow.config \
+    run ./nextflow/tests/workflows/nf-core/sopa \
+    -stub-run \
+    -entry sopa_workflow
+  tags:
+    - sopa_workflow
+  files: []
