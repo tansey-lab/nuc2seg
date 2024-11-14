@@ -1,26 +1,25 @@
 import argparse
 import logging
 import os.path
+from typing import Optional
 
 import anndata
 import geopandas as gpd
 import numpy as np
 import pandas
 import shapely
-from typing import Optional
-from shapely.geometry import Polygon
 from blended_tiling import TilingModule
+from shapely.geometry import Polygon
 
 from nuc2seg import log_config
-from nuc2seg.data import Nuc2SegDataset, SegmentationResults
+from nuc2seg.data import Nuc2SegDataset
 from nuc2seg.plotting import (
     plot_segmentation_class_assignment,
     celltype_histogram,
     celltype_area_violin,
 )
-from nuc2seg.segment import segmentation_array_to_shapefile
-from nuc2seg.utils import get_tile_idx, generate_tiles
 from nuc2seg.preprocessing import create_shapely_rectangle
+from nuc2seg.utils import get_tile_idx, generate_tiles
 
 logger = logging.getLogger(__name__)
 

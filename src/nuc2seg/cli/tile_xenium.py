@@ -1,17 +1,18 @@
 import argparse
 import logging
-import pandas as pd
 import math
 
+import pandas as pd
+from shapely import box
+
 from nuc2seg import log_config
-from nuc2seg.xenium import (
-    load_and_filter_transcripts_as_table,
-)
 from nuc2seg.preprocessing import (
     tile_transcripts_to_disk,
     tile_nuclei_to_disk,
 )
-from shapely import box
+from nuc2seg.xenium import (
+    load_and_filter_transcripts_as_table,
+)
 
 logger = logging.getLogger(__name__)
 

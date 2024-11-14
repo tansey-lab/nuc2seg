@@ -13,8 +13,8 @@ from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
 from nuc2seg.segment import (
     greedy_cell_segmentation,
     convert_segmentation_to_shapefile,
-    convert_transcripts_to_anndata,
 )
+from nuc2seg.postprocess import convert_transcripts_to_anndata
 from nuc2seg.xenium import (
     load_and_filter_transcripts_as_points,
 )

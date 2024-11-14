@@ -1,13 +1,13 @@
-import torch
 import numpy as np
+import torch
+import torch.nn.functional as F
+import tqdm
+from matplotlib import pyplot as plt
 from scipy.special import softmax, expit
 from torch import Tensor
-from matplotlib import pyplot as plt
-import tqdm
 
-from nuc2seg.preprocessing import pol2cart
 from nuc2seg.data import collate_tiles
-import torch.nn.functional as F
+from nuc2seg.preprocessing import pol2cart
 
 
 def dice_coeff(

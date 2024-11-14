@@ -1,8 +1,9 @@
 import argparse
 import logging
 import os.path
-import tqdm
+
 import numpy as np
+import tqdm
 
 from nuc2seg import log_config
 from nuc2seg.data import (
@@ -11,8 +12,8 @@ from nuc2seg.data import (
     ModelPredictions,
     SegmentationResults,
 )
-from nuc2seg.utils import generate_tiles
 from nuc2seg.plotting import plot_model_predictions
+from nuc2seg.utils import generate_tiles
 
 logger = logging.getLogger(__name__)
 

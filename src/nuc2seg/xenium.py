@@ -1,16 +1,15 @@
 import logging
+from typing import Optional
 
-import shapely
-import math
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import shapely
 import zarr
-from skimage.transform import resize
 from matplotlib import pyplot as plt
 from shapely import Polygon
 from shapely.geometry import box
-from typing import Optional
+from skimage.transform import resize
 
 logger = logging.getLogger(__name__)
 

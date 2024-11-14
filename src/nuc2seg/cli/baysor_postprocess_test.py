@@ -1,18 +1,18 @@
+import json
+import math
 import os
 import shutil
 import tempfile
-import json
-import geopandas as gpd
 from unittest import mock
-import anndata
-import pandas
 
+import anndata
+import geopandas as gpd
+import numpy as np
+from blended_tiling import TilingModule
+
+from nuc2seg.cli import baysor_postprocess
 from nuc2seg.data import CelltypingResults
 from nuc2seg.utils import generate_tiles
-from blended_tiling import TilingModule
-import numpy as np
-import math
-from nuc2seg.cli import baysor_postprocess
 
 
 def test_baysor_postprocess(

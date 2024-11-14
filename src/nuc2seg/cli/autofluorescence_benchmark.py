@@ -3,11 +3,11 @@ import logging
 import os.path
 
 import nuc2seg.post_xenium_imaging
+from nuc2seg import benchmark
 from nuc2seg import log_config
+from nuc2seg import plotting
 from nuc2seg.data import SegmentationResults
 from nuc2seg.xenium import read_xenium_cell_segmentation_masks
-from nuc2seg import benchmark
-from nuc2seg import plotting
 
 logger = logging.getLogger(__name__)
 

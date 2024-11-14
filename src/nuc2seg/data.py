@@ -1,12 +1,12 @@
-import h5py
 import logging
-import torch
-import pandas
-import numpy as np
 
+import h5py
+import numpy as np
+import pandas
+import torch
+from blended_tiling import TilingModule
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
-from blended_tiling import TilingModule
 
 from nuc2seg.utils import generate_tiles
 

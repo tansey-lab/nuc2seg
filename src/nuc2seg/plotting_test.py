@@ -1,16 +1,18 @@
+import os.path
+import shutil
+import tempfile
+
+import numpy as np
+
+from nuc2seg.celltyping import fit_celltype_em_model
+from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
 from nuc2seg.plotting import (
     plot_model_predictions,
     plot_celltype_estimation_results,
     rank_genes_groups_plot,
     plot_greedy_cell_segmentation,
 )
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
-from nuc2seg.celltyping import fit_celltype_em_model
 from nuc2seg.preprocessing import cart2pol
-import numpy as np
-import tempfile
-import shutil
-import os.path
 
 
 def test_plot_model_predictions():
