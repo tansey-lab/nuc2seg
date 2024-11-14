@@ -27,7 +27,7 @@ workflow SOPA {
 
     SOPA_PATCHIFY.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
 
-    sopa_segment_input = ch_input.join(sopa_patches)
+    sopa_segment_input = SOPA_READ.out.zarr.join(sopa_patches)
 
     SOPA_SEGMENT( sopa_segment_input )
 
