@@ -26,6 +26,6 @@ process SOPA_PATCHIFY {
         ${sopa_zarr} \
         ${args}
 
-    n_patches=$(cat "${sopa_zarr}/.sopa_cache/patches_file_image")
+    n_patches=\$(cat "${sopa_zarr}/.sopa_cache/patches_file_image")
     """
 }
