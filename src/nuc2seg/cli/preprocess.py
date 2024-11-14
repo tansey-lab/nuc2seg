@@ -1,22 +1,23 @@
 import argparse
 import logging
-import pandas
 import os.path
 
-from nuc2seg import log_config
+import pandas
 from matplotlib import pyplot as plt
+
+from nuc2seg import log_config
+from nuc2seg.celltyping import (
+    select_best_celltyping_chain,
+    predict_celltypes_for_segments_and_transcripts,
+)
+from nuc2seg.data import CelltypingResults
+from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
+from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
 from nuc2seg.xenium import (
     load_nuclei,
     load_and_filter_transcripts_as_points,
     create_shapely_rectangle,
 )
-from nuc2seg.celltyping import (
-    select_best_celltyping_chain,
-    predict_celltypes_for_segments_and_transcripts,
-)
-from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
-from nuc2seg.data import CelltypingResults
-from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
-import pytest
-import pandas
 import geopandas
+import pandas
+import pytest
 import shapely
 
 

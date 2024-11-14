@@ -1,3 +1,5 @@
+import torch
+
 from nuc2seg.evaluate import (
     dice_coeff,
     multiclass_dice_coeff,
@@ -6,7 +8,6 @@ from nuc2seg.evaluate import (
     angle_accuracy,
     celltype_accuracy,
 )
-import torch
 
 
 def test_dice_coeff():

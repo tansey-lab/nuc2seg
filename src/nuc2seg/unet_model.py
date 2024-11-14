@@ -1,19 +1,20 @@
 """ Full assembly of the parts to form the complete network """
 
-from pytorch_lightning.utilities.types import EVAL_DATALOADERS
-from torch.nn import Embedding
-from nuc2seg.unet_parts import *
+from typing import Optional
+
 from pytorch_lightning.core import LightningModule, LightningDataModule
-from nuc2seg.data import TiledDataset, Nuc2SegDataset
 from torch import optim
+from torch.nn import Embedding
+from torch.utils.data import DataLoader, random_split, Subset
+
+from nuc2seg.data import TiledDataset, Nuc2SegDataset
 from nuc2seg.evaluate import (
     foreground_accuracy,
     squared_angle_difference,
     angle_accuracy,
     celltype_accuracy,
 )
-from typing import Optional
-from torch.utils.data import DataLoader, random_split, Subset
+from nuc2seg.unet_parts import *
 
 
 class UNet(nn.Module):

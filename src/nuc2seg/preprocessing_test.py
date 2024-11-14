@@ -1,13 +1,15 @@
-import pytest
-import pandas
-import geopandas
-import shapely
-from nuc2seg.preprocessing import create_rasterized_dataset, tile_transcripts_to_disk
-import numpy as np
-import tempfile
-import shutil
 import glob
 import os.path
+import shutil
+import tempfile
+
+import geopandas
+import numpy as np
+import pandas
+import pytest
+import shapely
+
+from nuc2seg.preprocessing import create_rasterized_dataset, tile_transcripts_to_disk
 
 
 @pytest.fixture(scope="function")

@@ -1,18 +1,19 @@
-import pandas
+import json
+import os.path
+import shutil
+import tempfile
+
+import anndata
+import geopandas as gpd
+from shapely import box, Point
 
 from nuc2seg.postprocess import (
     stitch_shapes,
     read_baysor_shapes_with_cluster_assignment,
+    calculate_segmentation_jaccard_index,
+    calculate_average_intersection_over_union,
+    convert_transcripts_to_anndata,
 )
-from nuc2seg.segment import convert_transcripts_to_anndata
-from shapely import box
-import geopandas as gpd
-import pytest
-import json
-import tempfile
-import os.path
-import shutil
-import anndata
 
 
 def test_read_baysor_shapes_with_cluster_assignment(
@@ -164,3 +165,49 @@ def test_baysor_transcripts_to_anndata(test_baysor_shapefile, test_baysor_output
         assert ad[ad.obs.index[second_filter], "SEC11C"].X.todense().item() == 0
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_calculate_average_intersection_over_union():
+    segmentation_a = gpd.GeoDataFrame(
+        {"cell": [1, 2], "geometry": [box(3, 3, 4, 4), box(6, 6, 7, 7)]}
+    )
+    segmentation_b = gpd.GeoDataFrame(
+        {"cell": [1, 2], "geometry": [box(3, 3, 5, 5), box(6, 6, 7, 7)]}
+    )
+    transcripts = gpd.GeoDataFrame(
+        [
+            ["a", Point(3.5, 3.5)],
+            ["a", Point(4.5, 4.5)],
+            ["b", Point(6.5, 6.5)],
+        ],
+        columns=["feature_name", "geometry"],
+    )
+
+    result = calculate_average_intersection_over_union(
+        segmentation_a, segmentation_b, overlap_area_threshold=0.01
+    )
+
+    assert set(result.iou) == {1.0, 0.25}
+
+
+def test_calculate_segmentation_jaccard_index():
+    segmentation_a = gpd.GeoDataFrame(
+        {"cell": [1, 2], "geometry": [box(3, 3, 4, 4), box(6, 6, 7, 7)]}
+    )
+    segmentation_b = gpd.GeoDataFrame(
+        {"cell": [1, 2], "geometry": [box(3, 3, 5, 5), box(6, 6, 7, 7)]}
+    )
+    transcripts = gpd.GeoDataFrame(
+        [
+            ["a", Point(3.5, 3.5)],
+            ["a", Point(4.5, 4.5)],
+            ["b", Point(6.5, 6.5)],
+        ],
+        columns=["feature_name", "geometry"],
+    )
+
+    result = calculate_segmentation_jaccard_index(
+        transcripts, segmentation_a, segmentation_b, overlap_area_threshold=0.01
+    )
+
+    assert set(result.jaccard_index) == {1.0, 0.5}

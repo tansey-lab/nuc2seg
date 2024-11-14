@@ -2,10 +2,10 @@ import argparse
 import logging
 
 from nuc2seg import log_config
+from nuc2seg.data import Nuc2SegDataset
 from nuc2seg.preprocessing import (
     tile_dataset_to_disk,
 )
-from nuc2seg.data import Nuc2SegDataset
 
 logger = logging.getLogger(__name__)
 

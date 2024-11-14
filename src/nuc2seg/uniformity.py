@@ -1,6 +1,6 @@
 import numpy as np
-from scipy.spatial import KDTree
 import tqdm
+from scipy.spatial import KDTree
 
 
 def gene_uniformity_test(genes, distances, cell_locations, n_trials=100, exact=False):

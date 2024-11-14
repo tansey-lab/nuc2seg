@@ -1,5 +1,7 @@
-import re
 import os
+import re
+
+import geopandas
 import numpy as np
 from blended_tiling import TilingModule
 from shapely import box, Polygon
@@ -101,3 +103,11 @@ def generate_tiles(
             else:
                 yield x, y, x + tile_size[0], y + tile_size[1]
             tile_id += 1
+
+
+def spatial_join_polygons_and_transcripts(
+    boundaries: geopandas.GeoDataFrame, transcripts: geopandas.GeoDataFrame
+):
+    joined_gdf = geopandas.sjoin(boundaries, transcripts, how="inner")
+
+    return joined_gdf

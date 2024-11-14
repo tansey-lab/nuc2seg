@@ -21,8 +21,6 @@ from nuc2seg.postprocess import (
     stitch_shapes,
     filter_baysor_shapes_to_most_significant_nucleus_overlap,
     read_baysor_shapefile,
-)
-from nuc2seg.segment import (
     convert_transcripts_to_anndata,
 )
 from nuc2seg.utils import get_tile_idx

@@ -1,14 +1,15 @@
 import argparse
 import logging
-import numpy as np
 import os.path
+
+import numpy as np
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
 
 from nuc2seg import log_config
 from nuc2seg.data import Nuc2SegDataset, TiledDataset, TrainTestSplit
 from nuc2seg.unet_model import SparseUNet, Nuc2SegDataModule
-from pytorch_lightning import Trainer, Callback
-from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
 
 logger = logging.getLogger(__name__)
 
