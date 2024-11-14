@@ -21,13 +21,20 @@ workflow SOPA {
         file(params.xenium_dir, checkIfExists: true))
     ])
 
-    SOPA_READ( ch_input )
+    if (params.zarr_file == null) {
+        SOPA_READ( ch_input ).out.zarr.tap { sopa_read_output }
+    } else {
+        sopa_read_output = Channel.fromList([
+            tuple( [ id: name, single_end:false ], file(params.zarr_file, checkIfExists: true))
+        ])
 
-    SOPA_PATCHIFY( SOPA_READ.out.zarr )
+    }
+
+    SOPA_PATCHIFY( sopa_read_output )
 
     SOPA_PATCHIFY.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
 
-    sopa_segment_input = SOPA_READ.out.zarr.join(sopa_patches)
+    sopa_segment_input = SOPA_READ.out.zarr.combine( sopa_patches, by: 0 )
 
     SOPA_SEGMENT( sopa_segment_input )
 
