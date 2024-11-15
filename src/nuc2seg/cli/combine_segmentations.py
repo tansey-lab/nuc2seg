@@ -18,7 +18,7 @@ from nuc2seg.plotting import (
     celltype_histogram,
     celltype_area_violin,
 )
-from nuc2seg.preprocessing import create_shapely_rectangle
+from nuc2seg.xenium import create_shapely_rectangle
 from nuc2seg.utils import get_tile_idx, generate_tiles
 
 logger = logging.getLogger(__name__)
