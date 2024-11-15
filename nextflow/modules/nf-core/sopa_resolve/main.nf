@@ -9,7 +9,7 @@ process SOPA_RESOLVE {
     tuple val(meta), path(sopa_zarr), path(segments)
 
     output:
-    tuple val(meta), path("${sopa_zarr}/.sopa_cache/cellpose_boundaries_done"), emit: done_file
+    tuple val(meta), path("${sopa_zarr}/shapes/cellpose_boundaries/shapes.parquet"), emit: done_file
 
     when:
     task.ext.when == null || task.ext.when
