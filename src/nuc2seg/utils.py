@@ -154,3 +154,30 @@ def filter_gdf_to_inside_polygon(gdf, polygon=None):
     if polygon is None:
         return gdf
     return gdf[gdf.geometry.contains(polygon)]
+
+
+def get_tile_bounds(
+    tile_width: int,
+    tile_height: int,
+    tile_overlap: float,
+    tile_index: int,
+    base_width: int,
+    base_height: int,
+) -> tuple[int, int, int, int]:
+    tiler = TilingModule(
+        tile_size=(tile_width, tile_height),
+        tile_overlap=(tile_overlap, tile_overlap),
+        base_size=(base_width, base_height),
+    )
+    x1, y1, x2, y2 = next(
+        generate_tiles(
+            tiler=tiler,
+            x_extent=base_width,
+            y_extent=base_height,
+            tile_size=(tile_width, tile_height),
+            overlap_fraction=tile_overlap,
+            tile_ids=[tile_index],
+        )
+    )
+
+    return (x1, y1, x2, y2)
