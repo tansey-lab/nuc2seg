@@ -23,11 +23,10 @@ from nuc2seg.postprocess import (
     read_baysor_shapefile,
     convert_transcripts_to_anndata,
 )
-from nuc2seg.utils import get_tile_idx
+from nuc2seg.utils import get_tile_idx, create_shapely_rectangle
 from nuc2seg.xenium import (
     load_and_filter_transcripts_as_points,
     load_nuclei,
-    create_shapely_rectangle,
 )
 
 logger = logging.getLogger(__name__)

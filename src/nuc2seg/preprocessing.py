@@ -65,7 +65,7 @@ def create_rasterized_dataset(
 ):
     n_genes = tx_geo_df["gene_id"].max() + 1
 
-    x_min, x_max, y_min, y_max = get_bounding_box(sample_area)
+    x_min, x_max, y_min, y_max = sample_area.bounds
     x_min, x_max = math.floor(x_min), math.ceil(x_max)
     y_min, y_max = math.floor(y_min), math.ceil(y_max)
 
