@@ -1,11 +1,15 @@
 import os
 import re
+import logging
 
 import geopandas
 import numpy as np
 from blended_tiling import TilingModule
 from shapely import box, Polygon
 from shapely.geometry import box
+
+
+logger = logging.getLogger(__name__)
 
 
 def sqexp(x1, x2, bandwidth=2, scale=1, axis=None):
@@ -136,7 +140,7 @@ def drop_invalid_geometries(gdf: geopandas.GeoDataFrame):
     # Reset index after dropping rows
     clean_gdf.reset_index(drop=True, inplace=True)
 
-    print(f"Removed {invalid_count} invalid geometries")
+    logger.info(f"Removed {invalid_count} invalid geometries")
     return clean_gdf
 
 
@@ -151,9 +155,12 @@ def filter_gdf_to_intersects_polygon(gdf, polygon=None):
 
 
 def filter_gdf_to_inside_polygon(gdf, polygon=None):
+    if gdf.empty:
+        return gdf
+
     if polygon is None:
         return gdf
-    return gdf[gdf.geometry.contains(polygon)]
+    return gdf[gdf.geometry.apply(lambda x: polygon.contains(x))]
 
 
 def get_tile_bounds(

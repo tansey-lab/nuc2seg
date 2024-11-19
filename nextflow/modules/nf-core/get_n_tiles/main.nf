@@ -6,7 +6,7 @@ process GET_N_TILES {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(dataset), val(tile_dim), val(overlap_percentage)
+    tuple val(meta), path(dataset), val(tile_width), val(tile_height), val(overlap_percentage)
 
     output:
     tuple val(meta), env(n_patches),  emit: n_tiles
@@ -22,15 +22,15 @@ process GET_N_TILES {
     """
     mkdir -p "${prefix}"
     get_n_tiles \
-        --output-file "${prefix}/n_tiles_${tile_dim}_${overlap_percentage}.txt" \
+        --output-file "${prefix}/n_tiles_${tile_width}_${tile_height}_${overlap_percentage}.txt" \
         --dataset ${dataset} \
-        --tile-width ${tile_dim} \
-        --tile-height ${tile_dim} \
+        --tile-width ${tile_width} \
+        --tile-height ${tile_height} \
         --overlap-percentage ${overlap_percentage} \
         ${args}
 
 
-    n_patches=\$(cat "${prefix}/n_tiles_${tile_dim}_${overlap_percentage}.txt")
+    n_patches=\$(cat "${prefix}/n_tiles_${tile_width}_${tile_height}_${overlap_percentage}.txt")
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

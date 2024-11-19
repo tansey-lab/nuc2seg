@@ -29,8 +29,8 @@ def read_boundaries_into_polygons(
     if sample_area is not None:
         filters = [
             (x_column_name, ">", sample_area.bounds[0] - tolerance),
-            (x_column_name, ">", sample_area.bounds[1] - tolerance),
-            (y_column_name, "<=", sample_area.bounds[2] + tolerance),
+            (y_column_name, ">", sample_area.bounds[1] - tolerance),
+            (x_column_name, "<=", sample_area.bounds[2] + tolerance),
             (y_column_name, "<=", sample_area.bounds[3] + tolerance),
         ]
     else:
@@ -76,23 +76,21 @@ def load_transcripts(
     if sample_area is not None:
         filters = [
             (x_column_name, ">", sample_area.bounds[0]),
-            (x_column_name, ">", sample_area.bounds[1]),
-            (y_column_name, "<=", sample_area.bounds[2]),
+            (y_column_name, ">", sample_area.bounds[1]),
+            (x_column_name, "<=", sample_area.bounds[2]),
             (y_column_name, "<=", sample_area.bounds[3]),
         ]
     else:
         filters = None
 
-    columns = (
-        [
-            feature_name_column,
-            x_column_name,
-            y_column_name,
-            qv_column,
-            cell_id_column,
-            overlaps_nucleus_column,
-        ],
-    )
+    columns = [
+        feature_name_column,
+        x_column_name,
+        y_column_name,
+        qv_column,
+        cell_id_column,
+        overlaps_nucleus_column,
+    ]
 
     transcripts_table = pyarrow.parquet.read_table(
         transcripts_file, columns=columns, filters=filters, use_threads=True

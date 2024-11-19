@@ -10,7 +10,7 @@ process PREDICT {
     tuple val(meta), path(dataset), path(model_weights), val(job_index), val(n_jobs)
 
     output:
-    tuple val(meta), path("${prefix}/predictions/*.h5"), emit: predictions
+    tuple val(meta), path("${prefix}/predictions/thread_${job_index}.pt"), emit: predictions
     path  "versions.yml"                , emit: versions
 
 
@@ -23,7 +23,7 @@ process PREDICT {
     """
     mkdir -p "${prefix}/predictions"
     predict \
-        --output-dir "${prefix}/predictions" \
+        --output-file "${prefix}/predictions/thread_${job_index}.pt" \
         --dataset ${dataset} \
         --model-weights ${model_weights} \
         --tile-width ${params.tile_width} \

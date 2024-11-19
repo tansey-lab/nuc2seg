@@ -124,6 +124,17 @@ workflow NUC2SEG {
     if (params.dataset == null) {
         PREPROCESS.out.dataset
             .tap { preprocessed_dataset }
+        preprocessed_dataset.join(
+        Channel.fromList(
+                [
+                    tuple(
+                        [ id: name, single_end:false ],
+                        params.segmentation_tile_width,
+                        params.segmentation_tile_height,
+                        params.overlap_percentage
+                    )
+                ]
+            )).tap { get_n_segment_tiles_input }
     } else {
         preprocessed_dataset = Channel.fromList(
             [
@@ -133,19 +144,30 @@ workflow NUC2SEG {
                 )
             ]
         )
+
+        get_n_segment_tiles_input = Channel.fromList(
+                [
+                    tuple(
+                        [ id: name, single_end:false ],
+                        file(params.dataset, checkIfExists: true),
+                        params.segmentation_tile_width,
+                        params.segmentation_tile_height,
+                        params.overlap_percentage
+                    )
+                ]
+            )
     }
 
     if (params.prediction_results == null) {
         PREDICT( predict_input )
-        prediction_results = PREDICT.out.predictions
+        partial_prediction_results = PREDICT.out.predictions
 
         preprocessed_dataset.join(
-            prediction_results.groupTuple()
+            partial_prediction_results.groupTuple()
         ).tap { combine_predictions_input }
 
         COMBINE_PREDICTIONS( combine_predictions_input )
-        COMBINE_PREDICTIONS.out.predictions.groupTuple().tap { combined_prediction_results }
-
+        COMBINE_PREDICTIONS.out.predictions.tap { combined_prediction_results }
     } else {
         combined_prediction_results = Channel.fromList(
             [
@@ -157,24 +179,15 @@ workflow NUC2SEG {
         )
     }
 
-    get_n_segment_tiles_input = Channel.fromList(
-                [
-                    tuple(
-                        [ id: name, single_end:false ],
-                        file(params.dataset, checkIfExists: true),
-                        params.segmentation_tile_height,
-                        params.segmentation_tile_width,
-                        params.overlap_percentage
-                    )
-                ]
-            )
+
 
     GET_N_TILES( get_n_segment_tiles_input )
 
     GET_N_TILES.out.n_tiles.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { segmentation_tiles }
 
-    ch_input
-        .join(preprocessed_dataset)
+    Channel.fromList([
+        tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true))
+    ]).join(preprocessed_dataset)
         .join(combined_prediction_results)
         .join(celltyping_results)
         .combine(segmentation_tiles, by: 0)

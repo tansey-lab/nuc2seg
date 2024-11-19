@@ -300,8 +300,8 @@ class Nuc2SegDataset:
                     tile_height=tile_height,
                     tile_overlap=tile_overlap,
                     tile_index=tile_index,
-                    base_width=f["classes"].shape[0],
-                    base_height=f["classes"].shape[1],
+                    base_width=f["angles"].shape[0],
+                    base_height=f["angles"].shape[1],
                 )
                 labels = f["labels"][x1:x2, y1:y2]
                 angles = f["angles"][x1:x2, y1:y2]
@@ -329,6 +329,15 @@ class Nuc2SegDataset:
                 new_transcripts = transcripts[transcript_selector].copy()
                 new_transcripts[:, 0] = new_transcripts[:, 0] - x1
                 new_transcripts[:, 1] = new_transcripts[:, 1] - y1
+
+                current_labels = np.unique(labels)
+                current_labels = current_labels[current_labels > 0]
+
+                for current_nuc_index, monotonically_increasing_index in zip(
+                    current_labels, range(1, len(current_labels) + 1)
+                ):
+                    labels[labels == current_nuc_index] = monotonically_increasing_index
+
                 return Nuc2SegDataset(
                     labels=labels,
                     angles=angles,
@@ -596,11 +605,11 @@ class ModelPredictions:
                     tile_height=tile_height,
                     tile_overlap=tile_overlap,
                     tile_index=tile_index,
-                    base_width=f["classes"].shape[0],
-                    base_height=f["classes"].shape[1],
+                    base_width=f["angles"].shape[0],
+                    base_height=f["angles"].shape[1],
                 )
                 angles = f["angles"][x1:x2, y1:y2]
-                classes = f["classes"][x1:x2, y1:y2]
+                classes = f["classes"][x1:x2, y1:y2, :]
                 foreground = f["foreground"][x1:x2, y1:y2]
                 return ModelPredictions(
                     angles=angles, classes=classes, foreground=foreground

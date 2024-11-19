@@ -404,7 +404,7 @@ def predict_celltypes_for_segments_and_transcripts(
     segment_geo_df["_x_centroid"] = segment_geo_df.centroid.x
     segment_geo_df["_y_centroid"] = segment_geo_df.centroid.y
     segment_geo_df.sort_values(by=["_x_centroid", "_y_centroid"], inplace=True)
-    n_genes = transcript_geo_df["gene_id"].nunique()
+    n_genes = transcript_geo_df["gene_id"].max() + 1
     # iterate segment_geo_df in chunks of chunk_size
     current_index = 0
     while current_index < len(segment_geo_df):

@@ -118,10 +118,9 @@ def main():
     for item in trainer.predict(model, dm):
         value = item["value"]
         tile_index = item["tile_index"]
-        values.append(value)
+        values.append(value.squeeze())
         tile_indices.append(tile_index)
-
-    predictions = torch.stack(values).squeeze().cpu()
+    predictions = torch.stack(values).cpu()
     tile_indices = torch.tensor(tile_indices).cpu()
 
     logger.info(f"Writing output to {args.output_file}")

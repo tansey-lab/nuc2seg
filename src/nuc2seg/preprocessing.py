@@ -1,5 +1,6 @@
 import math
 import os.path
+import logging
 from multiprocessing.pool import ThreadPool
 
 import geopandas
@@ -16,10 +17,8 @@ from nuc2seg.data import (
     Nuc2SegDataset,
 )
 from nuc2seg.utils import generate_tiles
-from nuc2seg.xenium import (
-    get_bounding_box,
-    logger,
-)
+
+logger = logging.getLogger(__name__)
 
 
 def cart2pol(x, y):
@@ -65,7 +64,7 @@ def create_rasterized_dataset(
 ):
     n_genes = tx_geo_df["gene_id"].max() + 1
 
-    x_min, x_max, y_min, y_max = sample_area.bounds
+    x_min, y_min, x_max, y_max = sample_area.bounds
     x_min, x_max = math.floor(x_min), math.ceil(x_max)
     y_min, y_max = math.floor(y_min), math.ceil(y_max)
 

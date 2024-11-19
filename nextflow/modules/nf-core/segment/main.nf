@@ -9,9 +9,9 @@ process SEGMENT {
     tuple val(meta), path(xenium_dir), path(dataset), path(predictions), path(cell_typing_results), val(tile_idx)
 
     output:
-    tuple val(meta), path("${prefix}/segmentation_tile_*.h5")                    , emit: segmentation, optional: true
-    tuple val(meta), path("${prefix}/shapes_tile_*.parquet")                     , emit: shapefile, optional: true
-    tuple val(meta), path("${prefix}/anndata_tile_*.h5ad")                       , emit: anndata, optional: true
+    tuple val(meta), path("${prefix}/segmentation_tiles/segmentation_tile_*.h5")                    , emit: segmentation, optional: true
+    tuple val(meta), path("${prefix}/shape_tiles/shapes_tile_*.parquet")                     , emit: shapefile, optional: true
+    tuple val(meta), path("${prefix}/anndata_tiles/anndata_tile_*.h5ad")                       , emit: anndata, optional: true
     path  "versions.yml"                                                         , emit: versions
 
 

@@ -65,7 +65,7 @@ def main():
 
     for fn in tqdm.tqdm(args.prediction_outputs, desc="Loading partial predictions"):
         obj = torch.load(fn)
-        values.append(obj["values"])
+        values.append(obj["predictions"])
         tile_indices.append(obj["tile_indices"])
 
     values = torch.concatenate(values)
@@ -86,4 +86,4 @@ def main():
     )
 
     model_predictions = stitch_predictions(results=values, tiler=tiled_dataset.tiler)
-    model_predictions.save_h5(args.output)
+    model_predictions.save_h5(args.output_file)

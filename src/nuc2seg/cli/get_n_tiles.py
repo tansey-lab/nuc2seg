@@ -61,7 +61,7 @@ def main():
 
     logger.info(f"Loading dataset from {args.dataset}")
 
-    with h5py.Dataset(args.dataset, "r") as f:
+    with h5py.File(args.dataset, "r") as f:
         base_width = f["labels"].shape[0]
         base_height = f["labels"].shape[0]
 

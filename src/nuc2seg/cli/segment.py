@@ -3,6 +3,7 @@ import logging
 
 import numpy as np
 import pandas
+import h5py
 
 from nuc2seg import log_config
 from nuc2seg.celltyping import (
@@ -130,6 +131,9 @@ def get_parser():
 
 def main():
     args = get_parser().parse_args()
+    with h5py.File(args.dataset, "r") as f:
+        base_width = f["labels"].shape[0]
+        base_height = f["labels"].shape[0]
 
     if args.tile_index is None:
         dataset = Nuc2SegDataset.load_h5(args.dataset)
@@ -150,12 +154,19 @@ def main():
                 tile_height=args.tile_height,
                 tile_overlap=args.overlap_percentage,
                 tile_index=args.tile_index,
-                base_width=dataset.x_extent_pixels,
-                base_height=dataset.y_extent_pixels,
+                base_width=base_width,
+                base_height=base_height,
             )
         )
+
+        transcript_bbox = box(
+            tile_bbox.bounds[0] + dataset.bbox[0],
+            tile_bbox.bounds[1] + dataset.bbox[1],
+            tile_bbox.bounds[2] + dataset.bbox[0],
+            tile_bbox.bounds[3] + dataset.bbox[1],
+        )
         transcripts = load_and_filter_transcripts_as_points(
-            args.transcripts, sample_area=tile_bbox
+            args.transcripts, sample_area=transcript_bbox
         )
         predictions = ModelPredictions.load_h5(
             args.predictions,
