@@ -308,7 +308,7 @@ def test_stitch_predictions():
 
     output = stitch_predictions(results=pred_result, tiler=tiling_module)
 
-    assert output.classes.shape == (3, 128, 128)
+    assert output.classes.shape == (128, 128, 3)
     assert output.angles.shape == (128, 128)
     assert output.foreground.shape == (128, 128)
 
