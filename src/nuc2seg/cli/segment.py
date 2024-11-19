@@ -18,6 +18,8 @@ from nuc2seg.postprocess import convert_transcripts_to_anndata
 from nuc2seg.xenium import (
     load_and_filter_transcripts_as_points,
 )
+from nuc2seg.utils import get_tile_bounds
+from shapely import box
 
 logger = logging.getLogger(__name__)
 
@@ -99,20 +101,73 @@ def get_parser():
         action=argparse.BooleanOptionalAction,
         default=True,
     )
+    parser.add_argument(
+        "--tile-index",
+        help="Tile index to process",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--tile-height",
+        help="Height of the tiles.",
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
+        "--tile-width",
+        help="Width of the tiles.",
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
+        "--overlap-percentage",
+        help="What percent of each tile dimension overlaps with the next tile.",
+        type=float,
+        default=0.25,
+    )
     return parser
 
 
 def main():
     args = get_parser().parse_args()
-    dataset = Nuc2SegDataset.load_h5(args.dataset)
 
-    transcripts = load_and_filter_transcripts_as_points(args.transcripts)
+    if args.tile_index is None:
+        dataset = Nuc2SegDataset.load_h5(args.dataset)
+        transcripts = load_and_filter_transcripts_as_points(args.transcripts)
+        predictions = ModelPredictions.load_h5(args.predictions)
+    else:
+        dataset = Nuc2SegDataset.load_h5(
+            args.dataset,
+            tile_width=args.tile_width,
+            tile_height=args.tile_height,
+            tile_overlap=args.overlap_percentage,
+            tile_index=args.tile_index,
+        )
+
+        tile_bbox = box(
+            *get_tile_bounds(
+                tile_width=args.tile_width,
+                tile_height=args.tile_height,
+                tile_overlap=args.overlap_percentage,
+                tile_index=args.tile_index,
+                base_width=dataset.x_extent_pixels,
+                base_height=dataset.y_extent_pixels,
+            )
+        )
+        transcripts = load_and_filter_transcripts_as_points(
+            args.transcripts, sample_area=tile_bbox
+        )
+        predictions = ModelPredictions.load_h5(
+            args.predictions,
+            tile_width=args.tile_width,
+            tile_height=args.tile_height,
+            tile_overlap=args.overlap_percentage,
+            tile_index=args.tile_index,
+        )
 
     if transcripts is None:
         logger.warning("No transcripts found, exiting")
         return
-
-    predictions = ModelPredictions.load_h5(args.predictions)
 
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
     celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(

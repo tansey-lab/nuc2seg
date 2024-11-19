@@ -32,7 +32,6 @@ process BAYSOR {
     JULIA_NUM_THREADS=${task.cpus} baysor run \
         --x-column "x_location" \
         --y-column "y_location" \
-        --z-column "z_location" \
         --gene-column "feature_name" \
         ${scale_arg} \
         ${scale_std_arg} \
@@ -61,7 +60,6 @@ process BAYSOR {
     echo JULIA_NUM_THREADS=${task.cpus} baysor run \
         --x-column "x_location" \
         --y-column "y_location" \
-        --z-column "z_location" \
         --gene-column "feature_name" \
         ${scale_arg} \
         ${scale_std_arg} \

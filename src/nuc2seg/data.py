@@ -328,12 +328,12 @@ class Nuc2SegDataset:
 
                 new_transcripts = transcripts[transcript_selector].copy()
                 new_transcripts[:, 0] = new_transcripts[:, 0] - x1
-                new_transcripts[:, 1] = new_transcripts[:, 1] - x2
+                new_transcripts[:, 1] = new_transcripts[:, 1] - y1
                 return Nuc2SegDataset(
                     labels=labels,
                     angles=angles,
                     classes=classes,
-                    transcripts=transcripts,
+                    transcripts=new_transcripts,
                     bbox=new_bbox,
                     n_classes=n_classes,
                     n_genes=n_genes,
