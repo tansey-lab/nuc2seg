@@ -1,4 +1,4 @@
-process SOPA_RESOLVE {
+process SOPA_EXTRACT_RESULT {
     tag "$meta.id"
     label 'process_medium'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
@@ -6,11 +6,10 @@ process SOPA_RESOLVE {
         ('docker.io/jeffquinnmsk/sopa:' + params.sopa_version) }"
 
     input:
-    tuple val(meta), path(sopa_zarr), path(segments)
+    tuple val(meta), path(xenium_dir), path(sopa_zarr)
 
     output:
-    tuple val(meta), path("${sopa_zarr}/shapes/cellpose_boundaries/shapes.parquet"), emit: done_file
-    tuple val(meta), path("${sopa_zarr}"), emit: zarr
+    tuple val(meta), path("${prefix}/sopa_shapes.parquet"), emit: shapes
 
     when:
     task.ext.when == null || task.ext.when
@@ -20,8 +19,10 @@ process SOPA_RESOLVE {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    sopa resolve cellpose \
-        ${sopa_zarr} \
+    extract_shapefile_from_sopa \
+        --output "${prefix}/sopa_shapes.parquet" \
+        --xenium-experiment "${xenium_dir}/experiment.xenium" \
+        --zarr ${sopa_zarr} \
         ${args}
     """
 }

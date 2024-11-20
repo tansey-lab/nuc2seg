@@ -160,8 +160,8 @@ def load_and_filter_transcripts_as_table(
     return transcripts_df
 
 
-def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None):
-    nuclei_geo_df = read_boundaries_into_polygons(nuclei_file, sample_area)
+def load_vertex_file(fn: str, sample_area: Optional[shapely.Polygon] = None):
+    nuclei_geo_df = read_boundaries_into_polygons(fn, sample_area)
 
     original_n_nuclei = nuclei_geo_df.shape[0]
 
