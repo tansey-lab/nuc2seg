@@ -2,6 +2,7 @@ include { SOPA_READ } from '../../../modules/nf-core/sopa_read/main'
 include { SOPA_PATCHIFY } from '../../../modules/nf-core/sopa_patchify/main'
 include { SOPA_SEGMENT } from '../../../modules/nf-core/sopa_segment/main'
 include { SOPA_RESOLVE } from '../../../modules/nf-core/sopa_resolve/main'
+include { SOPA_EXTRACT_RESULT } from '../../../modules/nf-core/sopa_extract_result/main'
 
 def create_parallel_sequence(meta, n_par) {
     def output = []
@@ -42,4 +43,8 @@ workflow SOPA {
     sopa_read_output.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
 
     SOPA_RESOLVE( sopa_resolve_input )
+
+    ch_input.join( SOPA_RESOLVE.out.zarr ).tap { sopa_extract_result_input }
+
+    SOPA_EXTRACT_RESULT( sopa_extract_result_input )
 }

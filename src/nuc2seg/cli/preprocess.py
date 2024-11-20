@@ -14,7 +14,7 @@ from nuc2seg.data import CelltypingResults
 from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
 from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
 from nuc2seg.xenium import (
-    load_nuclei,
+    load_vertex_file,
     load_and_filter_transcripts_as_points,
 )
 from nuc2seg.utils import create_shapely_rectangle
@@ -126,8 +126,8 @@ def main():
 
         sample_area = create_shapely_rectangle(0, 0, x_max, y_max)
 
-    nuclei_geo_df = load_nuclei(
-        nuclei_file=args.nuclei_file,
+    nuclei_geo_df = load_vertex_file(
+        fn=args.nuclei_file,
         sample_area=sample_area,
     )
 

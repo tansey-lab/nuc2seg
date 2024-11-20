@@ -26,7 +26,7 @@ from nuc2seg.postprocess import (
 from nuc2seg.utils import get_tile_idx, create_shapely_rectangle
 from nuc2seg.xenium import (
     load_and_filter_transcripts_as_points,
-    load_nuclei,
+    load_vertex_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -151,8 +151,8 @@ def main():
     )
 
     logger.info("Loading nuclei shapes")
-    nuclei_geo_df = load_nuclei(
-        nuclei_file=args.nuclei_file,
+    nuclei_geo_df = load_vertex_file(
+        fn=args.nuclei_file,
         sample_area=sample_area,
     )
 

@@ -6,7 +6,7 @@ import numpy as np
 from nuc2seg import log_config
 from nuc2seg.celltyping import fit_celltyping_on_segments_and_transcripts
 from nuc2seg.xenium import (
-    load_nuclei,
+    load_vertex_file,
     load_and_filter_transcripts_as_points,
 )
 from nuc2seg.utils import create_shapely_rectangle
@@ -118,8 +118,8 @@ def main():
     else:
         sample_area = None
 
-    nuclei_geo_df = load_nuclei(
-        nuclei_file=args.nuclei_file,
+    nuclei_geo_df = load_vertex_file(
+        fn=args.nuclei_file,
         sample_area=sample_area,
     )
 
