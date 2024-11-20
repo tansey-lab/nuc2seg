@@ -11,8 +11,9 @@ from nuc2seg.data import (
     TiledDataset,
     CelltypingResults,
     RasterizedDataset,
+    ModelPredictions,
 )
-from nuc2seg.utils import generate_tiles
+from nuc2seg.utils import generate_tiles, get_indexed_tiles
 
 
 @pytest.fixture(scope="package")
@@ -66,6 +67,49 @@ def test_Nuc2SegDataset():
         assert ds_clipped.y_extent_pixels == 10
         assert ds_clipped.labels.shape == (10, 10)
         np.testing.assert_array_equal(ds_clipped.bbox, np.array([100, 100, 110, 110]))
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+def test_Nuc2SegDataset_load_tile():
+    ds = Nuc2SegDataset(
+        labels=np.ones((10, 10)),
+        angles=np.ones((10, 10)),
+        classes=np.ones((10, 10, 3)),
+        transcripts=np.array([[0, 0, 0], [9, 9, 2]]),
+        bbox=np.array([100, 100, 110, 120]),
+        n_classes=3,
+        n_genes=3,
+        resolution=1,
+    )
+
+    tmpdir = tempfile.mkdtemp()
+    output_path = os.path.join(tmpdir, "test.h5")
+    ds.save_h5(output_path)
+
+    tile_idx_lookup = get_indexed_tiles(
+        extent=(10, 10),
+        tile_size=(5, 5),
+        overlap=0.2,
+    )
+
+    ds2 = Nuc2SegDataset.load_h5(
+        output_path, tile_width=5, tile_height=5, tile_overlap=0.2, tile_index=0
+    )
+
+    ds3 = Nuc2SegDataset.load_h5(
+        output_path, tile_width=5, tile_height=5, tile_overlap=0.2, tile_index=8
+    )
+
+    try:
+        assert ds2.x_extent_pixels == 5
+        assert ds2.y_extent_pixels == 5
+        assert len(ds2.transcripts) == 1
+
+        assert ds3.x_extent_pixels == 5
+        assert ds3.y_extent_pixels == 5
+        assert len(ds3.transcripts) == 1
+        assert tuple(ds3.transcripts[0]) == (4, 4, 2)
     finally:
         shutil.rmtree(tmpdir)
 
@@ -237,3 +281,24 @@ def test_get_class_frequencies():
         ),
         decimal=3,
     )
+
+
+def test_ModelPredictions_load_tile():
+    data = ModelPredictions(
+        angles=np.ones((10, 10)),
+        classes=np.ones((10, 10, 3)),
+        foreground=np.ones((10, 10)),
+    )
+
+    tmpdir = tempfile.mkdtemp()
+    output_path = os.path.join(tmpdir, "test.h5")
+    data.save_h5(output_path)
+
+    data2 = ModelPredictions.load_h5(
+        output_path, tile_width=5, tile_height=5, tile_overlap=0.2, tile_index=0
+    )
+
+    try:
+        assert data2.angles.shape == (5, 5)
+    finally:
+        shutil.rmtree(tmpdir)

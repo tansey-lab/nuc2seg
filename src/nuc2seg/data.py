@@ -7,8 +7,8 @@ import torch
 from blended_tiling import TilingModule
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
-
-from nuc2seg.utils import generate_tiles
+from typing import Optional
+from nuc2seg.utils import generate_tiles, get_tile_bounds
 
 logger = logging.getLogger(__name__)
 
@@ -282,26 +282,91 @@ class Nuc2SegDataset:
         return result
 
     @staticmethod
-    def load_h5(path):
+    def load_h5(
+        path,
+        tile_width: Optional[int] = None,
+        tile_height: Optional[int] = None,
+        tile_overlap: Optional[float] = None,
+        tile_index: Optional[int] = None,
+    ):
         with h5py.File(path, "r") as f:
-            labels = f["labels"][:]
-            angles = f["angles"][:]
-            classes = f["classes"][:]
-            transcripts = f["transcripts"][:]
-            bbox = f["bbox"][:]
-            n_classes = f.attrs["n_classes"]
-            n_genes = f.attrs["n_genes"]
-            resolution = f.attrs["resolution"]
-        return Nuc2SegDataset(
-            labels=labels,
-            angles=angles,
-            classes=classes,
-            transcripts=transcripts,
-            bbox=bbox,
-            n_classes=n_classes,
-            n_genes=n_genes,
-            resolution=resolution,
-        )
+            if (
+                tile_width is not None
+                and tile_height is not None
+                and tile_overlap is not None
+            ):
+                x1, y1, x2, y2 = get_tile_bounds(
+                    tile_width=tile_width,
+                    tile_height=tile_height,
+                    tile_overlap=tile_overlap,
+                    tile_index=tile_index,
+                    base_width=f["angles"].shape[0],
+                    base_height=f["angles"].shape[1],
+                )
+                labels = f["labels"][x1:x2, y1:y2]
+                angles = f["angles"][x1:x2, y1:y2]
+                classes = f["classes"][x1:x2, y1:y2]
+                n_classes = f.attrs["n_classes"]
+                n_genes = f.attrs["n_genes"]
+                resolution = f.attrs["resolution"]
+                bbox = f["bbox"][:]
+                transcripts = f["transcripts"][:]
+                transcript_selector = (
+                    (transcripts[:, 0] >= x1)
+                    & (transcripts[:, 0] < x2)
+                    & (transcripts[:, 1] >= y1)
+                    & (transcripts[:, 1] < y2)
+                )
+                new_bbox = np.array(
+                    [
+                        bbox[0] + x1,
+                        bbox[1] + y1,
+                        bbox[0] + x2,
+                        bbox[1] + y2,
+                    ]
+                )
+
+                new_transcripts = transcripts[transcript_selector].copy()
+                new_transcripts[:, 0] = new_transcripts[:, 0] - x1
+                new_transcripts[:, 1] = new_transcripts[:, 1] - y1
+
+                current_labels = np.unique(labels)
+                current_labels = current_labels[current_labels > 0]
+
+                for current_nuc_index, monotonically_increasing_index in zip(
+                    current_labels, range(1, len(current_labels) + 1)
+                ):
+                    labels[labels == current_nuc_index] = monotonically_increasing_index
+
+                return Nuc2SegDataset(
+                    labels=labels,
+                    angles=angles,
+                    classes=classes,
+                    transcripts=new_transcripts,
+                    bbox=new_bbox,
+                    n_classes=n_classes,
+                    n_genes=n_genes,
+                    resolution=resolution,
+                )
+            else:
+                labels = f["labels"][:]
+                angles = f["angles"][:]
+                classes = f["classes"][:]
+                transcripts = f["transcripts"][:]
+                bbox = f["bbox"][:]
+                n_classes = f.attrs["n_classes"]
+                n_genes = f.attrs["n_genes"]
+                resolution = f.attrs["resolution"]
+                return Nuc2SegDataset(
+                    labels=labels,
+                    angles=angles,
+                    classes=classes,
+                    transcripts=transcripts,
+                    bbox=bbox,
+                    n_classes=n_classes,
+                    n_genes=n_genes,
+                    resolution=resolution,
+                )
 
     def clip(self, bbox):
         transcript_selector = (
@@ -521,12 +586,42 @@ class ModelPredictions:
             f.create_dataset("foreground", data=self.foreground, compression="gzip")
 
     @staticmethod
-    def load_h5(path):
+    def load_h5(
+        path,
+        tile_width: Optional[int] = None,
+        tile_height: Optional[int] = None,
+        tile_overlap: Optional[float] = None,
+        tile_index: Optional[int] = None,
+    ):
+
         with h5py.File(path, "r") as f:
-            angles = f["angles"][:]
-            classes = f["classes"][:]
-            foreground = f["foreground"][:]
-        return ModelPredictions(angles=angles, classes=classes, foreground=foreground)
+            if (
+                tile_width is not None
+                and tile_height is not None
+                and tile_overlap is not None
+            ):
+                x1, y1, x2, y2 = get_tile_bounds(
+                    tile_width=tile_width,
+                    tile_height=tile_height,
+                    tile_overlap=tile_overlap,
+                    tile_index=tile_index,
+                    base_width=f["angles"].shape[0],
+                    base_height=f["angles"].shape[1],
+                )
+                angles = f["angles"][x1:x2, y1:y2]
+                classes = f["classes"][x1:x2, y1:y2, :]
+                foreground = f["foreground"][x1:x2, y1:y2]
+                return ModelPredictions(
+                    angles=angles, classes=classes, foreground=foreground
+                )
+
+            else:
+                angles = f["angles"][:]
+                classes = f["classes"][:]
+                foreground = f["foreground"][:]
+                return ModelPredictions(
+                    angles=angles, classes=classes, foreground=foreground
+                )
 
     def shape(self):
         return self.angles.shape

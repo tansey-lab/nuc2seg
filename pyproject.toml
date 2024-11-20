@@ -72,6 +72,8 @@ tile_dataset = "nuc2seg.cli.tile_dataset:main"
 tile_xenium = "nuc2seg.cli.tile_xenium:main"
 baysor_postprocess = "nuc2seg.cli.baysor_postprocess:main"
 combine_segmentations = "nuc2seg.cli.combine_segmentations:main"
+combine_predictions = "nuc2seg.cli.combine_predictions:main"
+get_n_tiles = "nuc2seg.cli.get_n_tiles:main"
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]

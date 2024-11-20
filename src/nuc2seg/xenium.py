@@ -3,46 +3,50 @@ from typing import Optional
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import shapely
 import zarr
+import pyarrow.parquet
 from matplotlib import pyplot as plt
 from shapely import Polygon
-from shapely.geometry import box
 from skimage.transform import resize
+from nuc2seg.utils import (
+    drop_invalid_geometries,
+    filter_gdf_to_intersects_polygon,
+    filter_gdf_to_inside_polygon,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def create_shapely_rectangle(x1, y1, x2, y2):
-    return box(x1, y1, x2, y2)
-
-
-def get_bounding_box(poly: shapely.Polygon):
-    coords = list(poly.exterior.coords)
-
-    # Find the extreme vertices
-    leftmost = min(coords, key=lambda point: point[0])
-    rightmost = max(coords, key=lambda point: point[0])
-    topmost = max(coords, key=lambda point: point[1])
-    bottommost = min(coords, key=lambda point: point[1])
-
-    return leftmost[0], rightmost[0], bottommost[1], topmost[1]
-
-
-def filter_gdf_to_inside_polygon(gdf, polygon=None):
-    if polygon is None:
-        return gdf
-    return gdf[gdf.geometry.intersects(polygon)]
-
-
 def read_boundaries_into_polygons(
     boundaries_file,
+    sample_area: Optional[shapely.Polygon] = None,
     cell_id_column="cell_id",
     x_column_name="vertex_x",
     y_column_name="vertex_y",
+    tolerance=100.0,
 ):
-    boundaries = pd.read_parquet(boundaries_file)
+    if sample_area is not None:
+        filters = [
+            (x_column_name, ">", sample_area.bounds[0] - tolerance),
+            (y_column_name, ">", sample_area.bounds[1] - tolerance),
+            (x_column_name, "<=", sample_area.bounds[2] + tolerance),
+            (y_column_name, "<=", sample_area.bounds[3] + tolerance),
+        ]
+    else:
+        filters = None
+
+    columns = [
+        x_column_name,
+        y_column_name,
+        cell_id_column,
+    ]
+
+    boundaries = pyarrow.parquet.read_table(
+        boundaries_file, columns=columns, filters=filters, use_threads=True
+    )
+    boundaries = boundaries.to_pandas()
+
     geo_df = gpd.GeoDataFrame(
         boundaries,
         geometry=gpd.points_from_xy(
@@ -52,11 +56,16 @@ def read_boundaries_into_polygons(
     polys = geo_df.groupby(cell_id_column)["geometry"].apply(
         lambda x: Polygon(x.tolist())
     )
-    return gpd.GeoDataFrame(polys)
+
+    gdf = drop_invalid_geometries(gpd.GeoDataFrame(polys))
+    gdf = filter_gdf_to_inside_polygon(gdf, sample_area)
+
+    return gdf
 
 
-def read_transcripts_into_points(
-    transcripts_file,
+def load_transcripts(
+    transcripts_file: str,
+    sample_area: Optional[shapely.Polygon] = None,
     x_column_name="x_location",
     y_column_name="y_location",
     feature_name_column="feature_name",
@@ -64,16 +73,50 @@ def read_transcripts_into_points(
     cell_id_column="cell_id",
     overlaps_nucleus_column="overlaps_nucleus",
 ):
-    transcripts = pd.read_parquet(
+    if sample_area is not None:
+        filters = [
+            (x_column_name, ">", sample_area.bounds[0]),
+            (y_column_name, ">", sample_area.bounds[1]),
+            (x_column_name, "<=", sample_area.bounds[2]),
+            (y_column_name, "<=", sample_area.bounds[3]),
+        ]
+    else:
+        filters = None
+
+    columns = [
+        feature_name_column,
+        x_column_name,
+        y_column_name,
+        qv_column,
+        cell_id_column,
+        overlaps_nucleus_column,
+    ]
+
+    transcripts_table = pyarrow.parquet.read_table(
+        transcripts_file, columns=columns, filters=filters, use_threads=True
+    )
+    return transcripts_table.to_pandas()
+
+
+def load_transcripts_as_points(
+    transcripts_file: str,
+    sample_area: Optional[shapely.Polygon] = None,
+    x_column_name="x_location",
+    y_column_name="y_location",
+    feature_name_column="feature_name",
+    qv_column="qv",
+    cell_id_column="cell_id",
+    overlaps_nucleus_column="overlaps_nucleus",
+):
+    transcripts = load_transcripts(
         transcripts_file,
-        columns=[
-            feature_name_column,
-            x_column_name,
-            y_column_name,
-            qv_column,
-            cell_id_column,
-            overlaps_nucleus_column,
-        ],
+        sample_area=sample_area,
+        x_column_name=x_column_name,
+        y_column_name=y_column_name,
+        feature_name_column=feature_name_column,
+        qv_column=qv_column,
+        cell_id_column=cell_id_column,
+        overlaps_nucleus_column=overlaps_nucleus_column,
     )
 
     transcripts[feature_name_column] = transcripts[feature_name_column].apply(
@@ -101,27 +144,16 @@ def load_and_filter_transcripts_as_table(
     cell_id_column="cell_id",
     overlaps_nucleus_column="overlaps_nucleus",
 ):
-    transcripts_df = pd.read_parquet(
+    transcripts_df = load_transcripts(
         transcripts_file,
-        columns=[
-            feature_name_column,
-            x_column_name,
-            y_column_name,
-            qv_column,
-            cell_id_column,
-            overlaps_nucleus_column,
-        ],
+        sample_area=sample_area,
+        x_column_name=x_column_name,
+        y_column_name=y_column_name,
+        feature_name_column=feature_name_column,
+        qv_column=qv_column,
+        cell_id_column=cell_id_column,
+        overlaps_nucleus_column=overlaps_nucleus_column,
     )
-
-    if sample_area is not None:
-        sample_area_filter = (
-            (transcripts_df[x_column_name] >= sample_area.bounds[0])
-            & (transcripts_df[x_column_name] < sample_area.bounds[2])
-            & (transcripts_df[y_column_name] >= sample_area.bounds[1])
-            & (transcripts_df[y_column_name] < sample_area.bounds[3])
-        )
-
-        transcripts_df = transcripts_df[sample_area_filter].copy()
 
     transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
 
@@ -129,11 +161,11 @@ def load_and_filter_transcripts_as_table(
 
 
 def load_nuclei(nuclei_file: str, sample_area: Optional[shapely.Polygon] = None):
-    nuclei_geo_df = read_boundaries_into_polygons(nuclei_file)
+    nuclei_geo_df = read_boundaries_into_polygons(nuclei_file, sample_area)
 
     original_n_nuclei = nuclei_geo_df.shape[0]
 
-    nuclei_geo_df = filter_gdf_to_inside_polygon(nuclei_geo_df, sample_area)
+    nuclei_geo_df = filter_gdf_to_intersects_polygon(nuclei_geo_df, sample_area)
 
     logger.info(
         f"{original_n_nuclei - nuclei_geo_df.shape[0]} nuclei filtered after bounding to {sample_area}"
@@ -207,23 +239,9 @@ def filter_and_preprocess_transcripts(transcripts_df, min_qv):
 def load_and_filter_transcripts_as_points(
     transcripts_file: str, sample_area: Optional[shapely.Polygon] = None, min_qv=20.0
 ):
-    transcripts_df = read_transcripts_into_points(transcripts_file)
-
-    if transcripts_df.empty:
-        return None
-
-    original_count = len(transcripts_df)
-
-    if sample_area is not None:
-        transcripts_df = filter_gdf_to_inside_polygon(transcripts_df, sample_area)
-
-    count_after_bbox = len(transcripts_df)
+    transcripts_df = load_transcripts_as_points(transcripts_file, sample_area)
 
     transcripts_df = filter_and_preprocess_transcripts(transcripts_df, min_qv=min_qv)
-
-    logger.info(
-        f"{original_count - count_after_bbox} tx filtered after bounding to {sample_area}"
-    )
 
     return transcripts_df
 

@@ -49,6 +49,7 @@ def stitch_predictions(results, tiler: TilingModule):
 
     class_tiles = classes * tile_mask[..., None]
     class_stitched = tiler.rebuild(class_tiles.permute((0, 3, 1, 2))).squeeze()
+    class_stitched = class_stitched.permute((1, 2, 0))
 
     return ModelPredictions(
         angles=angles_stitched.detach().cpu().numpy(),

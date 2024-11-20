@@ -1,10 +1,15 @@
 import os
 import re
+import logging
 
 import geopandas
 import numpy as np
 from blended_tiling import TilingModule
 from shapely import box, Polygon
+from shapely.geometry import box
+
+
+logger = logging.getLogger(__name__)
 
 
 def sqexp(x1, x2, bandwidth=2, scale=1, axis=None):
@@ -111,3 +116,75 @@ def spatial_join_polygons_and_transcripts(
     joined_gdf = geopandas.sjoin(boundaries, transcripts, how="inner")
 
     return joined_gdf
+
+
+def drop_invalid_geometries(gdf: geopandas.GeoDataFrame):
+    """
+    Remove rows with invalid geometries from a GeoDataFrame.
+
+    Parameters:
+    gdf (GeoDataFrame): Input GeoDataFrame
+
+    Returns:
+    GeoDataFrame: Clean GeoDataFrame with only valid geometries
+    """
+    # Create mask of valid geometries
+    valid_mask = gdf.geometry.is_valid
+
+    # Get count of invalid geometries
+    invalid_count = (~valid_mask).sum()
+
+    # Drop invalid geometries
+    clean_gdf = gdf[valid_mask].copy()
+
+    # Reset index after dropping rows
+    clean_gdf.reset_index(drop=True, inplace=True)
+
+    logger.info(f"Removed {invalid_count} invalid geometries")
+    return clean_gdf
+
+
+def create_shapely_rectangle(x1, y1, x2, y2):
+    return box(x1, y1, x2, y2)
+
+
+def filter_gdf_to_intersects_polygon(gdf, polygon=None):
+    if polygon is None:
+        return gdf
+    return gdf[gdf.geometry.intersects(polygon)]
+
+
+def filter_gdf_to_inside_polygon(gdf, polygon=None):
+    if gdf.empty:
+        return gdf
+
+    if polygon is None:
+        return gdf
+    return gdf[gdf.geometry.apply(lambda x: polygon.contains(x))]
+
+
+def get_tile_bounds(
+    tile_width: int,
+    tile_height: int,
+    tile_overlap: float,
+    tile_index: int,
+    base_width: int,
+    base_height: int,
+) -> tuple[int, int, int, int]:
+    tiler = TilingModule(
+        tile_size=(tile_width, tile_height),
+        tile_overlap=(tile_overlap, tile_overlap),
+        base_size=(base_width, base_height),
+    )
+    x1, y1, x2, y2 = next(
+        generate_tiles(
+            tiler=tiler,
+            x_extent=base_width,
+            y_extent=base_height,
+            tile_size=(tile_width, tile_height),
+            overlap_fraction=tile_overlap,
+            tile_ids=[tile_index],
+        )
+    )
+
+    return (x1, y1, x2, y2)

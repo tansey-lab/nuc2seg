@@ -8,8 +8,8 @@ from nuc2seg.celltyping import fit_celltyping_on_segments_and_transcripts
 from nuc2seg.xenium import (
     load_nuclei,
     load_and_filter_transcripts_as_points,
-    create_shapely_rectangle,
 )
+from nuc2seg.utils import create_shapely_rectangle
 
 logger = logging.getLogger(__name__)
 

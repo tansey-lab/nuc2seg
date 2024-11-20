@@ -16,8 +16,8 @@ from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_data
 from nuc2seg.xenium import (
     load_nuclei,
     load_and_filter_transcripts_as_points,
-    create_shapely_rectangle,
 )
+from nuc2seg.utils import create_shapely_rectangle
 
 logger = logging.getLogger(__name__)
 

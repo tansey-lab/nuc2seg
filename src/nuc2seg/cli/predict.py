@@ -1,6 +1,9 @@
 import argparse
 import logging
 import os.path
+import h5py
+import numpy as np
+import torch
 
 from pytorch_lightning import Trainer
 
@@ -17,8 +20,8 @@ def get_parser():
     )
     log_config.add_logging_args(parser)
     parser.add_argument(
-        "--output-dir",
-        help="Model prediction output dir.",
+        "--output-file",
+        help="Model prediction output file (h5).",
         type=str,
         required=True,
     )
@@ -109,10 +112,22 @@ def main():
 
     logger.info(f"Writing output to {args.dataset}")
 
+    tile_indices = []
+    values = []
+
     for item in trainer.predict(model, dm):
         value = item["value"]
         tile_index = item["tile_index"]
-        model_prediction = forward_pass_result_to_obj(value)
-        model_prediction.save_h5(
-            os.path.join(args.output_dir, f"model_prediction_tile_{tile_index}.h5")
-        )
+        values.append(value.squeeze())
+        tile_indices.append(tile_index)
+    predictions = torch.stack(values).cpu()
+    tile_indices = torch.tensor(tile_indices).cpu()
+
+    logger.info(f"Writing output to {args.output_file}")
+    torch.save(
+        {
+            "predictions": predictions,
+            "tile_indices": tile_indices,
+        },
+        args.output_file,
+    )
