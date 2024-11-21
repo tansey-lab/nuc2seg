@@ -50,7 +50,7 @@ def fit_celltype_em_model(
     gene_counts,
     gene_names,
     min_components=2,
-    max_components=25,
+    max_components=20,
     max_em_steps=100,
     tol=1e-4,
     warm_start=False,
@@ -270,7 +270,7 @@ def fit_celltyping_on_segments_and_transcripts(
     tx_geo_df: geopandas.GeoDataFrame,
     foreground_nucleus_distance: float = 1,
     min_components: int = 2,
-    max_components: int = 25,
+    max_components: int = 20,
     rng: np.random.Generator = None,
 ):
     # Create a nuclei x gene count matrix
