@@ -77,7 +77,7 @@ def get_parser():
         "--max-n-celltypes",
         help="Maximum number of cell types to consider (inclusive).",
         type=int,
-        default=25,
+        default=20,
     )
     parser.add_argument(
         "--min-n-celltypes",
