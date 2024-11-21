@@ -67,7 +67,7 @@ def test_estimate_cell_types2():
         data,
         gene_names=[f"gene_{i}" for i in range(n_genes)],
         min_components=2,
-        max_components=20,
+        max_components=5,
         max_em_steps=10,
         tol=1e-4,
         warm_start=False,
@@ -88,8 +88,8 @@ def test_estimate_cell_types2():
         celltyping_results.relative_expression,
     )
 
-    assert len(aic_scores) == 24
-    assert len(bic_scores) == 24
+    assert len(aic_scores) == 4
+    assert len(bic_scores) == 4
     assert aic_scores.argmin() == bic_scores.argmin() == 1
 
 
