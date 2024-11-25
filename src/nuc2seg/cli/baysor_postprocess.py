@@ -199,12 +199,20 @@ def main():
         ordered=True,
     )
 
-    baysor_nucleus_intersection["celltype_assignment"] = cell_type_labels
     adata.obs["celltype_assignment"] = cell_type_labels
+    baysor_nucleus_intersection = baysor_nucleus_intersection.merge(
+        adata.obs[["segment_id", "celltype_assignment"]],
+        left_on="segment_id",
+        right_on="segment_id",
+    )
 
     for i in range(celltype_predictions.shape[1]):
-        baysor_nucleus_intersection[f"celltype_{i}_prob"] = celltype_predictions[:, i]
         adata.obs[f"celltype_{i}_prob"] = celltype_predictions[:, i]
+        baysor_nucleus_intersection = baysor_nucleus_intersection.merge(
+            adata.obs[["segment_id", f"celltype_{i}_prob"]],
+            left_on="segment_id",
+            right_on="segment_id",
+        )
 
     logger.info("Saving anndata")
     adata.write_h5ad(os.path.join(os.path.dirname(args.output), "anndata.h5ad"))
