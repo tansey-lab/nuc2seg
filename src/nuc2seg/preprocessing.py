@@ -82,55 +82,38 @@ def create_rasterized_dataset(
     )
     labels_geo_df.rename(columns={"index_right": "nucleus_id_xenium"}, inplace=True)
 
-    # Calculate the nearest transcript neighbors
     logger.info("Calculating the nearest transcript neighbors")
     transcript_xy = np.array(
         [tx_geo_df["x_location"].values, tx_geo_df["y_location"].values]
     ).T
     kdtree = KDTree(transcript_xy)
 
-    # Get the distance to the k'th nearest transcript
+    logger.info("Get the distance to the k'th nearest transcript")
     pixels_xy = np.array([labels_geo_df["X"].values, labels_geo_df["Y"].values]).T
     labels_geo_df["transcript_distance"] = kdtree.query(
         pixels_xy, k=background_pixel_transcripts + 1
     )[0][:, -1]
 
-    # Assign pixels roughly on top of nuclei to belong to that nuclei label
+    logger.info("Assign pixels roughly on top of nuclei to belong to that nuclei label")
     pixel_labels = np.zeros(labels_geo_df.shape[0], dtype=int) - 1
     nucleus_pixels = labels_geo_df["nucleus_distance"] <= foreground_nucleus_distance
     pixel_labels[nucleus_pixels] = labels_geo_df["nucleus_label"][nucleus_pixels]
 
-    # Assign pixels to the background if they are far from nuclei and not near a dense region of transcripts
+    logger.info(
+        "Assign pixels to the background if they are far from nuclei and not near a dense region of transcripts"
+    )
     background_pixels = (
         labels_geo_df["nucleus_distance"] > background_nucleus_distance
     ) & (labels_geo_df["transcript_distance"] > background_transcript_distance)
     pixel_labels[background_pixels] = 0
 
-    # Convert back over to the grid format
+    logger.info("Convert pixel labels to a grid")
     labels = np.zeros((x_size, y_size), dtype=int)
     labels[labels_geo_df["X"] - x_min, labels_geo_df["Y"] - y_min] = pixel_labels
 
-    # Create a nuclei x gene count matrix
-    tx_nuclei_geo_df = gpd.sjoin_nearest(
-        tx_geo_df, nuclei_geo_df, distance_col="nucleus_distance"
-    )
-    nuclei_count_geo_df = tx_nuclei_geo_df[
-        tx_nuclei_geo_df["nucleus_distance"] <= foreground_nucleus_distance
-    ]
-
-    # I think we have enough memory to just store this as a dense array
-    nuclei_count_matrix = np.zeros((nuclei_geo_df.shape[0] + 1, n_genes), dtype=int)
-    np.add.at(
-        nuclei_count_matrix,
-        (
-            nuclei_count_geo_df["nucleus_label"].values.astype(int),
-            nuclei_count_geo_df["gene_id"].values.astype(int),
-        ),
-        1,
-    )
-
     # Assume for simplicity that it's a homogeneous poisson process for transcripts.
     # Add up all the transcripts in each pixel.
+    logger.info("Add up all transcripts in each pixel")
     tx_count_grid = np.zeros((x_size, y_size), dtype=int)
     np.add.at(
         tx_count_grid,
@@ -142,6 +125,7 @@ def create_rasterized_dataset(
     )
 
     # Estimate the background rate
+    logger.info("Estimating background rate")
     tx_background_mask = (
         labels[
             tx_geo_df["x_location"].values.astype(int) - x_min,
@@ -156,6 +140,9 @@ def create_rasterized_dataset(
 
     # Calculate the angle at which each pixel faces to point at its nearest nucleus centroid.
     # Normalize it to be in [0,1]
+    logger.info(
+        "Calculating the angle at which each pixel faces to point at its nearest nucleus centroid"
+    )
     labels_geo_df["nucleus_angle"] = (
         cart2pol(
             labels_geo_df["nucleus_centroid_x"].values - labels_geo_df["X"].values,
