@@ -214,9 +214,9 @@ def filter_and_preprocess_transcripts(transcripts_df, min_qv):
             continue
         if feature_name.lower().startswith("blank_"):
             continue
-        if feature_name.startswith("deprecatedcodeword_"):
+        if feature_name.lower().startswith("deprecatedcodeword_"):
             continue
-        if feature_name.startswith("unassignedcodeword_"):
+        if feature_name.lower().startswith("unassignedcodeword_"):
             continue
         to_include_features.add(feature_name)
 
