@@ -141,7 +141,7 @@ def get_parser():
         "--num-dataloader-workers",
         help="Number of workers to use for the data loader.",
         type=int,
-        default=2,
+        default=0,
     )
     parser.add_argument(
         "--val-check-interval",
