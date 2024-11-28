@@ -20,6 +20,7 @@ from nuc2seg.xenium import (
     load_and_filter_transcripts_as_points,
 )
 from nuc2seg.utils import get_tile_bounds
+from nuc2seg.utils import create_shapely_rectangle
 from shapely import box
 
 logger = logging.getLogger(__name__)
@@ -126,11 +127,25 @@ def get_parser():
         type=float,
         default=0.25,
     )
+    parser.add_argument(
+        "--sample-area",
+        default=None,
+        type=str,
+        help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
+    )
     return parser
 
 
 def main():
     args = get_parser().parse_args()
+
+    if args.sample_area:
+        sample_area = create_shapely_rectangle(
+            *[float(x) for x in args.sample_area.split(",")]
+        )
+    else:
+        sample_area = None
+
     with h5py.File(args.dataset, "r") as f:
         base_width = f["labels"].shape[0]
         base_height = f["labels"].shape[1]
@@ -139,6 +154,10 @@ def main():
         dataset = Nuc2SegDataset.load_h5(args.dataset)
         transcripts = load_and_filter_transcripts_as_points(args.transcripts)
         predictions = ModelPredictions.load_h5(args.predictions)
+        if sample_area:
+            slide_bbox = sample_area.bounds
+        else:
+            slide_bbox = dataset.bbox
     else:
         dataset = Nuc2SegDataset.load_h5(
             args.dataset,
@@ -159,9 +178,20 @@ def main():
             )
         )
 
+        if sample_area:
+            slide_bbox = (
+                tile_bbox.bounds[0] + sample_area.bounds[0],
+                tile_bbox.bounds[1] + sample_area.bounds[1],
+                tile_bbox.bounds[2] + sample_area.bounds[0],
+                tile_bbox.bounds[3] + sample_area.bounds[1],
+            )
+        else:
+            slide_bbox = tile_bbox.bounds
+
         transcripts = load_and_filter_transcripts_as_points(
-            args.transcripts, sample_area=tile_bbox
+            args.transcripts, sample_area=box(*slide_bbox)
         )
+
         predictions = ModelPredictions.load_h5(
             args.predictions,
             tile_width=args.tile_width,
@@ -205,7 +235,7 @@ def main():
         logger.warning("No cells found in segmentation, exiting")
         return
 
-    gdf["geometry"] = gdf.translate(*dataset.bbox[:2])
+    gdf["geometry"] = gdf.translate(*slide_bbox[:2])
 
     logger.info("Creating anndata")
     ad = convert_transcripts_to_anndata(
