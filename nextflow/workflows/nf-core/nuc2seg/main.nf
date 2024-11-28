@@ -179,8 +179,6 @@ workflow NUC2SEG {
         )
     }
 
-
-
     GET_N_TILES( get_n_segment_tiles_input )
 
     GET_N_TILES.out.n_tiles.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { segmentation_tiles }

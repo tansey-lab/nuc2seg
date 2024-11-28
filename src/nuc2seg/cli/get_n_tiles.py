@@ -63,7 +63,7 @@ def main():
 
     with h5py.File(args.dataset, "r") as f:
         base_width = f["labels"].shape[0]
-        base_height = f["labels"].shape[0]
+        base_height = f["labels"].shape[1]
 
     tile_idx_lookup = get_indexed_tiles(
         extent=(base_width, base_height),

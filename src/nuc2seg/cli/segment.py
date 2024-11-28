@@ -133,7 +133,7 @@ def main():
     args = get_parser().parse_args()
     with h5py.File(args.dataset, "r") as f:
         base_width = f["labels"].shape[0]
-        base_height = f["labels"].shape[0]
+        base_height = f["labels"].shape[1]
 
     if args.tile_index is None:
         dataset = Nuc2SegDataset.load_h5(args.dataset)
