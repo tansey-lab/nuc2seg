@@ -159,14 +159,8 @@ def main():
             )
         )
 
-        transcript_bbox = box(
-            tile_bbox.bounds[0] + dataset.bbox[0],
-            tile_bbox.bounds[1] + dataset.bbox[1],
-            tile_bbox.bounds[2] + dataset.bbox[0],
-            tile_bbox.bounds[3] + dataset.bbox[1],
-        )
         transcripts = load_and_filter_transcripts_as_points(
-            args.transcripts, sample_area=transcript_bbox
+            args.transcripts, sample_area=tile_bbox
         )
         predictions = ModelPredictions.load_h5(
             args.predictions,
