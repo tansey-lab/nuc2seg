@@ -30,8 +30,8 @@ process COMBINE_SEGMENTATIONS {
         --segmentation-outputs ${segmentations} \
         --adatas ${adatas} \
         --shapes ${shapefiles} \
-        --tile-width ${params.tile_width} \
-        --tile-height ${params.tile_height} \
+        --tile-width ${params.segmentation_tile_width} \
+        --tile-height ${params.segmentation_tile_height} \
         --overlap-percentage ${params.overlap_percentage} \
         ${sample_area_arg} \
         ${args}
