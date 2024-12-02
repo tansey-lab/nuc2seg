@@ -1,19 +1,13 @@
 import argparse
 import logging
-
-import numpy as np
-import torch
-import tqdm
 import os
 
 from nuc2seg import log_config
-from nuc2seg.data import Nuc2SegDataset, TiledDataset
-from nuc2seg.segment import stitch_predictions
-from nuc2seg.xenium import load_vertex_file, load_and_filter_transcripts_as_points
 from nuc2seg.postprocess import (
     calculate_average_intersection_over_union,
     calculate_segmentation_jaccard_index,
 )
+from nuc2seg.xenium import load_vertex_file, load_and_filter_transcripts_as_points
 
 logger = logging.getLogger(__name__)
 

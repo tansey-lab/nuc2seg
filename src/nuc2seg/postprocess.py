@@ -252,8 +252,8 @@ def calculate_segmentation_jaccard_index(
     sjoined_gdf.reset_index(inplace=True, drop=False, names="index")
 
     segment_id_to_transcripts_a = (
-        sjoined_gdf[["index", "index_right"]]
-        .groupby("index")
+        sjoined_gdf[["segment_id_a", "index_right"]]
+        .groupby("segment_id_a")
         .agg({"index_right": set})["index_right"]
         .to_dict()
     )
@@ -261,11 +261,10 @@ def calculate_segmentation_jaccard_index(
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_b, transcripts=transcripts
     )
-    sjoined_gdf.reset_index(inplace=True, drop=False, names="index")
 
     segment_id_to_transcripts_b = (
-        sjoined_gdf[["index", "index_right"]]
-        .groupby("index")
+        sjoined_gdf[["segment_id_b", "index_right"]]
+        .groupby("segment_id_b")
         .agg({"index_right": set})["index_right"]
         .to_dict()
     )
