@@ -335,6 +335,260 @@ def calculate_average_intersection_over_union(
     return result
 
 
+def join_segments_on_max_overlap(
+    segs_a,
+    segs_b,
+    segs_a_id_column=None,
+    segs_b_id_column=None,
+    geometry_a_column=None,
+    geometry_b_column=None,
+    overlap_area_column="overlap_area",
+):
+    if segs_a_id_column is None:
+        segs_a_id_column = "segment_id_a"
+        segs_a = segs_a.reset_index(names=segs_a_id_column)
+
+    if segs_b_id_column is None:
+        segs_b_id_column = "segment_id_b"
+        segs_b = segs_b.reset_index(names=segs_b_id_column)
+
+    if geometry_a_column is None:
+        geometry_a_column = "geometry_a"
+
+    if geometry_b_column is None:
+        geometry_b_column = "geometry_b"
+
+    overlay_gdf = geopandas.overlay(
+        segs_a, segs_b, how="intersection", keep_geom_type=False
+    )
+    overlay_gdf[overlap_area_column] = overlay_gdf.geometry.area
+
+    max_overlay_gdf = overlay_gdf.loc[
+        overlay_gdf.groupby("truth_segment_id")[[overlap_area_column]]
+        .idxmax()
+        .values.squeeze(),
+        :,
+    ]
+
+    max_overlay_gdf = max_overlay_gdf[
+        [segs_a_id_column, segs_b_id_column, overlap_area_column]
+    ].drop_duplicates(subset=[segs_a_id_column, segs_b_id_column])
+
+    return (
+        max_overlay_gdf.merge(
+            segs_a[["geometry", segs_a_id_column]],
+            left_on=segs_a_id_column,
+            right_on=segs_a_id_column,
+        )
+        .merge(
+            segs_b[["geometry", segs_b_id_column]],
+            left_on=segs_b_id_column,
+            right_on=segs_b_id_column,
+        )
+        .rename(
+            columns={"geometry_x": geometry_a_column, "geometry_y": geometry_b_column}
+        )
+    )
+
+
+def calculate_benchmarks_with_nuclear_prior(
+    true_segs, method_segs, nuclear_segs, transcripts_gdf
+):
+    true_segs = true_segs.reset_index(names="truth_segment_id")
+    method_segs = method_segs.reset_index(names="method_segment_id")
+    nuclear_segs = nuclear_segs.reset_index(names="nuclear_segment_id")
+
+    truth_to_method = join_segments_on_max_overlap(
+        true_segs,
+        method_segs,
+        segs_a_id_column="truth_segment_id",
+        segs_b_id_column="method_segment_id",
+        geometry_a_column="geometry_truth",
+        geometry_b_column="geometry_method",
+    )
+
+    truth_to_nucleus = join_segments_on_max_overlap(
+        true_segs,
+        nuclear_segs,
+        segs_a_id_column="truth_segment_id",
+        segs_b_id_column="nuclear_segment_id",
+        geometry_a_column="geometry_truth",
+        geometry_b_column="geometry_nuclear",
+    )
+
+    results = (
+        true_segs[["truth_segment_id"]]
+        .merge(
+            truth_to_method[
+                ["truth_segment_id", "method_segment_id", "geometry_method"]
+            ],
+            left_on="truth_segment_id",
+            right_on="truth_segment_id",
+            how="left",
+        )
+        .merge(
+            truth_to_nucleus[
+                [
+                    "truth_segment_id",
+                    "nuclear_segment_id",
+                    "geometry_truth",
+                    "geometry_nuclear",
+                ]
+            ],
+            left_on="truth_segment_id",
+            right_on="truth_segment_id",
+            how="left",
+        )
+        .replace({np.nan: None})
+    )
+
+    def get_union(row):
+        if row["geometry_method"] is None:
+            if (
+                row["geometry_nuclear"] is not None
+                and row["geometry_truth"] is not None
+            ):
+                return row["geometry_truth"].union(row["geometry_nuclear"]).area
+            else:
+                return np.nan
+        else:
+            if row["geometry_nuclear"] is not None:
+                return (
+                    row["geometry_truth"]
+                    .union(row["geometry_method"].union(row["geometry_nuclear"]))
+                    .area
+                )
+            elif row["geometry_truth"] is not None:
+                return row["geometry_truth"].union(row["geometry_method"]).area
+            else:
+                return np.nan
+
+    results["union"] = results.apply(lambda row: get_union(row), axis=1)
+
+    def get_intersection(row):
+        if row["geometry_method"] is None:
+            if (
+                row["geometry_nuclear"] is not None
+                and row["geometry_truth"] is not None
+            ):
+                return row["geometry_truth"].intersection(row["geometry_nuclear"]).area
+            else:
+                return np.nan
+        else:
+            if row["geometry_nuclear"] is not None:
+                return (
+                    row["geometry_truth"]
+                    .intersection(row["geometry_method"].union(row["geometry_nuclear"]))
+                    .area
+                )
+            elif row["geometry_truth"] is not None:
+                return row["geometry_truth"].intersection(row["geometry_method"]).area
+            else:
+                return np.nan
+
+    results["intersection"] = results.apply(lambda row: get_intersection(row), axis=1)
+
+    results["iou"] = results["intersection"] / results["union"]
+
+    def get_jaccard_method_segment(row):
+        if row["geometry_method"] is None:
+            if row["geometry_nuclear"] is not None:
+                return row["geometry_nuclear"]
+            else:
+                return box(0, 0, 0.001, 0.001)
+        else:
+            if row["geometry_nuclear"] is not None:
+                return row["geometry_method"].union(row["geometry_nuclear"])
+            else:
+                return row["geometry_method"]
+
+    def get_jaccard_truth_segment(row):
+        if row["geometry_truth"] is None:
+            if row["geometry_nuclear"] is not None:
+                return row["geometry_nuclear"]
+            else:
+                return box(0, 0, 0.001, 0.001)
+        else:
+            return row["geometry_truth"]
+
+    results["jaccard_method_segment"] = results.apply(
+        lambda row: get_jaccard_method_segment(row), axis=1
+    )
+
+    results["jaccard_truth_segment"] = results.apply(
+        lambda row: get_jaccard_truth_segment(row), axis=1
+    )
+
+    method_transcripts = spatial_join_polygons_and_transcripts(
+        boundaries=results[["truth_segment_id", "jaccard_method_segment"]].set_geometry(
+            "jaccard_method_segment"
+        ),
+        transcripts=transcripts_gdf,
+    )
+
+    truth_transcripts = spatial_join_polygons_and_transcripts(
+        boundaries=results[["truth_segment_id", "jaccard_truth_segment"]].set_geometry(
+            "jaccard_truth_segment"
+        ),
+        transcripts=transcripts_gdf,
+    )
+
+    segment_id_to_method_transcripts = (
+        method_transcripts[["truth_segment_id", "index_right"]]
+        .groupby("truth_segment_id")
+        .agg({"index_right": set})["index_right"]
+        .reset_index()
+        .rename(columns={"index_right": "method_transcripts"})
+    )
+
+    segment_id_to_truth_transcripts = (
+        truth_transcripts[["truth_segment_id", "index_right"]]
+        .groupby("truth_segment_id")
+        .agg({"index_right": set})["index_right"]
+        .reset_index()
+        .rename(columns={"index_right": "truth_transcripts"})
+    )
+
+    segment_id_to_transcripts = segment_id_to_truth_transcripts.merge(
+        segment_id_to_method_transcripts,
+        left_on="truth_segment_id",
+        right_on="truth_segment_id",
+    )
+
+    segment_id_to_transcripts["jaccard_intersection"] = segment_id_to_transcripts.apply(
+        lambda row: len(
+            row["method_transcripts"].intersection(row["truth_transcripts"])
+        ),
+        axis=1,
+    )
+
+    segment_id_to_transcripts["jaccard_union"] = segment_id_to_transcripts.apply(
+        lambda row: len(row["method_transcripts"].union(row["truth_transcripts"])),
+        axis=1,
+    )
+
+    segment_id_to_transcripts["jaccard_index"] = (
+        segment_id_to_transcripts["jaccard_intersection"]
+        / segment_id_to_transcripts["jaccard_union"]
+    )
+
+    results = results.merge(
+        segment_id_to_transcripts[
+            [
+                "truth_segment_id",
+                "jaccard_intersection",
+                "jaccard_union",
+                "jaccard_index",
+            ]
+        ],
+        left_on="truth_segment_id",
+        right_on="truth_segment_id",
+        how="left",
+    )
+
+    return results
+
+
 def convert_transcripts_to_anndata(
     transcript_gdf,
     segmentation_gdf,
