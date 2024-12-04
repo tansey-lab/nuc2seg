@@ -330,6 +330,8 @@ def select_best_celltyping_chain(results: list[CelltypingResults], best_k=None):
         best_chain, best_k = np.where(bic_scores == bic_scores.min())
         best_chain = best_chain.item()
         best_k = best_k.item()
+    else:
+        best_chain = bic_scores[:, best_k].argmin()
 
     logger.info(f"Best chain: {best_chain}, best k: {best_k}")
 

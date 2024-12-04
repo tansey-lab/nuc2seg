@@ -136,7 +136,7 @@ def get_parser():
     parser.add_argument(
         "--n-celltypes",
         default=None,
-        type=str,
+        type=int,
         help="Force using this number of celltypes, otherwise pick via BIC.",
     )
     return parser
