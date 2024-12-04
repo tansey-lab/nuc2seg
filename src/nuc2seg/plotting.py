@@ -291,7 +291,7 @@ def plot_segmentation_comparison(
         if transcripts is not None:
             transcripts = transcripts[transcripts.geometry.within(bbox)].copy()
             transcripts["geometry"] = transcripts.geometry.buffer(0.05)
-    fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
+    fig, ax = plt.subplots(figsize=(15, 15), dpi=300)
     ax.invert_yaxis()
     seg_a.plot(ax=ax, color="blue", alpha=0.5, edgecolor="white", linewidth=0.5)
     seg_b.plot(ax=ax, color="red", alpha=0.5, edgecolor="white", linewidth=0.5)
@@ -747,8 +747,8 @@ def plot_class_probabilities_image(
     output_dir: str,
 ):
     mask = ((model_predictions.foreground > 0.5).T).astype(int)
-    for celltype_idx in tqdm.trange(model_predictions.classes.shape[0]):
-        data = model_predictions.classes[celltype_idx, ...].copy().T * mask
+    for celltype_idx in tqdm.trange(model_predictions.classes.shape[2]):
+        data = model_predictions.classes[..., celltype_idx].copy().T * mask
 
         fig, ax = plt.subplots(figsize=(15, 15), dpi=1000)
 

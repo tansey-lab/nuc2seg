@@ -629,7 +629,7 @@ class ModelPredictions:
     def clip(self, bbox):
         return ModelPredictions(
             angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
-            classes=self.classes[:, bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
+            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3], :].copy(),
             foreground=self.foreground[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
         )
 

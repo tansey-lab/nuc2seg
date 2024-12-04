@@ -675,3 +675,44 @@ def convert_transcripts_to_anndata(
     adata.obs_names.name = "cell_id"
 
     return adata
+
+
+def calculate_proportion_cyto_transcripts(
+    transcript_gdf,
+    segmentation_gdf,
+    nuclei_gdf,
+    segment_id_column=None,
+):
+    if segment_id_column is None:
+        segment_id_column = "segment_id"
+        segmentation_gdf = segmentation_gdf.reset_index(
+            inplace=True, drop=False, names=segment_id_column
+        )
+
+    cytoplasm_shapes = segmentation_gdf.overlay(
+        nuclei_gdf, how="difference", keep_geom_type=True
+    )
+
+    sjoined_gdf = spatial_join_polygons_and_transcripts(
+        boundaries=cytoplasm_shapes, transcripts=transcript_gdf
+    )
+
+    cytoplasm_counts = (
+        sjoined_gdf.groupby([segment_id_column])
+        .size()
+        .reset_index(name="cytoplasm_count")
+    )
+
+    sjoined_gdf = spatial_join_polygons_and_transcripts(
+        boundaries=segmentation_gdf, transcripts=transcript_gdf
+    )
+
+    total_counts = (
+        sjoined_gdf.groupby([segment_id_column])
+        .size()
+        .reset_index(name="segmentation_count")
+    )
+
+    return cytoplasm_counts.merge(
+        total_counts, left_on=segment_id_column, right_on=segment_id_column
+    )

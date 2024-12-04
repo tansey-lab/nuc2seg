@@ -22,6 +22,7 @@ process SEGMENT {
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
     def sample_area_arg = params.sample_area == null ? "" : "--sample-area ${params.sample_area}"
+    def n_celltypes_arg = params.n_celltypes == null ? "" : "--n-celltypes ${params.n_celltypes}"
     """
     mkdir -p "${prefix}/segmentation_tiles"
     mkdir -p "${prefix}/shape_tiles"
@@ -39,6 +40,7 @@ process SEGMENT {
         --tile-height ${params.segmentation_tile_height} \
         --tile-width ${params.segmentation_tile_width} \
         --overlap-percentage ${params.overlap_percentage} \
+        ${n_celltypes_arg} \
         ${sample_area_arg} \
         ${args}
 

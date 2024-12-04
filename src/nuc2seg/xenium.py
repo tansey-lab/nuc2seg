@@ -53,6 +53,8 @@ def read_boundaries_into_polygons(
             boundaries[x_column_name], boundaries[y_column_name]
         ),
     )
+    geo_df = geo_df.groupby(cell_id_column).filter(lambda x: len(x) > 2)
+
     polys = geo_df.groupby(cell_id_column)["geometry"].apply(
         lambda x: Polygon(x.tolist())
     )
