@@ -213,9 +213,12 @@ def main():
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
     if args.n_celltypes:
         best_k = list(celltyping_chains[0].n_component_values).index(args.n_celltypes)
+        celltyping_results, aic_scores, bic_scores, best_k = (
+            select_best_celltyping_chain(celltyping_chains, best_k)
+        )
     else:
         celltyping_results, aic_scores, bic_scores, best_k = (
-            select_best_celltyping_chain(celltyping_chains)
+            select_best_celltyping_chain(celltyping_chains, None)
         )
 
     result = greedy_cell_segmentation(

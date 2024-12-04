@@ -309,7 +309,7 @@ def fit_celltyping_on_segments_and_transcripts(
     )
 
 
-def select_best_celltyping_chain(results: list[CelltypingResults]):
+def select_best_celltyping_chain(results: list[CelltypingResults], best_k=None):
     aic_scores = []
     bic_scores = []
     gene_names = None
@@ -326,9 +326,10 @@ def select_best_celltyping_chain(results: list[CelltypingResults]):
     aic_scores = np.stack(aic_scores)
     bic_scores = np.stack(bic_scores)
 
-    best_chain, best_k = np.where(bic_scores == bic_scores.min())
-    best_chain = best_chain.item()
-    best_k = best_k.item()
+    if best_k is None:
+        best_chain, best_k = np.where(bic_scores == bic_scores.min())
+        best_chain = best_chain.item()
+        best_k = best_k.item()
 
     logger.info(f"Best chain: {best_chain}, best k: {best_k}")
 
