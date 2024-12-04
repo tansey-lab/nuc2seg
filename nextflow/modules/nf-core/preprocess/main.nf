@@ -21,6 +21,7 @@ process PREPROCESS {
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ""
     def sample_area_arg = params.sample_area == null ? "" : "--sample-area ${params.sample_area}"
+    def n_celltypes_arg = params.n_celltypes == null ? "" : "--n-celltypes ${params.n_celltypes}"
     """
     mkdir -p "${prefix}"
     preprocess \
@@ -28,6 +29,7 @@ process PREPROCESS {
         --transcripts-file ${xenium_dir}/transcripts.parquet \
         --output ${prefix}/preprocessed.h5 \
         --celltyping-results ${cell_typing_results} \
+        ${n_celltypes_arg} \
         ${sample_area_arg} \
         ${args}
 

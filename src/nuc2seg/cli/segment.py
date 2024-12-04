@@ -133,6 +133,12 @@ def get_parser():
         type=str,
         help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
     )
+    parser.add_argument(
+        "--n-celltypes",
+        default=None,
+        type=int,
+        help="Force using this number of celltypes, otherwise pick via BIC.",
+    )
     return parser
 
 
@@ -205,9 +211,15 @@ def main():
         return
 
     celltyping_chains = [CelltypingResults.load_h5(x) for x in args.celltyping_results]
-    celltyping_results, aic_scores, bic_scores, best_k = select_best_celltyping_chain(
-        celltyping_chains
-    )
+    if args.n_celltypes:
+        best_k = list(celltyping_chains[0].n_component_values).index(args.n_celltypes)
+        celltyping_results, aic_scores, bic_scores, best_k = (
+            select_best_celltyping_chain(celltyping_chains, best_k)
+        )
+    else:
+        celltyping_results, aic_scores, bic_scores, best_k = (
+            select_best_celltyping_chain(celltyping_chains, None)
+        )
 
     result = greedy_cell_segmentation(
         dataset=dataset,
