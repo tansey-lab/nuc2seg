@@ -188,3 +188,27 @@ def get_tile_bounds(
     )
 
     return (x1, y1, x2, y2)
+
+
+def buffer_gdf(
+    gdf: geopandas.GeoDataFrame, distance: float, inplace: bool = False
+) -> geopandas.GeoDataFrame | None:
+    """
+    Expands all polygons in a GeoDataFrame by a specified distance.
+
+    Args:
+        gdf: Input GeoDataFrame
+        distance: Buffer distance (positive for expansion, negative for shrinking)
+        inplace: If True, modifies the input GeoDataFrame, else returns a copy
+
+    Returns:
+        Modified GeoDataFrame if inplace=False, else None
+    """
+    if not inplace:
+        gdf = gdf.copy()
+
+    gdf["geometry"] = gdf.geometry.buffer(
+        distance, cap_style="round", join_style="round"
+    )
+
+    return None if inplace else gdf

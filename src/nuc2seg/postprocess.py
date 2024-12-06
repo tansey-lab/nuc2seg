@@ -397,6 +397,7 @@ def calculate_benchmarks_with_nuclear_prior(
     true_segs = true_segs.reset_index(names="truth_segment_id")
     method_segs = method_segs.reset_index(names="method_segment_id")
     nuclear_segs = nuclear_segs.reset_index(names="nuclear_segment_id")
+    transcripts_gdf = transcripts_gdf.reset_index(names="transcript_id")
 
     truth_to_method = join_segments_on_max_overlap(
         true_segs,
@@ -520,9 +521,9 @@ def calculate_benchmarks_with_nuclear_prior(
     )
 
     method_transcripts = spatial_join_polygons_and_transcripts(
-        boundaries=results[["truth_segment_id", "jaccard_method_segment"]].set_geometry(
-            "jaccard_method_segment"
-        ),
+        boundaries=results[
+            ["truth_segment_id", "method_segment_id", "jaccard_method_segment"]
+        ].set_geometry("jaccard_method_segment"),
         transcripts=transcripts_gdf,
     )
 
@@ -533,20 +534,72 @@ def calculate_benchmarks_with_nuclear_prior(
         transcripts=transcripts_gdf,
     )
 
+    method_to_truth_transcripts = (
+        method_transcripts[["truth_segment_id", "method_segment_id", "transcript_id"]]
+        .rename(columns={"truth_segment_id": "matching_truth_segment_id"})
+        .merge(
+            truth_transcripts[["truth_segment_id", "transcript_id"]],
+            left_on="transcript_id",
+            right_on="transcript_id",
+            how="outer",
+        )
+        .fillna(-1)
+    )
+
+    method_to_truth_transcripts["truth_segment_id"] = method_to_truth_transcripts[
+        "truth_segment_id"
+    ].astype(int)
+
+    method_to_truth_transcripts_agg = method_to_truth_transcripts.groupby(
+        "method_segment_id"
+    )[["matching_truth_segment_id", "truth_segment_id"]].agg(
+        {
+            "matching_truth_segment_id": max,
+            "truth_segment_id": list,
+        }
+    )
+
+    method_to_truth_transcripts_agg["n_confused_transcripts"] = (
+        method_to_truth_transcripts_agg.apply(
+            lambda row: len(
+                [
+                    x
+                    for x in row["truth_segment_id"]
+                    if x not in (-1, row["matching_truth_segment_id"])
+                ]
+            ),
+            axis=1,
+        )
+    )
+
+    method_to_truth_transcripts_agg["n_background_transcripts"] = (
+        method_to_truth_transcripts_agg.apply(
+            lambda row: len([x for x in row["truth_segment_id"] if x == -1]), axis=1
+        )
+    )
+
+    method_to_truth_transcripts_agg["n_transcripts"] = (
+        method_to_truth_transcripts_agg.truth_segment_id.apply(lambda x: len(x))
+    )
+
+    segmentation_errors = method_to_truth_transcripts_agg.reset_index(
+        names="method_segment_id"
+    )
+
     segment_id_to_method_transcripts = (
-        method_transcripts[["truth_segment_id", "index_right"]]
+        method_transcripts[["truth_segment_id", "transcript_id"]]
         .groupby("truth_segment_id")
-        .agg({"index_right": set})["index_right"]
+        .agg({"transcript_id": set})["transcript_id"]
         .reset_index()
-        .rename(columns={"index_right": "method_transcripts"})
+        .rename(columns={"transcript_id": "method_transcripts"})
     )
 
     segment_id_to_truth_transcripts = (
-        truth_transcripts[["truth_segment_id", "index_right"]]
+        truth_transcripts[["truth_segment_id", "transcript_id"]]
         .groupby("truth_segment_id")
-        .agg({"index_right": set})["index_right"]
+        .agg({"transcript_id": set})["transcript_id"]
         .reset_index()
-        .rename(columns={"index_right": "truth_transcripts"})
+        .rename(columns={"transcript_id": "truth_transcripts"})
     )
 
     segment_id_to_transcripts = segment_id_to_truth_transcripts.merge(
@@ -584,6 +637,17 @@ def calculate_benchmarks_with_nuclear_prior(
         left_on="truth_segment_id",
         right_on="truth_segment_id",
         how="left",
+    ).merge(
+        segmentation_errors[
+            [
+                "n_confused_transcripts",
+                "n_background_transcripts",
+                "n_transcripts",
+                "method_segment_id",
+            ]
+        ],
+        left_on="method_segment_id",
+        right_on="method_segment_id",
     )
 
     return results
@@ -685,9 +749,7 @@ def calculate_proportion_cyto_transcripts(
 ):
     if segment_id_column is None:
         segment_id_column = "segment_id"
-        segmentation_gdf = segmentation_gdf.reset_index(
-            inplace=True, drop=False, names=segment_id_column
-        )
+        segmentation_gdf.reset_index(inplace=True, drop=False, names=segment_id_column)
 
     cytoplasm_shapes = segmentation_gdf.overlay(
         nuclei_gdf, how="difference", keep_geom_type=True

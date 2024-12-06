@@ -48,7 +48,8 @@ dependencies = [
     "zarr",
     "scikit-image",
     "pyometiff",
-    "numpy_groupies"
+    "numpy_groupies",
+    "statannotations"
 ]
 
 [project.optional-dependencies]
