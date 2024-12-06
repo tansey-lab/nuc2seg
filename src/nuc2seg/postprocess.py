@@ -685,9 +685,7 @@ def calculate_proportion_cyto_transcripts(
 ):
     if segment_id_column is None:
         segment_id_column = "segment_id"
-        segmentation_gdf = segmentation_gdf.reset_index(
-            inplace=True, drop=False, names=segment_id_column
-        )
+        segmentation_gdf.reset_index(inplace=True, drop=False, names=segment_id_column)
 
     cytoplasm_shapes = segmentation_gdf.overlay(
         nuclei_gdf, how="difference", keep_geom_type=True
