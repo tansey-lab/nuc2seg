@@ -394,10 +394,16 @@ def join_segments_on_max_overlap(
 def calculate_benchmarks_with_nuclear_prior(
     true_segs, method_segs, nuclear_segs, transcripts_gdf
 ):
-    true_segs = true_segs.reset_index(names="truth_segment_id")
-    method_segs = method_segs.reset_index(names="method_segment_id")
-    nuclear_segs = nuclear_segs.reset_index(names="nuclear_segment_id")
-    transcripts_gdf = transcripts_gdf.reset_index(names="transcript_id")
+    true_segs = true_segs.reset_index(drop=True).reset_index(names="truth_segment_id")
+    method_segs = method_segs.reset_index(drop=True).reset_index(
+        names="method_segment_id"
+    )
+    nuclear_segs = nuclear_segs.reset_index(drop=True).reset_index(
+        names="nuclear_segment_id"
+    )
+    transcripts_gdf = transcripts_gdf.reset_index(drop=True).reset_index(
+        names="transcript_id"
+    )
 
     truth_to_method = join_segments_on_max_overlap(
         true_segs,
