@@ -549,6 +549,9 @@ def calculate_benchmarks_with_nuclear_prior(
     method_to_truth_transcripts["truth_segment_id"] = method_to_truth_transcripts[
         "truth_segment_id"
     ].astype(int)
+    method_to_truth_transcripts["method_segment_id"] = method_to_truth_transcripts[
+        "method_segment_id"
+    ].astype(int)
 
     method_to_truth_transcripts_agg = method_to_truth_transcripts.groupby(
         "method_segment_id"
@@ -637,7 +640,11 @@ def calculate_benchmarks_with_nuclear_prior(
         left_on="truth_segment_id",
         right_on="truth_segment_id",
         how="left",
-    ).merge(
+    )
+
+    results["method_segment_id"] = results["method_segment_id"].fillna(-1).astype(int)
+
+    results = results.merge(
         segmentation_errors[
             [
                 "n_confused_transcripts",
