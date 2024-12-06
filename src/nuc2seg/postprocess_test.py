@@ -13,6 +13,7 @@ from nuc2seg.postprocess import (
     calculate_segmentation_jaccard_index,
     calculate_average_intersection_over_union,
     convert_transcripts_to_anndata,
+    calculate_benchmarks_with_nuclear_prior,
 )
 
 
@@ -211,3 +212,31 @@ def test_calculate_segmentation_jaccard_index():
     )
 
     assert set(result.jaccard_index) == {1.0, 0.5}
+
+
+def test_calculate_benchmarks():
+    true_segmentation = gpd.GeoDataFrame(
+        {"cell": [1, 2], "geometry": [box(3, 3, 4, 4), box(4, 3, 5, 4)]}
+    )
+    method_segmentation = gpd.GeoDataFrame(
+        {"cell": [1, 2], "geometry": [box(3.3, 3, 4.3, 4), box(4.3, 3, 5.3, 4)]}
+    )
+    transcripts = gpd.GeoDataFrame(
+        [
+            ["a", Point(3.2, 3.5)],
+            ["a", Point(3.7, 3.5)],
+            ["b", Point(4.2, 3.5)],
+            ["b", Point(4.7, 3.5)],
+            ["c", Point(5.2, 3.5)],
+        ],
+        columns=["feature_name", "geometry"],
+    )
+
+    result = calculate_benchmarks_with_nuclear_prior(
+        true_segs=true_segmentation,
+        method_segs=method_segmentation,
+        nuclear_segs=true_segmentation,
+        transcripts_gdf=transcripts,
+    )
+
+    assert len(result)
