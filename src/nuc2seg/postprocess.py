@@ -343,6 +343,7 @@ def join_segments_on_max_overlap(
     geometry_a_column=None,
     geometry_b_column=None,
     overlap_area_column="overlap_area",
+    overlap_area_threshold=1.0,
 ):
     if segs_a_id_column is None:
         segs_a_id_column = "segment_id_a"
@@ -362,6 +363,7 @@ def join_segments_on_max_overlap(
         segs_a, segs_b, how="intersection", keep_geom_type=False
     )
     overlay_gdf[overlap_area_column] = overlay_gdf.geometry.area
+    overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_column] > overlap_area_threshold]
 
     max_overlay_gdf = overlay_gdf.loc[
         overlay_gdf.groupby("truth_segment_id")[[overlap_area_column]]
