@@ -774,11 +774,21 @@ def calculate_proportion_cyto_transcripts(
         boundaries=cytoplasm_shapes, transcripts=transcript_gdf
     )
 
+    sjoined_gdf["cytoplasm_area"] = sjoined_gdf.geometry.area
+
     cytoplasm_counts = (
         sjoined_gdf.groupby([segment_id_column])
         .size()
         .reset_index(name="cytoplasm_count")
     )
+
+    cytoplasm_counts = cytoplasm_counts.merge(
+        sjoined_gdf[[segment_id_column, "cytoplasm_area"]],
+        left_on=segment_id_column,
+        right_on=segment_id_column,
+    )
+
+    segmentation_gdf["cell_area"] = segmentation_gdf.geometry.area
 
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
@@ -788,6 +798,12 @@ def calculate_proportion_cyto_transcripts(
         sjoined_gdf.groupby([segment_id_column])
         .size()
         .reset_index(name="segmentation_count")
+    )
+
+    total_counts = total_counts.merge(
+        sjoined_gdf[[segment_id_column, "cell_area"]],
+        left_on=segment_id_column,
+        right_on=segment_id_column,
     )
 
     return cytoplasm_counts.merge(

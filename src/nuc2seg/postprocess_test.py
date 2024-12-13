@@ -14,6 +14,7 @@ from nuc2seg.postprocess import (
     calculate_average_intersection_over_union,
     convert_transcripts_to_anndata,
     calculate_benchmarks_with_nuclear_prior,
+    calculate_proportion_cyto_transcripts,
 )
 
 
@@ -232,11 +233,10 @@ def test_calculate_benchmarks():
         columns=["feature_name", "geometry"],
     )
 
-    result = calculate_benchmarks_with_nuclear_prior(
-        true_segs=true_segmentation,
-        method_segs=method_segmentation,
-        nuclear_segs=true_segmentation,
-        transcripts_gdf=transcripts,
+    results = calculate_proportion_cyto_transcripts(
+        transcripts,
+        method_segmentation,
+        true_segmentation,
     )
 
-    assert len(result)
+    assert len(results)
