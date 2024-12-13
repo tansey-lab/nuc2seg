@@ -343,6 +343,7 @@ def join_segments_on_max_overlap(
     geometry_a_column=None,
     geometry_b_column=None,
     overlap_area_column="overlap_area",
+    overlap_area_threshold=1.0,
 ):
     if segs_a_id_column is None:
         segs_a_id_column = "segment_id_a"
@@ -362,6 +363,7 @@ def join_segments_on_max_overlap(
         segs_a, segs_b, how="intersection", keep_geom_type=False
     )
     overlay_gdf[overlap_area_column] = overlay_gdf.geometry.area
+    overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_column] > overlap_area_threshold]
 
     max_overlay_gdf = overlay_gdf.loc[
         overlay_gdf.groupby("truth_segment_id")[[overlap_area_column]]
@@ -772,11 +774,21 @@ def calculate_proportion_cyto_transcripts(
         boundaries=cytoplasm_shapes, transcripts=transcript_gdf
     )
 
+    sjoined_gdf["cytoplasm_area"] = sjoined_gdf.geometry.area
+
     cytoplasm_counts = (
         sjoined_gdf.groupby([segment_id_column])
         .size()
         .reset_index(name="cytoplasm_count")
     )
+
+    cytoplasm_counts = cytoplasm_counts.merge(
+        sjoined_gdf[[segment_id_column, "cytoplasm_area"]],
+        left_on=segment_id_column,
+        right_on=segment_id_column,
+    )
+
+    segmentation_gdf["cell_area"] = segmentation_gdf.geometry.area
 
     sjoined_gdf = spatial_join_polygons_and_transcripts(
         boundaries=segmentation_gdf, transcripts=transcript_gdf
@@ -786,6 +798,12 @@ def calculate_proportion_cyto_transcripts(
         sjoined_gdf.groupby([segment_id_column])
         .size()
         .reset_index(name="segmentation_count")
+    )
+
+    total_counts = total_counts.merge(
+        sjoined_gdf[[segment_id_column, "cell_area"]],
+        left_on=segment_id_column,
+        right_on=segment_id_column,
     )
 
     return cytoplasm_counts.merge(

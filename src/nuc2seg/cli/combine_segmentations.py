@@ -198,7 +198,9 @@ def combine_segmentation_results(
         gpd_results.append(segmentation_gdf)
 
         if concatenated_anndata:
-            concatenated_anndata = anndata.concat([concatenated_anndata, ad])
+            concatenated_anndata = anndata.concat(
+                [concatenated_anndata, ad], join="outer"
+            )
         else:
             concatenated_anndata = ad
 
