@@ -4,10 +4,11 @@ import logging
 
 import geopandas
 import numpy as np
+import shapely
 from blended_tiling import TilingModule
 from shapely import box, Polygon
 from shapely.geometry import box
-
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -212,3 +213,17 @@ def buffer_gdf(
     )
 
     return None if inplace else gdf
+
+
+def create_torch_polygon(polygon: shapely.Polygon, device) -> torch.Tensor:
+    """
+    Create a polygon tensor from a list of vertex coordinates.
+
+    Args:
+        polygon: shapely polygon
+
+    Returns:
+        Tensor of shape (N, 2) containing the polygon vertices
+    """
+    vertices = list(zip(polygon.boundary.coords.xy[0], polygon.boundary.coords.xy[1]))
+    return torch.tensor(vertices, dtype=torch.float32, device=device)
