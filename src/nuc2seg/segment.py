@@ -777,10 +777,10 @@ def ray_tracing_cell_segmentation(
     polygons: list[shapely.Polygon] = segmentation_array_to_shapefile(
         dataset.labels).geometry.to_list()
 
-    i, j = torch.meshgrid(torch.arange(angles.shape[1]),
-                          torch.arange(angles.shape[0]),
+    i, j = torch.meshgrid(torch.arange(angles.shape[0]),
+                          torch.arange(angles.shape[1]),
                           indexing='ij')
-    origins = torch.stack([j.float(), i.float()], dim=-1) + 0.5
+    origins = torch.stack([i.float(), j.float()], dim=-1) + 0.5
     intersect_mask, polygon_intersected, min_distances = ray_polygon_intersection_2d(
         angles,
         polygons,
@@ -788,10 +788,11 @@ def ray_tracing_cell_segmentation(
     )
 
     # fix indexing of segments to match assumptions
-    polygon_intersected[(polygon_intersected > -1)] += 1
-
     polygon_intersected = polygon_intersected.cpu().numpy()
+    polygon_intersected[(polygon_intersected > -1)] += 1
+    polygon_intersected = np.maximum(polygon_intersected, dataset.labels)
     min_distances = min_distances.cpu().numpy()
+    min_distances[dataset.labels > 0] = 0
 
     gather_callback = GatherCelltypeProbabilitiesForSegments(
         prior_probs=prior_probs,
@@ -818,12 +819,13 @@ def ray_tracing_cell_segmentation(
     result = np.zeros_like(predictions.angles)
 
     for segment_index, best_iteration in enumerate(best_iteration_per_segment):
-        max_ray_length = ray_steps[segment_index]
+        max_ray_length = ray_steps[best_iteration]
         segment_index = segment_index + 1
 
         mask = (polygon_intersected == segment_index)
         mask &= (min_distances <= max_ray_length)
         mask &= (predictions.foreground >= foreground_threshold)
+        mask &= (dataset.labels != 0)
         mask |= (dataset.labels == segment_index)
         result[mask] = segment_index
 

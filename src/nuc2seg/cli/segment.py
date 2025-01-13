@@ -14,6 +14,7 @@ from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
 from nuc2seg.segment import (
     greedy_cell_segmentation,
     convert_segmentation_to_shapefile,
+ray_tracing_cell_segmentation
 )
 from nuc2seg.postprocess import convert_transcripts_to_anndata
 from nuc2seg.xenium import (
@@ -139,6 +140,12 @@ def get_parser():
         type=int,
         help="Force using this number of celltypes, otherwise pick via BIC.",
     )
+    parser.add_argument(
+        "--expansion-method",
+        default="greedy",
+        choices=("greedy", "ray_tracing"),
+        help="Choose method for expansion.",
+    )
     return parser
 
 
@@ -221,17 +228,31 @@ def main():
             select_best_celltyping_chain(celltyping_chains, None)
         )
 
-    result = greedy_cell_segmentation(
-        dataset=dataset,
-        predictions=predictions,
-        prior_probs=celltyping_results.prior_probs[best_k],
-        expression_profiles=celltyping_results.expression_profiles[best_k],
-        max_expansion_steps=args.max_steps,
-        foreground_threshold=args.foreground_prob_threshold,
-        use_labels=(not args.use_connected_components),
-        min_component_size=args.connected_components_min_size,
-        use_early_stopping=args.use_early_stopping,
-    )
+    if args.expansion_method == 'greedy':
+        result = greedy_cell_segmentation(
+            dataset=dataset,
+            predictions=predictions,
+            prior_probs=celltyping_results.prior_probs[best_k],
+            expression_profiles=celltyping_results.expression_profiles[best_k],
+            max_expansion_steps=args.max_steps,
+            foreground_threshold=args.foreground_prob_threshold,
+            use_labels=(not args.use_connected_components),
+            min_component_size=args.connected_components_min_size,
+            use_early_stopping=args.use_early_stopping,
+        )
+    elif args.expansion_method == 'ray_tracing':
+        result = ray_tracing_cell_segmentation(
+            dataset=dataset,
+            predictions=predictions,
+            prior_probs=celltyping_results.prior_probs[best_k],
+            expression_profiles=celltyping_results.expression_profiles[best_k],
+            max_length=args.max_steps,
+            foreground_threshold=args.foreground_prob_threshold,
+            use_labels=(not args.use_connected_components),
+            use_early_stopping=args.use_early_stopping,
+        )
+    else:
+        raise ValueError(args.expansion_method)
 
     logger.info(f"Saving segmentation to {args.output}")
     result.save_h5(args.output)

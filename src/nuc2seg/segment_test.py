@@ -199,26 +199,26 @@ def test_greedy_cell_segmentation_early_stop():
 
 
 def test_ray_tracing_segmentation_early_stop():
-    labels = np.zeros((64, 64))
+    labels = np.zeros((64, 50))
 
     labels[22:42, 10:50] = -1
     labels[26:38, 22:42] = 1
 
-    angles = np.zeros((64, 64))
+    angles = np.zeros((64, 50))
 
     for x in range(64):
-        for y in range(64):
+        for y in range(50):
             x_component = 32 - x
-            y_component = 32 - y
+            y_component = 25 - y
             angle = cart2pol(x=x_component, y=y_component)
             angles[x, y] = angle[1]
 
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
         angles=angles,
-        classes=np.ones((64, 64, 3)).astype(float),
+        classes=np.ones((64, 50, 3)).astype(float),
         transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
-        bbox=np.array([0, 0, 64, 64]),
+        bbox=np.array([0, 0, 64, 50]),
         n_classes=3,
         n_genes=3,
         resolution=1,
@@ -226,7 +226,7 @@ def test_ray_tracing_segmentation_early_stop():
 
     predictions = ModelPredictions(
         angles=angles,
-        classes=np.ones((64, 64, 3)).astype(float),
+        classes=np.ones((64, 50, 3)).astype(float),
         foreground=np.ones_like(labels).astype(float),
     )
     result = ray_tracing_cell_segmentation(
