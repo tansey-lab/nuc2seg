@@ -74,10 +74,10 @@ def forward_pass_result_to_obj(value):
 
 
 def update_labels_with_flow_values(
-        labels: np.array,
-        update_mask: np.array,
-        flow_labels_flat: np.array,
-        indices_2d: np.array,
+    labels: np.array,
+    update_mask: np.array,
+    flow_labels_flat: np.array,
+    indices_2d: np.array,
 ):
     """
     :param labels: array of pixel labels, shape (n_width, n_height).
@@ -100,63 +100,63 @@ def update_labels_with_flow_values(
     # pixel is True if the pixel that would be assigned a label based on the flow
     # has a diagonal neighbor with the same label.
     flow_is_connected = (
-            (
-                    labels[
-                        (indices_2d[update_mask, 0] - 1).clip(0, x_max),
-                        (indices_2d[update_mask, 1] - 1).clip(0, y_max),
-                    ]
-                    == flow_targets
-            )
-            | (
-                    labels[
-                        (indices_2d[update_mask, 0] + 1).clip(0, x_max),
-                        (indices_2d[update_mask, 1] - 1).clip(0, y_max),
-                    ]
-                    == flow_targets
-            )
-            | (
-                    labels[
-                        (indices_2d[update_mask, 0] - 1).clip(0, x_max),
-                        (indices_2d[update_mask, 1] + 1).clip(0, y_max),
-                    ]
-                    == flow_targets
-            )
-            | (
-                    labels[
-                        (indices_2d[update_mask, 0] + 1).clip(0, x_max),
-                        (indices_2d[update_mask, 1] + 1).clip(0, y_max),
-                    ]
-                    == flow_targets
-            )
+        (
+            labels[
+                (indices_2d[update_mask, 0] - 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] - 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
+        | (
+            labels[
+                (indices_2d[update_mask, 0] + 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] - 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
+        | (
+            labels[
+                (indices_2d[update_mask, 0] - 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] + 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
+        | (
+            labels[
+                (indices_2d[update_mask, 0] + 1).clip(0, x_max),
+                (indices_2d[update_mask, 1] + 1).clip(0, y_max),
+            ]
+            == flow_targets
+        )
     )
     flow_targets[~flow_is_connected] = -1
     labels[indices_2d[update_mask, 0], indices_2d[update_mask, 1]] = flow_targets
 
 
 def fill_in_surrounded_unlabelled_pixels(
-        labels: np.array,
+    labels: np.array,
 ):
     """
     :param labels: array of pixel labels, shape (n_width, n_height).
     """
     island_mask = np.zeros(labels.shape, dtype=bool)
     island_mask[1:-1, 1:-1] = (
-            (labels[1:-1, 1:-1] == -1)
-            & (labels[:-2, 1:-1] != -1)
-            & (labels[:-2, 1:-1] == labels[2:, 1:-1])
-            & (labels[:-2, 1:-1] == labels[1:-1, :-2])
-            & (labels[:-2, 1:-1] == labels[1:-1, 2:])
+        (labels[1:-1, 1:-1] == -1)
+        & (labels[:-2, 1:-1] != -1)
+        & (labels[:-2, 1:-1] == labels[2:, 1:-1])
+        & (labels[:-2, 1:-1] == labels[1:-1, :-2])
+        & (labels[:-2, 1:-1] == labels[1:-1, 2:])
     )
     labels[island_mask] = labels[:-2, 1:-1][island_mask[1:-1, 1:-1]]
 
 
 def greedy_expansion_step(
-        pixel_labels_arr,
-        indices_2d,
-        flow_labels,
-        flow_labels2,
-        foreground_mask,
-        exclude_segments: Optional[np.array] = None,
+    pixel_labels_arr,
+    indices_2d,
+    flow_labels,
+    flow_labels2,
+    foreground_mask,
+    exclude_segments: Optional[np.array] = None,
 ):
     """
     :param pixel_labels_arr: array of pixel labels, shape (n_width, n_height).
@@ -175,9 +175,9 @@ def greedy_expansion_step(
     flow_labels_flat = flow_labels[x_indices, y_indices]
     flow_labels_flat2 = flow_labels2[x_indices, y_indices]
     update_mask = (
-            foreground_mask
-            & (pixel_labels_flat == -1)
-            & ((flow_labels_flat != -1) | (flow_labels_flat2 != -1))
+        foreground_mask
+        & (pixel_labels_flat == -1)
+        & ((flow_labels_flat != -1) | (flow_labels_flat2 != -1))
     )
 
     # Immediate neighbor flows
@@ -209,15 +209,15 @@ def greedy_expansion_step(
 
 
 def greedy_expansion(
-        pixel_labels_arr,
-        flow_labels,
-        flow_labels2,
-        flow_xy,
-        flow_xy2,
-        foreground_mask,
-        max_expansion_steps=50,
-        exclude_segments_callback: Optional[Callable[[int, np.array], np.array]] = None,
-        plotting_callback: Optional[Callable[[int, np.array], None]] = None,
+    pixel_labels_arr,
+    flow_labels,
+    flow_labels2,
+    flow_xy,
+    flow_xy2,
+    foreground_mask,
+    max_expansion_steps=50,
+    exclude_segments_callback: Optional[Callable[[int, np.array], np.array]] = None,
+    plotting_callback: Optional[Callable[[int, np.array], None]] = None,
 ):
     """
     :param pixel_labels_arr: array of pixel labels, shape (n_width, n_height).
@@ -241,7 +241,7 @@ def greedy_expansion(
         plotting_callback(0, pixel_labels_arr.copy())
 
     for expansion_idx in tqdm.trange(
-            max_expansion_steps, desc="greedy_expansion", unit="step"
+        max_expansion_steps, desc="greedy_expansion", unit="step"
     ):
         # Get segments to exclude
         if exclude_segments_callback is not None:
@@ -278,11 +278,11 @@ def greedy_expansion(
 
 
 def label_connected_components(
-        x_extent_pixels,
-        y_extent_pixels,
-        flow_xy,
-        foreground_mask,
-        min_component_size=20,
+    x_extent_pixels,
+    y_extent_pixels,
+    flow_xy,
+    foreground_mask,
+    min_component_size=20,
 ):
     start_xy = get_indices_for_ndarray(x_extent_pixels, y_extent_pixels)
     pixel_labels_arr = np.zeros((x_extent_pixels, y_extent_pixels), dtype=int)
@@ -322,11 +322,11 @@ def label_connected_components(
     # Post-process to remove island pixels surrounded by the same class on all sides
     island_mask = np.zeros(pixel_labels_arr.shape, dtype=bool)
     island_mask[1:-1, 1:-1] = (
-            (pixel_labels_arr[1:-1, 1:-1] == 0)
-            & (pixel_labels_arr[:-2, 1:-1] != 0)
-            & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[2:, 1:-1])
-            & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, :-2])
-            & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, 2:])
+        (pixel_labels_arr[1:-1, 1:-1] == 0)
+        & (pixel_labels_arr[:-2, 1:-1] != 0)
+        & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[2:, 1:-1])
+        & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, :-2])
+        & (pixel_labels_arr[:-2, 1:-1] == pixel_labels_arr[1:-1, 2:])
     )
     pixel_labels_arr[island_mask] = pixel_labels_arr[:-2, 1:-1][island_mask[1:-1, 1:-1]]
 
@@ -335,8 +335,8 @@ def label_connected_components(
 
 def flow_destination(start_xy, angle_preds, magnitude):
     dxdy = np.array(pol2cart(magnitude, angle_preds))[
-           :, start_xy[:, 0], start_xy[:, 1]
-           ].T
+        :, start_xy[:, 0], start_xy[:, 1]
+    ].T
     flow_xy = np.round(start_xy + dxdy).astype(int)
     flow_xy[:, 0] = flow_xy[:, 0].clip(0, angle_preds.shape[0] - 1).astype(int)
     flow_xy[:, 1] = flow_xy[:, 1].clip(0, angle_preds.shape[1] - 1).astype(int)
@@ -344,18 +344,18 @@ def flow_destination(start_xy, angle_preds, magnitude):
 
 
 def greedy_cell_segmentation(
-        dataset: Nuc2SegDataset,
-        predictions: ModelPredictions,
-        prior_probs: np.array,
-        expression_profiles: np.array,
-        foreground_threshold=0.5,
-        max_expansion_steps=15,
-        use_labels=True,
-        min_component_size=20,
-        flow1_magnitude=np.sqrt(2),
-        flow2_magnitude=np.sqrt(3),
-        plotting_callback: Optional[Callable[[int, np.array], None]] = None,
-        use_early_stopping=True,
+    dataset: Nuc2SegDataset,
+    predictions: ModelPredictions,
+    prior_probs: np.array,
+    expression_profiles: np.array,
+    foreground_threshold=0.5,
+    max_expansion_steps=15,
+    use_labels=True,
+    min_component_size=20,
+    flow1_magnitude=np.sqrt(2),
+    flow2_magnitude=np.sqrt(3),
+    plotting_callback: Optional[Callable[[int, np.array], None]] = None,
+    use_early_stopping=True,
 ):
     indices_2d = get_indices_for_ndarray(
         dataset.x_extent_pixels, dataset.y_extent_pixels
@@ -372,10 +372,10 @@ def greedy_cell_segmentation(
     ]
 
     flow_labels = (
-            np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
+        np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
     )
     flow_labels2 = (
-            np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
+        np.zeros((dataset.x_extent_pixels, dataset.y_extent_pixels), dtype=int) - 1
     )
 
     # Create a dataframe with an entry for every pixel
@@ -408,15 +408,15 @@ def greedy_cell_segmentation(
 
     gather_callback(0, pixel_labels_arr)
     for idx, result in enumerate(
-            greedy_expansion(
-                pixel_labels_arr.copy(),
-                flow_labels.copy(),
-                flow_labels2.copy(),
-                flow_xy.copy(),
-                flow_xy2.copy(),
-                foreground_mask.copy(),
-                max_expansion_steps=max_expansion_steps,
-            )
+        greedy_expansion(
+            pixel_labels_arr.copy(),
+            flow_labels.copy(),
+            flow_labels2.copy(),
+            flow_xy.copy(),
+            flow_xy2.copy(),
+            foreground_mask.copy(),
+            max_expansion_steps=max_expansion_steps,
+        )
     ):
         gather_callback(idx + 1, result)
 
@@ -430,15 +430,15 @@ def greedy_cell_segmentation(
     )
 
     for result in greedy_expansion(
-            pixel_labels_arr.copy(),
-            flow_labels.copy(),
-            flow_labels2.copy(),
-            flow_xy.copy(),
-            flow_xy2.copy(),
-            foreground_mask.copy(),
-            max_expansion_steps=max_expansion_steps,
-            plotting_callback=plotting_callback,
-            exclude_segments_callback=exclude_callback,
+        pixel_labels_arr.copy(),
+        flow_labels.copy(),
+        flow_labels2.copy(),
+        flow_xy.copy(),
+        flow_xy2.copy(),
+        foreground_mask.copy(),
+        max_expansion_steps=max_expansion_steps,
+        plotting_callback=plotting_callback,
+        exclude_segments_callback=exclude_callback,
     ):
         pass
     return SegmentationResults(result)
@@ -482,10 +482,10 @@ class EnforceBestIterationForEachSegment:
 
     def __call__(self, expansion_idx, pixel_labels_arr):
         return (
-                np.arange(len(self.best_iteration_for_each_segment))[
-                    self.best_iteration_for_each_segment <= expansion_idx
-                    ]
-                + 1
+            np.arange(len(self.best_iteration_for_each_segment))[
+                self.best_iteration_for_each_segment <= expansion_idx
+            ]
+            + 1
         )
 
 
@@ -576,10 +576,10 @@ def cull_empty_pixels_from_segmentation(segmentation, transcripts, labels=None):
                 )
 
                 is_border = (
-                        segmentation[
-                            surrounding_pixels[:, 0], surrounding_pixels[:, 1]
-                        ].min()
-                        <= 0
+                    segmentation[
+                        surrounding_pixels[:, 0], surrounding_pixels[:, 1]
+                    ].min()
+                    <= 0
                 )
 
                 if is_border and not per_pixel_transcript_mask[x_idx, y_idx]:
@@ -593,7 +593,7 @@ def cull_empty_pixels_from_segmentation(segmentation, transcripts, labels=None):
 
 
 def convert_segmentation_to_shapefile(
-        segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions, translate=True
+    segmentation, dataset: Nuc2SegDataset, predictions: ModelPredictions, translate=True
 ):
     records = []
     classes = predictions.classes
@@ -668,13 +668,13 @@ def polygon_list_to_dense(polygons: list[shapely.Polygon], device):
     decomposed_polygons = []
 
     for poly_idx, poly in enumerate(polygons):
-        if poly.geom_type == 'MultiPolygon':
+        if poly.geom_type == "MultiPolygon":
             for p in poly.geoms:
                 decomposed_polygons.append((poly_idx, p))
-        elif poly.geom_type == 'Polygon':
+        elif poly.geom_type == "Polygon":
             decomposed_polygons.append((poly_idx, poly))
         else:
-            raise ValueError(f'Unsupported geom_type: {poly.geom_type}')
+            raise ValueError(f"Unsupported geom_type: {poly.geom_type}")
 
     for poly_idx, poly in decomposed_polygons:
         vertices = create_torch_polygon(poly, device)
@@ -682,16 +682,16 @@ def polygon_list_to_dense(polygons: list[shapely.Polygon], device):
 
         for idx in range(v):
             global_edge_index_to_polygon_map[idx + offset] = poly_idx
-        points[offset:(offset + v), :] = vertices
+        points[offset : (offset + v), :] = vertices
         edge_vectors = vertices.roll(-1, dims=0) - vertices
-        dense_edge_vectors[offset:(offset + v), :] = edge_vectors
+        dense_edge_vectors[offset : (offset + v), :] = edge_vectors
         offset += len(edge_vectors)
     return points, dense_edge_vectors, global_edge_index_to_polygon_map
 
 
-def ray_polygon_intersection_2d(angles: torch.Tensor,
-                                polygons: list[shapely.Polygon],
-                                origins: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def ray_polygon_intersection_2d(
+    angles: torch.Tensor, polygons: list[shapely.Polygon], origins: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Calculate ray-polygon intersections for a batch of angles in 2D.
     Each ray originates from its grid position (i, j).
@@ -707,16 +707,15 @@ def ray_polygon_intersection_2d(angles: torch.Tensor,
                   (set to inf for non-intersecting rays)
     """
     W, H = angles.shape
-    polygon_vertices, edge_vectors, global_edge_index_to_polygon_map = polygon_list_to_dense(
-        polygons=polygons,
-        device=angles.device)
+    polygon_vertices, edge_vectors, global_edge_index_to_polygon_map = (
+        polygon_list_to_dense(polygons=polygons, device=angles.device)
+    )
     N = edge_vectors.shape[0]
 
     # Convert angles to direction vectors (normalized)
-    directions = torch.stack([
-        torch.cos(angles),
-        torch.sin(angles)
-    ], dim=-1)  # (W, H, 2)
+    directions = torch.stack(
+        [torch.cos(angles), torch.sin(angles)], dim=-1
+    )  # (W, H, 2)
 
     # Expand dimensions for broadcasting
     # Ray directions: (H, W, 1, 2) for broadcasting with N edges
@@ -738,8 +737,12 @@ def ray_polygon_intersection_2d(angles: torch.Tensor,
     # Calculate intersection parameters
     # t: distance along ray
     # u: interpolation factor along edge (0 to 1)
-    t = (rel_vec[..., 0] * edges[..., 1] - rel_vec[..., 1] * edges[..., 0]) / (det + 1e-10)
-    u = (rel_vec[..., 0] * directions[..., 1] - rel_vec[..., 1] * directions[..., 0]) / (det + 1e-10)
+    t = (rel_vec[..., 0] * edges[..., 1] - rel_vec[..., 1] * edges[..., 0]) / (
+        det + 1e-10
+    )
+    u = (
+        rel_vec[..., 0] * directions[..., 1] - rel_vec[..., 1] * directions[..., 0]
+    ) / (det + 1e-10)
 
     # Check valid intersections:
     # 1. Ray and edge aren't parallel (det != 0)
@@ -763,28 +766,27 @@ def ray_polygon_intersection_2d(angles: torch.Tensor,
 
 
 def ray_tracing_cell_segmentation(
-        dataset: Nuc2SegDataset,
-        predictions: ModelPredictions,
-        prior_probs: np.array,
-        expression_profiles: np.array,
-        device: str = 'cpu',
-        foreground_threshold: float = 0.5,
-        max_length: float = 15,
-        use_labels=True,
-        use_early_stopping=True
+    dataset: Nuc2SegDataset,
+    predictions: ModelPredictions,
+    prior_probs: np.array,
+    expression_profiles: np.array,
+    device: str = "cpu",
+    foreground_threshold: float = 0.5,
+    max_length: float = 15,
+    use_labels=True,
+    use_early_stopping=True,
 ):
     angles = torch.tensor(predictions.angles, device=device)
     polygons: list[shapely.Polygon] = segmentation_array_to_shapefile(
-        dataset.labels).geometry.to_list()
+        dataset.labels
+    ).geometry.to_list()
 
-    i, j = torch.meshgrid(torch.arange(angles.shape[0]),
-                          torch.arange(angles.shape[1]),
-                          indexing='ij')
+    i, j = torch.meshgrid(
+        torch.arange(angles.shape[0]), torch.arange(angles.shape[1]), indexing="ij"
+    )
     origins = torch.stack([i.float(), j.float()], dim=-1) + 0.5
     intersect_mask, polygon_intersected, min_distances = ray_polygon_intersection_2d(
-        angles,
-        polygons,
-        origins
+        angles, polygons, origins
     )
 
     # fix indexing of segments to match assumptions
@@ -800,9 +802,9 @@ def ray_tracing_cell_segmentation(
         transcripts=dataset.transcripts,
     )
 
-    ray_steps = np.linspace(0,
-                            max_length,
-                            int(np.ceil(max_length / dataset.resolution)))
+    ray_steps = np.linspace(
+        0, max_length, int(np.ceil(max_length / dataset.resolution))
+    )
 
     for idx, max_ray_length in enumerate(ray_steps):
         step_segmentation = polygon_intersected.copy()
@@ -822,11 +824,11 @@ def ray_tracing_cell_segmentation(
         max_ray_length = ray_steps[best_iteration]
         segment_index = segment_index + 1
 
-        mask = (polygon_intersected == segment_index)
-        mask &= (min_distances <= max_ray_length)
-        mask &= (predictions.foreground >= foreground_threshold)
-        mask &= (dataset.labels != 0)
-        mask |= (dataset.labels == segment_index)
+        mask = polygon_intersected == segment_index
+        mask &= min_distances <= max_ray_length
+        mask &= predictions.foreground >= foreground_threshold
+        mask &= dataset.labels != 0
+        mask |= dataset.labels == segment_index
         result[mask] = segment_index
 
     return SegmentationResults(result)

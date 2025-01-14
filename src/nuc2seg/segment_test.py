@@ -25,7 +25,7 @@ from nuc2seg.segment import (
     update_labels_with_flow_values,
     greedy_expansion_step,
     cull_empty_pixels_from_segmentation,
-ray_tracing_cell_segmentation
+    ray_tracing_cell_segmentation,
 )
 from nuc2seg.postprocess import convert_transcripts_to_anndata
 from nuc2seg.utils import get_indices_for_ndarray

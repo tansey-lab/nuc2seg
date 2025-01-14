@@ -14,7 +14,7 @@ from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
 from nuc2seg.segment import (
     greedy_cell_segmentation,
     convert_segmentation_to_shapefile,
-ray_tracing_cell_segmentation
+    ray_tracing_cell_segmentation,
 )
 from nuc2seg.postprocess import convert_transcripts_to_anndata
 from nuc2seg.xenium import (
@@ -228,7 +228,7 @@ def main():
             select_best_celltyping_chain(celltyping_chains, None)
         )
 
-    if args.expansion_method == 'greedy':
+    if args.expansion_method == "greedy":
         result = greedy_cell_segmentation(
             dataset=dataset,
             predictions=predictions,
@@ -240,7 +240,7 @@ def main():
             min_component_size=args.connected_components_min_size,
             use_early_stopping=args.use_early_stopping,
         )
-    elif args.expansion_method == 'ray_tracing':
+    elif args.expansion_method == "ray_tracing":
         result = ray_tracing_cell_segmentation(
             dataset=dataset,
             predictions=predictions,
