@@ -658,13 +658,10 @@ def convert_segmentation_to_shapefile(
 
 
 def polygon_list_to_dense(polygons: list[shapely.Polygon], device):
-    N = sum([len(p.boundary.coords) for p in polygons])
-
-    dense_edge_vectors = torch.empty((N, 2))
-    points = torch.empty((N, 2))
-    offset = 0
+    points = []
+    dense_edge_vectors = []
     global_edge_index_to_polygon_map = {}
-
+    offset = 0
     decomposed_polygons = []
 
     for poly_idx, poly in enumerate(polygons):
@@ -682,10 +679,13 @@ def polygon_list_to_dense(polygons: list[shapely.Polygon], device):
 
         for idx in range(v):
             global_edge_index_to_polygon_map[idx + offset] = poly_idx
-        points[offset : (offset + v), :] = vertices
+        points.append(vertices)
         edge_vectors = vertices.roll(-1, dims=0) - vertices
-        dense_edge_vectors[offset : (offset + v), :] = edge_vectors
+        dense_edge_vectors.append(edge_vectors)
         offset += len(edge_vectors)
+
+    dense_edge_vectors = torch.concatenate(dense_edge_vectors)
+    points = torch.concatenate(points)
     return points, dense_edge_vectors, global_edge_index_to_polygon_map
 
 

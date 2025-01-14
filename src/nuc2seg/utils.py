@@ -225,5 +225,21 @@ def create_torch_polygon(polygon: shapely.Polygon, device) -> torch.Tensor:
     Returns:
         Tensor of shape (N, 2) containing the polygon vertices
     """
-    vertices = list(zip(polygon.boundary.coords.xy[0], polygon.boundary.coords.xy[1]))
+    if polygon.boundary.is_ring:
+
+        vertices = list(
+            zip(polygon.boundary.coords.xy[0], polygon.boundary.coords.xy[1])
+        )
+    else:
+        if polygon.boundary.geom_type == "MultiLineString":
+            longest_line = max(
+                list(polygon.boundary.geoms), key=lambda x: len(x.coords)
+            )
+            if longest_line.is_ring:
+                vertices = list(
+                    zip(longest_line.coords.xy[0], longest_line.coords.xy[1])
+                )
+        else:
+            raise ValueError
+
     return torch.tensor(vertices, dtype=torch.float32, device=device)
