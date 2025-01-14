@@ -22,7 +22,7 @@ from nuc2seg.data import (
     SegmentationResults,
 )
 from nuc2seg.preprocessing import pol2cart
-from nuc2seg.utils import get_indices_for_ndarray
+from nuc2seg.utils import get_indices_for_ndarray, create_torch_polygon
 
 logger = logging.getLogger(__name__)
 
@@ -549,7 +549,6 @@ def segmentation_array_to_shapefile(segmentation):
 
 
 def cull_empty_pixels_from_segmentation(segmentation, transcripts, labels=None):
-
     x_extent, y_extent = segmentation.shape
 
     per_pixel_transcript_mask = np.zeros((x_extent, y_extent)).astype(bool)
@@ -656,3 +655,180 @@ def convert_segmentation_to_shapefile(
     gdf.reset_index(inplace=True, drop=True)
 
     return gdf
+
+
+def polygon_list_to_dense(polygons: list[shapely.Polygon], device):
+    points = []
+    dense_edge_vectors = []
+    global_edge_index_to_polygon_map = {}
+    offset = 0
+    decomposed_polygons = []
+
+    for poly_idx, poly in enumerate(polygons):
+        if poly.geom_type == "MultiPolygon":
+            for p in poly.geoms:
+                decomposed_polygons.append((poly_idx, p))
+        elif poly.geom_type == "Polygon":
+            decomposed_polygons.append((poly_idx, poly))
+        else:
+            raise ValueError(f"Unsupported geom_type: {poly.geom_type}")
+
+    for poly_idx, poly in decomposed_polygons:
+        vertices = create_torch_polygon(poly, device)
+        v = vertices.shape[0]
+
+        for idx in range(v):
+            global_edge_index_to_polygon_map[idx + offset] = poly_idx
+        points.append(vertices)
+        edge_vectors = vertices.roll(-1, dims=0) - vertices
+        dense_edge_vectors.append(edge_vectors)
+        offset += len(edge_vectors)
+
+    dense_edge_vectors = torch.concatenate(dense_edge_vectors)
+    points = torch.concatenate(points)
+    return points, dense_edge_vectors, global_edge_index_to_polygon_map
+
+
+def ray_polygon_intersection_2d(
+    angles: torch.Tensor, polygons: list[shapely.Polygon], origins: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Calculate ray-polygon intersections for a batch of angles in 2D.
+    Each ray originates from its grid position (i, j).
+
+    Args:
+        angles: Tensor of shape (H, W) containing angles in radians
+        polygon: List of shapely polygons to calculate intersection for
+        origins: Tensor of shape (H, W) containing origin points for each angle
+
+    Returns:
+        intersect: Boolean tensor of shape (H, W) indicating which polygon each ray intersects (-1 if none)
+        distances: Tensor of shape (H, W) containing distances to intersection points
+                  (set to inf for non-intersecting rays)
+    """
+    W, H = angles.shape
+    polygon_vertices, edge_vectors, global_edge_index_to_polygon_map = (
+        polygon_list_to_dense(polygons=polygons, device=angles.device)
+    )
+    N = edge_vectors.shape[0]
+
+    # Convert angles to direction vectors (normalized)
+    directions = torch.stack(
+        [torch.cos(angles), torch.sin(angles)], dim=-1
+    )  # (W, H, 2)
+
+    # Expand dimensions for broadcasting
+    # Ray directions: (H, W, 1, 2) for broadcasting with N edges
+    # Origins: (H, W, 1, 2) for broadcasting with N edges
+    # Polygon points: (1, 1, N, 2) for broadcasting with H×W rays
+    # Edges: (1, 1, N, 2) for broadcasting with H×W rays
+    directions = directions.unsqueeze(2)  # (H, W, 1, 2)
+    origins = origins.unsqueeze(2)  # (H, W, 1, 2)
+    polygon_points = polygon_vertices.view(1, 1, N, 2).expand(W, H, N, 2)
+    edges = edge_vectors.view(1, 1, N, 2).expand(W, H, N, 2)
+
+    # Calculate determinant (cross product in 2D)
+    # If det is 0, ray is parallel to edge
+    det = directions[..., 0] * edges[..., 1] - directions[..., 1] * edges[..., 0]
+
+    # Calculate relative vector from ray origin to polygon points
+    rel_vec = polygon_points - origins
+
+    # Calculate intersection parameters
+    # t: distance along ray
+    # u: interpolation factor along edge (0 to 1)
+    t = (rel_vec[..., 0] * edges[..., 1] - rel_vec[..., 1] * edges[..., 0]) / (
+        det + 1e-10
+    )
+    u = (
+        rel_vec[..., 0] * directions[..., 1] - rel_vec[..., 1] * directions[..., 0]
+    ) / (det + 1e-10)
+
+    # Check valid intersections:
+    # 1. Ray and edge aren't parallel (det != 0)
+    # 2. Intersection point is along the edge (0 <= u <= 1)
+    # 3. Intersection point is in front of ray origin (t > 0)
+    valid = (torch.abs(det) > 1e-10) & (u >= 0) & (u <= 1) & (t >= 0)
+
+    # Get minimum distance for each ray
+    distances = torch.where(valid, t, torch.inf)
+    min_distances, _ = torch.min(distances, dim=-1)
+    # Final intersection check (at least one valid intersection)
+    intersect = torch.any(valid, dim=-1)
+
+    # Get the id of each polygon that each ray is intersecting
+    face_indices = distances.argmin(dim=-1)
+    face_indices[~intersect] = -1
+    transform = np.vectorize(lambda x: global_edge_index_to_polygon_map.get(x, -1))
+    polygon_indices = transform(face_indices.cpu().numpy())
+
+    return intersect, torch.tensor(polygon_indices), min_distances
+
+
+def ray_tracing_cell_segmentation(
+    dataset: Nuc2SegDataset,
+    predictions: ModelPredictions,
+    prior_probs: np.array,
+    expression_profiles: np.array,
+    device: str = "cpu",
+    foreground_threshold: float = 0.5,
+    max_length: float = 15,
+    use_labels=True,
+    use_early_stopping=True,
+):
+    angles = torch.tensor(predictions.angles, device=device)
+    polygons: list[shapely.Polygon] = segmentation_array_to_shapefile(
+        dataset.labels
+    ).geometry.to_list()
+
+    i, j = torch.meshgrid(
+        torch.arange(angles.shape[0]), torch.arange(angles.shape[1]), indexing="ij"
+    )
+    origins = torch.stack([i.float(), j.float()], dim=-1) + 0.5
+    intersect_mask, polygon_intersected, min_distances = ray_polygon_intersection_2d(
+        angles, polygons, origins
+    )
+
+    # fix indexing of segments to match assumptions
+    polygon_intersected = polygon_intersected.cpu().numpy()
+    polygon_intersected[(polygon_intersected > -1)] += 1
+    polygon_intersected = np.maximum(polygon_intersected, dataset.labels)
+    min_distances = min_distances.cpu().numpy()
+    min_distances[dataset.labels > 0] = 0
+
+    gather_callback = GatherCelltypeProbabilitiesForSegments(
+        prior_probs=prior_probs,
+        expression_profiles=expression_profiles,
+        transcripts=dataset.transcripts,
+    )
+
+    ray_steps = np.linspace(
+        0, max_length, int(np.ceil(max_length / dataset.resolution))
+    )
+
+    for idx, max_ray_length in enumerate(ray_steps):
+        step_segmentation = polygon_intersected.copy()
+        step_segmentation[~intersect_mask] = 0
+        step_segmentation[(min_distances > max_ray_length)] = 0
+
+        gather_callback(idx, step_segmentation)
+
+    if not use_early_stopping:
+        return SegmentationResults(step_segmentation)
+
+    best_iteration_per_segment = gather_callback.get_best_iteration_for_each_segment()
+
+    result = np.zeros_like(predictions.angles)
+
+    for segment_index, best_iteration in enumerate(best_iteration_per_segment):
+        max_ray_length = ray_steps[best_iteration]
+        segment_index = segment_index + 1
+
+        mask = polygon_intersected == segment_index
+        mask &= min_distances <= max_ray_length
+        mask &= predictions.foreground >= foreground_threshold
+        mask &= dataset.labels != 0
+        mask |= dataset.labels == segment_index
+        result[mask] = segment_index
+
+    return SegmentationResults(result)
