@@ -45,7 +45,7 @@ dependencies = [
     "anndata",
     "kneed==0.8.5",
     "rasterio",
-    "zarr<2",
+    "zarr<3",
     "scikit-image",
     "pyometiff",
     "numpy_groupies",
