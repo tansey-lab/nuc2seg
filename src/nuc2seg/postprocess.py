@@ -13,7 +13,6 @@ from blended_tiling import TilingModule
 from scipy.sparse import csr_matrix
 from shapely import box
 
-from nuc2seg.segment import logger
 from nuc2seg.utils import generate_tiles, spatial_join_polygons_and_transcripts
 
 logger = logging.getLogger(__name__)
