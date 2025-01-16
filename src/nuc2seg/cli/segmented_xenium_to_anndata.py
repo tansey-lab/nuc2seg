@@ -45,15 +45,15 @@ def main():
 
     logger.info(f"Read {len(transcripts)} transcripts and {len(segments)} segments")
 
-    transcript_chunk_size = args.chunk_size
+    segments_chunk_size = args.chunk_size
 
     logger.info(f"Converting transcripts to anndata")
 
     ads = []
-    for i in tqdm.tqdm(range(0, len(transcripts), transcript_chunk_size)):
+    for i in tqdm.tqdm(range(0, len(segments), segments_chunk_size)):
         ad = convert_transcripts_to_anndata(
-            transcript_gdf=transcripts[i : i + transcript_chunk_size],
-            segmentation_gdf=segments,
+            transcript_gdf=segments[i : i + segments_chunk_size],
+            segmentation_gdf=transcripts,
             min_molecules_per_cell=1,
         )
         ads.append(ad)
