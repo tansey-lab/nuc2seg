@@ -75,6 +75,7 @@ baysor_postprocess = "nuc2seg.cli.baysor_postprocess:main"
 combine_segmentations = "nuc2seg.cli.combine_segmentations:main"
 combine_predictions = "nuc2seg.cli.combine_predictions:main"
 get_n_tiles = "nuc2seg.cli.get_n_tiles:main"
+segmented_xenium_to_anndata = "nuc2seg.cli.segmented_xenium_to_anndata:main"
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]

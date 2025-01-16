@@ -28,7 +28,7 @@ def get_args():
         type=str,
         required=True,
     )
-    parser.add_argument("--chunk-size", help="Chunk size", type=int, default=100_000)
+    parser.add_argument("--chunk-size", help="Chunk size", type=int, default=1000)
     parser.add_argument(
         "--output",
         help="Output .h5ad file",
@@ -45,17 +45,23 @@ def main():
 
     logger.info(f"Read {len(transcripts)} transcripts and {len(segments)} segments")
 
-    transcript_chunk_size = args.chunk_size
+    segments_chunk_size = args.chunk_size
 
     logger.info(f"Converting transcripts to anndata")
 
     ads = []
-    for i in tqdm.tqdm(range(0, len(transcripts), transcript_chunk_size)):
+    for i in tqdm.tqdm(range(0, len(segments), segments_chunk_size)):
         ad = convert_transcripts_to_anndata(
-            transcript_gdf=transcripts[i : i + transcript_chunk_size],
-            segmentation_gdf=segments,
+            transcript_gdf=segments[i : i + segments_chunk_size],
+            segmentation_gdf=transcripts,
             min_molecules_per_cell=1,
         )
         ads.append(ad)
 
-    anndata.concat(ads).write_h5ad(args.output)
+        for colname in ad.obs.columns:
+            if colname.endswith("_centroid"):
+                del ad.obs[colname]
+
+    adata = anndata.concat(ads, join="outer")
+
+    adata.write_h5ad(args.output)
