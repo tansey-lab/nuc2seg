@@ -52,8 +52,8 @@ def main():
     ads = []
     for i in tqdm.tqdm(range(0, len(segments), segments_chunk_size)):
         ad = convert_transcripts_to_anndata(
-            transcript_gdf=segments[i : i + segments_chunk_size],
-            segmentation_gdf=transcripts,
+            segmentation_gdf=segments[i : i + segments_chunk_size],
+            transcript_gdf=transcripts,
             min_molecules_per_cell=1,
         )
         ads.append(ad)
