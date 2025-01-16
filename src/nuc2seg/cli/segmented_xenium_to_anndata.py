@@ -58,4 +58,10 @@ def main():
         )
         ads.append(ad)
 
-    anndata.concat(ads).write_h5ad(args.output)
+        for colname in ad.obs.columns:
+            if colname.endswith("_centroid"):
+                del ad.obs[colname]
+
+    adata = anndata.concat(ads, join="outer")
+
+    adata.write_h5ad(args.output)
