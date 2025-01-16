@@ -28,7 +28,7 @@ def get_args():
         type=str,
         required=True,
     )
-    parser.add_argument("--chunk-size", help="Chunk size", type=int, default=100_000)
+    parser.add_argument("--chunk-size", help="Chunk size", type=int, default=1000)
     parser.add_argument(
         "--output",
         help="Output .h5ad file",
