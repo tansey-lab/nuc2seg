@@ -664,6 +664,12 @@ def calculate_benchmarks_with_nuclear_prior(
         right_on="method_segment_id",
     )
 
+    results = results.merge(
+        true_segs[["truth_segment_id", "segmentation_method"]],
+        left_on="truth_segment_id",
+        right_on="truth_segment_id",
+    )
+
     return results
 
 
