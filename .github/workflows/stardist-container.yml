@@ -1,7 +1,5 @@
 name: Stardist Container
 on:
-  pull_request:
-    paths: ['containers/stardist/**']
   push: { branches: main }
 
 jobs:

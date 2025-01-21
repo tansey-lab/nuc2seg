@@ -1,7 +1,5 @@
 name: SOPA Container
 on:
-  pull_request:
-    paths: ['containers/sopa/**']
   push: { branches: main }
 
 jobs:

@@ -1,7 +1,5 @@
 name: Spatialdata Container
 on:
-  pull_request:
-    paths: ['containers/spatialdata/**']
   push: { branches: main }
 
 jobs:
