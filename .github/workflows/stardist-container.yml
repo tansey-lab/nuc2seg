@@ -1,8 +1,9 @@
-name: Container Builds
+name: Stardist Container
 on:
-  push:
-    branches:
-      - 'main'
+  pull_request:
+    paths: ['containers/stardist/**']
+  push: { branches: main }
+
 jobs:
   build-docker:
     runs-on: ubuntu-latest
@@ -21,11 +22,10 @@ jobs:
       - name: Build and push container
         uses: docker/build-push-action@v3
         with:
-          context: .
-          file: Dockerfile
+          context: containers/stardist
+          file: containers/stardist/Dockerfile
           push: true
           tags: |
-            jeffquinnmsk/nuc2seg:latest
-            jeffquinnmsk/nuc2seg:${{ github.sha }}
-          cache-from: type=registry,ref=jeffquinnmsk/nuc2seg:latest
-          cache-to: type=inline
+            jeffquinnmsk/stardist:latest
+            jeffquinnmsk/stardist:${{ github.sha }}
+          cache-from: type=registry,ref=jeffquinnmsk/stardist:latest
