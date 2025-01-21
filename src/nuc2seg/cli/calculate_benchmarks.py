@@ -85,7 +85,7 @@ def main():
     cell_metadata_gdf = geopandas.GeoDataFrame(
         cell_metadata_df,
         geometry=geopandas.points_from_xy(
-            transcripts["x_centroid"], transcripts["y_centroid"]
+            cell_metadata_df["x_centroid"], cell_metadata_df["y_centroid"]
         ),
     )
 
