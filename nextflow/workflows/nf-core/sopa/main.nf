@@ -2,7 +2,10 @@ include { SOPA_READ } from '../../../modules/nf-core/sopa_read/main'
 include { SOPA_PATCHIFY } from '../../../modules/nf-core/sopa_patchify/main'
 include { SOPA_SEGMENT } from '../../../modules/nf-core/sopa_segment/main'
 include { SOPA_RESOLVE } from '../../../modules/nf-core/sopa_resolve/main'
+include { SOPA_SEGMENT_BAYSOR } from '../../../modules/nf-core/sopa_segment_baysor/main'
+include { SOPA_RESOLVE_BAYSOR } from '../../../modules/nf-core/sopa_resolve_baysor/main'
 include { SOPA_EXTRACT_RESULT } from '../../../modules/nf-core/sopa_extract_result/main'
+include { SOPA_EXTRACT_RESULT_BAYSOR } from '../../../modules/nf-core/sopa_extract_result_baysor/main'
 
 def create_parallel_sequence(meta, n_par) {
     def output = []
@@ -38,6 +41,8 @@ workflow SOPA {
 
     sopa_segment_input = sopa_read_output.combine( sopa_patches, by: 0 )
 
+    // Cellpose
+
     SOPA_SEGMENT( sopa_segment_input )
 
     sopa_read_output.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
@@ -47,4 +52,16 @@ workflow SOPA {
     ch_input.join( SOPA_RESOLVE.out.zarr ).tap { sopa_extract_result_input }
 
     SOPA_EXTRACT_RESULT( sopa_extract_result_input )
+
+    // Baysor
+
+    SOPA_SEGMENT_BAYSOR( sopa_segment_input )
+
+    sopa_read_output.join( SOPA_SEGMENT_BAYSOR.out.segments.groupTuple() ).tap { sopa_resolve_baysor_input }
+
+    SOPA_RESOLVE_BAYSOR( sopa_resolve_baysor_input )
+
+    ch_input.join( SOPA_RESOLVE_BAYSOR.out.zarr ).tap { sopa_extract_baysor_result_input }
+
+    SOPA_EXTRACT_RESULT_BAYSOR( sopa_extract_baysor_result_input )
 }

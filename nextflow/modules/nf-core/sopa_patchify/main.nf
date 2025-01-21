@@ -26,6 +26,14 @@ process SOPA_PATCHIFY {
         ${sopa_zarr} \
         ${args}
 
+    sopa patchify transcripts \
+        --patch-width-pixel ${params.sopa_patch_pixel_size} \
+        --patch-overlap-pixel 200 \
+        --unassigned_value UNASSIGNED \
+        --prior-shapes-key baysor_nuclear_prior \
+        ${sopa_zarr} \
+        ${args}
+
     n_patches=\$(cat "${sopa_zarr}/.sopa_cache/patches_file_image")
     """
 }

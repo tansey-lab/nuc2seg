@@ -21,8 +21,24 @@ process SOPA_READ {
     mkdir -p "${prefix}"
     sopa read \
         ${xenium_dir} \
-        --sdata-path "${prefix}/sdata.zarr" \
+        --sdata-path "${prefix}/_sdata.zarr" \
         --technology xenium \
         ${args}
+
+    cat << EOF > preprocess.py
+    import spatialdata
+
+    sd = spatialdata.read_zarr("${prefix}/_sdata.zarr")
+
+    mask = (
+        (sd.points['transcripts']['cell_id'] != "UNASSIGNED") &
+        (sd.points['transcripts']['overlaps_nucleus'].astype(bool))
+    )
+
+    sd.points['transcripts']['baysor_nuclear_prior'] = sd.points['transcripts']['cell_id'].where(mask, 'UNASSIGNED')
+    sd.write("${prefix}/sdata.zarr")
+    EOF
+
+    python preprocess.py
     """
 }
