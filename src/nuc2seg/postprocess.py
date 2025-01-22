@@ -364,12 +364,14 @@ def join_segments_on_max_overlap(
     overlay_gdf[overlap_area_column] = overlay_gdf.geometry.area
     overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_column] > overlap_area_threshold]
 
-    max_overlay_gdf = overlay_gdf.loc[
-        overlay_gdf.groupby("truth_segment_id")[[overlap_area_column]]
-        .idxmax()
-        .values.squeeze(),
-        :,
-    ]
+    idx_max = (
+        overlay_gdf.groupby("truth_segment_id")[[overlap_area_column]].idxmax().values
+    )
+
+    if len(idx_max.shape) > 1:
+        idx_max = idx_max.squeeze()
+
+    max_overlay_gdf = overlay_gdf.loc[idx_max, :]
 
     max_overlay_gdf = max_overlay_gdf[
         [segs_a_id_column, segs_b_id_column, overlap_area_column]
