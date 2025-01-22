@@ -27,8 +27,8 @@ process SOPA_PATCHIFY {
         ${args}
 
     sopa patchify transcripts \
-        --patch-width-pixel ${params.sopa_patch_pixel_size} \
-        --patch-overlap-pixel 200 \
+        --patch-width-microns ${params.sopa_patch_pixel_size} \
+        --patch-overlap-microns 50 \
         --unassigned_value UNASSIGNED \
         --prior-shapes-key baysor_nuclear_prior \
         ${sopa_zarr} \
