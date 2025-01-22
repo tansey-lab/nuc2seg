@@ -19,55 +19,6 @@ from nuc2seg.utils import generate_tiles
 logger = logging.getLogger(__name__)
 
 
-def chunk_shapes(segmentation_gdf, chunk_size):
-    if "segment_id" not in segmentation_gdf.columns:
-        segmentation_gdf["segment_id"] = range(len(segmentation_gdf))
-
-    tiler = TilingModule(
-        tile_size=(chunk_size, chunk_size),
-        tile_overlap=(0.0, 0.0),
-        base_size=(
-            math.ceil(segmentation_gdf.total_bounds[2]),
-            math.ceil(segmentation_gdf.total_bounds[3]),
-        ),
-    )
-
-    bboxes = generate_tiles(
-        tiler,
-        x_extent=segmentation_gdf.total_bounds[2],
-        y_extent=segmentation_gdf.total_bounds[3],
-        tile_size=(chunk_size, chunk_size),
-        overlap_fraction=0.0,
-    )
-    centroids = []
-    bbox_dict = {}
-    for idx, bbox in enumerate(bboxes):
-        centroids.append(
-            {
-                "tile_idx": idx,
-                "geometry": shapely.Point(
-                    ((bbox[0] + bbox[2]) / 2),
-                    ((bbox[1] + bbox[3]) / 2),
-                ),
-            }
-        )
-        bbox_dict[idx] = bbox
-    logger.info(f"Loaded {len(centroids)} tile centroids")
-
-    centroid_gdf = geopandas.GeoDataFrame(centroids, geometry="geometry")
-    joined_to_centroids = geopandas.sjoin_nearest(
-        segmentation_gdf,
-        centroid_gdf,
-    )
-    joined_to_centroids = joined_to_centroids.drop_duplicates(
-        subset=["segment_id"], keep="first"
-    )
-    return (
-        joined_to_centroids[segmentation_gdf.columns.tolist() + ["tile_idx"]],
-        bbox_dict,
-    )
-
-
 def get_parser():
     parser = argparse.ArgumentParser(
         description="Compare multiple segmentation results."
@@ -126,6 +77,55 @@ def get_parser():
         required=True,
     )
     return parser
+
+
+def chunk_shapes(segmentation_gdf, chunk_size):
+    if "segment_id" not in segmentation_gdf.columns:
+        segmentation_gdf["segment_id"] = range(len(segmentation_gdf))
+
+    tiler = TilingModule(
+        tile_size=(chunk_size, chunk_size),
+        tile_overlap=(0.0, 0.0),
+        base_size=(
+            math.ceil(segmentation_gdf.total_bounds[2]),
+            math.ceil(segmentation_gdf.total_bounds[3]),
+        ),
+    )
+
+    bboxes = generate_tiles(
+        tiler,
+        x_extent=segmentation_gdf.total_bounds[2],
+        y_extent=segmentation_gdf.total_bounds[3],
+        tile_size=(chunk_size, chunk_size),
+        overlap_fraction=0.0,
+    )
+    centroids = []
+    bbox_dict = {}
+    for idx, bbox in enumerate(bboxes):
+        centroids.append(
+            {
+                "tile_idx": idx,
+                "geometry": shapely.Point(
+                    ((bbox[0] + bbox[2]) / 2),
+                    ((bbox[1] + bbox[3]) / 2),
+                ),
+            }
+        )
+        bbox_dict[idx] = bbox
+    logger.info(f"Loaded {len(centroids)} tile centroids")
+
+    centroid_gdf = geopandas.GeoDataFrame(centroids, geometry="geometry")
+    joined_to_centroids = geopandas.sjoin_nearest(
+        segmentation_gdf,
+        centroid_gdf,
+    )
+    joined_to_centroids = joined_to_centroids.drop_duplicates(
+        subset=["segment_id"], keep="first"
+    )
+    return (
+        joined_to_centroids[segmentation_gdf.columns.tolist() + ["tile_idx"]],
+        bbox_dict,
+    )
 
 
 def main():
