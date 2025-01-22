@@ -243,3 +243,12 @@ def create_torch_polygon(polygon: shapely.Polygon, device) -> torch.Tensor:
             raise ValueError
 
     return torch.tensor(vertices, dtype=torch.float32, device=device)
+
+
+def safe_squeeze(arr):
+    squeezed = arr.squeeze()
+
+    if squeezed.shape == ():
+        return np.array([squeezed])
+    else:
+        return squeezed

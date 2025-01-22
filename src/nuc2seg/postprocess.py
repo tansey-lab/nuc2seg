@@ -13,7 +13,11 @@ from blended_tiling import TilingModule
 from scipy.sparse import csr_matrix
 from shapely import box
 
-from nuc2seg.utils import generate_tiles, spatial_join_polygons_and_transcripts
+from nuc2seg.utils import (
+    generate_tiles,
+    spatial_join_polygons_and_transcripts,
+    safe_squeeze,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -228,10 +232,8 @@ def calculate_segmentation_jaccard_index(
 
     overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_col] > overlap_area_threshold]
 
-    to_select = (
-        overlay_gdf.groupby("segment_id_a")[[overlap_area_col]]
-        .idxmax()
-        .values.squeeze()
+    to_select = safe_squeeze(
+        overlay_gdf.groupby("segment_id_a")[[overlap_area_col]].idxmax().values
     )
 
     if to_select.shape == ():
@@ -303,9 +305,9 @@ def calculate_average_intersection_over_union(
 
     overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_col] > overlap_area_threshold]
     max_overlay_gdf = overlay_gdf.loc[
-        overlay_gdf.groupby("segment_id_a")[[overlap_area_col]]
-        .idxmax()
-        .values.squeeze(),
+        safe_squeeze(
+            overlay_gdf.groupby("segment_id_a")[[overlap_area_col]].idxmax().values
+        ),
         :,
     ]
 
@@ -364,12 +366,11 @@ def join_segments_on_max_overlap(
     overlay_gdf[overlap_area_column] = overlay_gdf.geometry.area
     overlay_gdf = overlay_gdf[overlay_gdf[overlap_area_column] > overlap_area_threshold]
 
-    max_overlay_gdf = overlay_gdf.loc[
-        overlay_gdf.groupby("truth_segment_id")[[overlap_area_column]]
-        .idxmax()
-        .values.squeeze(),
-        :,
-    ]
+    idx_max = safe_squeeze(
+        overlay_gdf.groupby("truth_segment_id")[[overlap_area_column]].idxmax().values
+    )
+
+    max_overlay_gdf = overlay_gdf.loc[idx_max, :]
 
     max_overlay_gdf = max_overlay_gdf[
         [segs_a_id_column, segs_b_id_column, overlap_area_column]
@@ -564,7 +565,7 @@ def calculate_benchmarks_with_nuclear_prior(
         "method_segment_id"
     )[["matching_truth_segment_id", "truth_segment_id"]].agg(
         {
-            "matching_truth_segment_id": max,
+            "matching_truth_segment_id": "max",
             "truth_segment_id": list,
         }
     )
