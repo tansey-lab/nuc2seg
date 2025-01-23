@@ -19,7 +19,7 @@ process SOPA_READ {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    sopa read \
+    sopa convert \
         ${xenium_dir} \
         --sdata-path "${prefix}/_sdata.zarr" \
         --technology xenium \

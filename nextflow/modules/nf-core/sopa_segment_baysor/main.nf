@@ -43,9 +43,8 @@ process SOPA_SEGMENT_BAYSOR {
     EOF
 
     sopa segmentation baysor \
-        --channels DAPI \
         --patch-index ${patch_index} \
-        --config '"config.toml"'
+        --config '"config.toml"' \
         ${sopa_zarr} \
         ${args}
     """

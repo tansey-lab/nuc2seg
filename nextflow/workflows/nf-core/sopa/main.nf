@@ -1,5 +1,6 @@
 include { SOPA_READ } from '../../../modules/nf-core/sopa_read/main'
-include { SOPA_PATCHIFY } from '../../../modules/nf-core/sopa_patchify/main'
+include { SOPA_PATCHIFY_IMAGE } from '../../../modules/nf-core/sopa_patchify_image/main'
+include { SOPA_PATCHIFY_TRANSCRIPTS } from '../../../modules/nf-core/sopa_patchify_transcripts/main'
 include { SOPA_SEGMENT } from '../../../modules/nf-core/sopa_segment/main'
 include { SOPA_RESOLVE } from '../../../modules/nf-core/sopa_resolve/main'
 include { SOPA_SEGMENT_BAYSOR } from '../../../modules/nf-core/sopa_segment_baysor/main'
@@ -35,13 +36,13 @@ workflow SOPA {
 
     }
 
-    SOPA_PATCHIFY( sopa_read_output )
+    // Cellpose
 
-    SOPA_PATCHIFY.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
+    SOPA_PATCHIFY_IMAGE( sopa_read_output )
+
+    SOPA_PATCHIFY_IMAGE.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
 
     sopa_segment_input = sopa_read_output.combine( sopa_patches, by: 0 )
-
-    // Cellpose
 
     SOPA_SEGMENT( sopa_segment_input )
 
@@ -55,7 +56,13 @@ workflow SOPA {
 
     // Baysor
 
-    SOPA_SEGMENT_BAYSOR( sopa_segment_input )
+    SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
+
+    SOPA_PATCHIFY_TRANSCRIPTS.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
+
+    sopa_segment_baysor_input = sopa_read_output.combine( sopa_patches, by: 0 )
+
+    SOPA_SEGMENT_BAYSOR( sopa_segment_baysor_input )
 
     sopa_read_output.join( SOPA_SEGMENT_BAYSOR.out.segments.groupTuple() ).tap { sopa_resolve_baysor_input }
 
