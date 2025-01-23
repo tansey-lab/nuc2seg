@@ -1,4 +1,4 @@
-process SOPA_SEGMENT {
+process SOPA_SEGMENT_STARDIST {
     tag "$meta.id"
     label 'process_medium'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
@@ -20,11 +20,11 @@ process SOPA_SEGMENT {
     """
     mkdir -p "${prefix}"
 
-    if [ ! -f "${sopa_zarr}/.sopa_cache/cellpose_boundaries/${patch_index}.parquet" ]; then
-        sopa segmentation cellpose \
+    if [ ! -f "${sopa_zarr}/.sopa_cache/stardist_patch/${patch_index}.parquet" ]; then
+        sopa segmentation generic-staining \
+            --method-name stardist_patch \
+            --method-kwargs '{"model_type":"2D_versatile_fluo","prob_thresh":${params.stardist_prob_thresh},"nms_thresh":${params.nms_thresh}}' \
             --channels DAPI \
-            --diameter ${params.sopa_cellpose_diameter} \
-            --patch-index ${patch_index} \
             ${sopa_zarr} \
             ${args}
     fi
