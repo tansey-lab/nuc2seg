@@ -58,13 +58,9 @@ workflow SOPA {
 
     SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
 
-    SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.flatten().tap { sopa_tx_patches }
-
-    sopa_tx_patches.view()
+    SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.transpose().tap { sopa_tx_patches }
 
     sopa_segment_baysor_input = sopa_read_output.combine( sopa_tx_patches, by: 0 )
-
-    sopa_segment_baysor_input.view()
 
     SOPA_SEGMENT_BAYSOR( sopa_segment_baysor_input )
 
