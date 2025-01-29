@@ -47,7 +47,7 @@ process SOPA_SEGMENT_BAYSOR {
     if [ ! -f "${sopa_zarr}/.sopa_cache/baysor_boundaries/\${PATCH_INDEX}.parquet" ]; then
         sopa segmentation baysor \
             --patch-index \$PATCH_INDEX \
-            --config '"config.toml"' \
+            --config config.toml \
             ${sopa_zarr} \
             ${args}
     fi
