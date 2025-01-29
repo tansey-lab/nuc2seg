@@ -24,13 +24,15 @@ process SOPA_PATCHIFY_TRANSCRIPTS {
     """
     mkdir -p "${prefix}"
 
-    sopa patchify transcripts \
-        --patch-width-microns ${micron_size} \
-        --patch-overlap-microns 50 \
-        --unassigned-value UNASSIGNED \
-        --prior-shapes-key baysor_nuclear_prior \
-        ${sopa_zarr} \
-        ${args}
+    if [ ! -f "${sopa_zarr}/.sopa_cache/patches_file_transcripts" ]; then
+        sopa patchify transcripts \
+            --patch-width-microns ${micron_size} \
+            --patch-overlap-microns 50 \
+            --unassigned-value UNASSIGNED \
+            --prior-shapes-key baysor_nuclear_prior \
+            ${sopa_zarr} \
+            ${args}
+    fi
 
     mkdir -p "${prefix}/transcript_tiles"
     awk '{print \$0 > ("${prefix}/transcript_tiles/transcript_tile_id_" (NR-1))}' "${sopa_zarr}/.sopa_cache/patches_file_transcripts"

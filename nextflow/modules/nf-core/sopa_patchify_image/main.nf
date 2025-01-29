@@ -20,11 +20,14 @@ process SOPA_PATCHIFY_IMAGE {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    sopa patchify image \
-        --patch-width-pixel ${params.sopa_patch_pixel_size} \
-        --patch-overlap-pixel 200 \
-        ${sopa_zarr} \
-        ${args}
+
+    if [ ! -f "${sopa_zarr}/.sopa_cache/patches_file_transcripts" ]; then
+        sopa patchify image \
+            --patch-width-pixel ${params.sopa_patch_pixel_size} \
+            --patch-overlap-pixel 200 \
+            ${sopa_zarr} \
+            ${args}
+    fi
 
     n_patches=\$(cat "${sopa_zarr}/.sopa_cache/patches_file_image")
     """
