@@ -25,29 +25,31 @@ process SOPA_SEGMENT_BAYSOR {
     cat << EOF > config.toml
     [data]
     force_2d = true
-    min_molecules_per_cell = 10
+    min_molecules_per_cell = ${params.baysor_min_molecules_per_cell}
     x = "x"
     y = "y"
     z = "z"
-    gene = "genes"
-    min_molecules_per_gene = 0
-    min_molecules_per_segment = 3
+    gene = "${params.gene_column_name}"
+    min_molecules_per_gene = ${params.min_molecules_per_gene}
+    min_molecules_per_segment = ${params.min_molecules_per_segment}
     confidence_nn_id = 6
 
     [segmentation]
     prior_segmentation_confidence = 1.0
     estimate_scale_from_centers = true
-    n_clusters = 4
-    iters = 500
+    n_clusters = ${params.baysor_n_clusters}
+    iters = ${params.baysor_iters}
     n_cells_init = 0
     nuclei_genes = ""
     cyto_genes = ""
     EOF
 
-    sopa segmentation baysor \
-        --patch-index \$PATCH_INDEX \
-        --config '"config.toml"' \
-        ${sopa_zarr} \
-        ${args}
+    if [ ! -f "${sopa_zarr}/.sopa_cache/cellpose_boundaries/\${PATCH_INDEX}.parquet" ]; then
+        sopa segmentation baysor \
+            --patch-index \$PATCH_INDEX \
+            --config '"config.toml"' \
+            ${sopa_zarr} \
+            ${args}
+    fi
     """
 }

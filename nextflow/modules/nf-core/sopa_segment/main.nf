@@ -19,11 +19,14 @@ process SOPA_SEGMENT {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    sopa segmentation cellpose \
-        --channels DAPI \
-        --diameter ${params.sopa_cellpose_diameter} \
-        --patch-index ${patch_index} \
-        ${sopa_zarr} \
-        ${args}
+
+    if [ ! -f "${sopa_zarr}/.sopa_cache/cellpose_boundaries/${patch_index}.parquet" ]; then
+        sopa segmentation cellpose \
+            --channels DAPI \
+            --diameter ${params.sopa_cellpose_diameter} \
+            --patch-index ${patch_index} \
+            ${sopa_zarr} \
+            ${args}
+    fi
     """
 }
