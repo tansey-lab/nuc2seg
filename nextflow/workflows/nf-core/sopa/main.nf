@@ -58,7 +58,7 @@ workflow SOPA {
 
     SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
 
-    SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.flatMap{ n -> n }.tap { sopa_tx_patches }
+    SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.flatten().tap { sopa_tx_patches }
 
     sopa_segment_baysor_input = sopa_read_output.combine( sopa_tx_patches, by: 0 )
 
