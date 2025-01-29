@@ -32,7 +32,6 @@ process SOPA_PATCHIFY_TRANSCRIPTS {
         ${sopa_zarr} \
         ${args}
 
-    cd "${prefix}"
     awk '{print \$0 > ("transcript_tile_id_" (NR-1))}' "${sopa_zarr}/.sopa_cache/patches_file_transcripts"
     """
 }
