@@ -1,6 +1,6 @@
 process COMBINE_SEGMENTATIONS {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_high'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) :
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
