@@ -44,10 +44,10 @@ process SOPA_SEGMENT_BAYSOR {
     cyto_genes = ""
     EOF
 
-    if [ ! -f "${sopa_zarr}/.sopa_cache/baysor_boundaries/\${PATCH_INDEX}.parquet" ]; then
+    if [ ! -f "${sopa_zarr}/.sopa_cache/transcript_patches/\${PATCH_INDEX}/segmentation.csv" ]; then
         sopa segmentation baysor \
             --patch-index \$PATCH_INDEX \
-            --config config.toml \
+            --config "'config.toml'" \
             ${sopa_zarr} \
             ${args}
     fi
