@@ -20,7 +20,7 @@ process SOPA_SEGMENT_BAYSOR {
     """
     mkdir -p "${prefix}"
 
-    read -r -d '' PATCH_INDEX < ${patch_index_fn}
+    read -r PATCH_INDEX < ${patch_index_fn}
 
     cat << EOF > config.toml
     [data]
