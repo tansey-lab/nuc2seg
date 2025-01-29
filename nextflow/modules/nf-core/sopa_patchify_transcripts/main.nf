@@ -9,7 +9,7 @@ process SOPA_PATCHIFY_TRANSCRIPTS {
     tuple val(meta), path(sopa_zarr)
 
     output:
-    tuple val(meta), env(n_patches), emit: n_patches
+    tuple val(meta), path("${prefix}/transcript_tile_id_*"), emit: tx_patches
 
 
     when:
@@ -32,6 +32,7 @@ process SOPA_PATCHIFY_TRANSCRIPTS {
         ${sopa_zarr} \
         ${args}
 
-    n_patches=\$(cat "${sopa_zarr}/.sopa_cache/patches_file_transcripts")
+    cd "${prefix}"
+    awk '{print \$0 > ("transcript_tile_id_" (NR-1))}' "${sopa_zarr}/.sopa_cache/patches_file_transcripts"
     """
 }

@@ -40,9 +40,9 @@ workflow SOPA {
 
     SOPA_PATCHIFY_IMAGE( sopa_read_output )
 
-    SOPA_PATCHIFY_IMAGE.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
+    SOPA_PATCHIFY_IMAGE.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_image_patches }
 
-    sopa_segment_input = sopa_read_output.combine( sopa_patches, by: 0 )
+    sopa_segment_input = sopa_read_output.combine( sopa_image_patches, by: 0 )
 
     SOPA_SEGMENT( sopa_segment_input )
 
@@ -58,9 +58,9 @@ workflow SOPA {
 
     SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
 
-    SOPA_PATCHIFY_TRANSCRIPTS.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_patches }
+    SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.tap { sopa_tx_patches }
 
-    sopa_segment_baysor_input = sopa_read_output.combine( sopa_patches, by: 0 )
+    sopa_segment_baysor_input = sopa_read_output.combine( sopa_tx_patches, by: 0 )
 
     SOPA_SEGMENT_BAYSOR( sopa_segment_baysor_input )
 

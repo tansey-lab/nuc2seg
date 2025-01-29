@@ -6,10 +6,10 @@ process SOPA_SEGMENT_BAYSOR {
         ('docker.io/jeffquinnmsk/sopa:' + params.sopa_version) }"
 
     input:
-    tuple val(meta), path(sopa_zarr), val(patch_index)
+    tuple val(meta), path(sopa_zarr), path(patch_index_fn)
 
     output:
-    tuple val(meta), path("${sopa_zarr}/.sopa_cache/baysor_boundaries/${patch_index}.parquet"), emit: segments
+    tuple val(meta), env(PATCH_INDEX), emit: segments
 
     when:
     task.ext.when == null || task.ext.when
@@ -19,6 +19,8 @@ process SOPA_SEGMENT_BAYSOR {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
+
+    read -r -d '' PATCH_INDEX < ${patch_index_fn}
 
     cat << EOF > config.toml
     [data]
@@ -43,7 +45,7 @@ process SOPA_SEGMENT_BAYSOR {
     EOF
 
     sopa segmentation baysor \
-        --patch-index ${patch_index} \
+        --patch-index \$PATCH_INDEX \
         --config '"config.toml"' \
         ${sopa_zarr} \
         ${args}
