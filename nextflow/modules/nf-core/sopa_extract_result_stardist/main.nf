@@ -20,10 +20,10 @@ process SOPA_EXTRACT_RESULT {
     """
     mkdir -p "${prefix}"
     extract_shapefile_from_sopa \
-        --output "${prefix}/cellpose_shapes.parquet" \
+        --output "${prefix}/stardist_shapes.parquet" \
         --xenium-experiment "${xenium_dir}/experiment.xenium" \
         --zarr ${sopa_zarr} \
-        --shapes-key cellpose_boundaries \
+        --shapes-key stardist_patch \
         ${args}
     """
 }
