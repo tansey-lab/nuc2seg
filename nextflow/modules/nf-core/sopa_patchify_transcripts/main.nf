@@ -9,7 +9,7 @@ process SOPA_PATCHIFY_TRANSCRIPTS {
     tuple val(meta), path(sopa_zarr)
 
     output:
-    tuple val(meta), path("${prefix}/transcript_tile_id_*"), emit: tx_patches
+    tuple val(meta), path("${prefix}/transcript_tiles/transcript_tile_id_*"), emit: tx_patches
 
 
     when:
@@ -32,6 +32,7 @@ process SOPA_PATCHIFY_TRANSCRIPTS {
         ${sopa_zarr} \
         ${args}
 
-    awk '{print \$0 > ("transcript_tile_id_" (NR-1))}' "${sopa_zarr}/.sopa_cache/patches_file_transcripts"
+    mkdir -p "${prefix}/transcript_tiles"
+    awk '{print \$0 > ("${prefix}/transcript_tiles/transcript_tile_id_" (NR-1))}' "${sopa_zarr}/.sopa_cache/patches_file_transcripts"
     """
 }
