@@ -30,8 +30,8 @@ process SOPA_SEGMENT_BAYSOR {
     y = "y"
     z = "z"
     gene = "${params.gene_column_name}"
-    min_molecules_per_gene = ${params.min_molecules_per_gene}
-    min_molecules_per_segment = ${params.min_molecules_per_segment}
+    min_molecules_per_gene = ${params.baysor_min_molecules_per_gene}
+    min_molecules_per_segment = ${params.baysor_min_molecules_per_segment}
     confidence_nn_id = 6
 
     [segmentation]
