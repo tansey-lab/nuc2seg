@@ -68,3 +68,7 @@ def main():
 
     transformed_gdf = transform_geodataframe(gdf, transformation_matrix)
     transformed_gdf.to_parquet(args.output)
+
+
+if __name__ == "__main__":
+    main()
