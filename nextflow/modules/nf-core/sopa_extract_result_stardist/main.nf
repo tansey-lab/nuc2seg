@@ -1,4 +1,4 @@
-process SOPA_EXTRACT_RESULT {
+process SOPA_EXTRACT_RESULT_STARDIST {
     tag "$meta.id"
     label 'process_medium'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
