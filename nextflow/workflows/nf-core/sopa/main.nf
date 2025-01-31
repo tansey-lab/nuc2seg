@@ -94,8 +94,8 @@ workflow SOPA {
     SOPA_EXTRACT_RESULT_BAYSOR.out.shapes.map { tuple(it[0], it[1], "baysor") }.tap { baysor_results }
 
     // Calculate benchmarks
-
-    ch_input.join( concat(concat(cellpose_results, stardist_results), baysor_results) ).tap { calculate_benchmarks_input }
+    concat(cellpose_results, stardist_results baysor_results).view()
+    ch_input.join( concat(cellpose_results, stardist_results baysor_results) ).tap { calculate_benchmarks_input }
 
     CALCULATE_BENCHMARKS( calculate_benchmarks_input )
 }
