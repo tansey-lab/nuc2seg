@@ -37,7 +37,6 @@ workflow SOPA {
         sopa_read_output = Channel.fromList([
             tuple( [ id: name, single_end:false ], file(params.zarr_file, checkIfExists: true))
         ])
-
     }
 
     // Cellpose
@@ -96,7 +95,7 @@ workflow SOPA {
 
     // Calculate benchmarks
 
-    ch_input.join( concat(cellpose_results, stardist_results, baysor_results) ).tap { calculate_benchmarks_input }
+    ch_input.join( concat(concat(cellpose_results, stardist_results), baysor_results) ).tap { calculate_benchmarks_input }
 
     CALCULATE_BENCHMARKS( calculate_benchmarks_input )
 }
