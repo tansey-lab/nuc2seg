@@ -24,7 +24,7 @@ process SOPA_SEGMENT_STARDIST {
         mkdir -p /tmp/.keras
 
         if [ -d \$HOME/.keras ]; then
-            cp -r \$HOME/.keras/* /tmp/.keras
+            cp -L -R \$HOME/.keras /tmp/.keras
         fi
 
         KERAS_HOME=/tmp/.keras sopa segmentation generic-staining \
