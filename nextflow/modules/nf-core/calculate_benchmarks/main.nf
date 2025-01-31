@@ -6,7 +6,7 @@ process CALCULATE_BENCHMARKS {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(xenium_dir), path(nuc2seg_result), path(baysor_result), path(cellpose_result)
+    tuple val(meta), path(xenium_dir), path(segmentation_shapes), val(method_name)
 
     output:
     tuple val(meta), path("${prefix}/benchmark_results"), emit: results
@@ -22,12 +22,13 @@ process CALCULATE_BENCHMARKS {
     """
     mkdir -p "${prefix}"
     calculate_benchmarks \
+        --output-file ${prefix}/${method_name}_benchmarks.parquet \
+        --segmentation-method-names ${method_name} \
+        --segmentation-files ${segmentation_shapes} \
         --true-boundaries ${xenium_dir}/cell_boundaries.parquet \
         --nuclei-boundaries ${xenium_dir}/nucleus_boundaries.parquet \
         --transcripts ${xenium_dir}/transcripts.parquet \
-        --segmentation-files "${nuc2seg_result}" "${baysor_result}" "${cellpose_result}" \
-        --segmentation-method-names nuc2seg baysor cellpose \
-        --output-dir ${prefix}/benchmark_results \
+        --xenium-cell-metadata ${xenium_dir}/cells.parquet \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

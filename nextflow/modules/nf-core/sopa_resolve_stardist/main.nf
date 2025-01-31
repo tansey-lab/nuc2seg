@@ -1,6 +1,6 @@
 process SOPA_RESOLVE_STARDIST {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_high'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/sopa:' + params.sopa_version) :
         ('docker.io/jeffquinnmsk/sopa:' + params.sopa_version) }"
@@ -9,7 +9,7 @@ process SOPA_RESOLVE_STARDIST {
     tuple val(meta), path(sopa_zarr), path(segments)
 
     output:
-    tuple val(meta), path("${sopa_zarr}/shapes/cellpose_boundaries/shapes.parquet"), emit: done_file
+    tuple val(meta), path("${sopa_zarr}/shapes/stardist_patch/shapes.parquet"), emit: shapes
     tuple val(meta), path("${sopa_zarr}"), emit: zarr
 
     when:

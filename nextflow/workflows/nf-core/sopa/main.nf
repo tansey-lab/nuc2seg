@@ -10,6 +10,7 @@ include { SOPA_RESOLVE_STARDIST } from '../../../modules/nf-core/sopa_resolve_st
 include { SOPA_SEGMENT } from '../../../modules/nf-core/sopa_segment/main'
 include { SOPA_SEGMENT_BAYSOR } from '../../../modules/nf-core/sopa_segment_baysor/main'
 include { SOPA_SEGMENT_STARDIST } from '../../../modules/nf-core/sopa_segment_stardist/main'
+include { CALCULATE_BENCHMARKS } from '../../../modules/nf-core/calculate_benchmarks/main'
 
 def create_parallel_sequence(meta, n_par) {
     def output = []
@@ -57,6 +58,8 @@ workflow SOPA {
 
     SOPA_EXTRACT_RESULT( sopa_extract_result_input )
 
+    SOPA_EXTRACT_RESULT.out.shapes.map { tuple(it[0], it[1], "cellpose") }.tap { cellpose_results }
+
     // Stardist
 
     SOPA_SEGMENT_STARDIST( sopa_segment_input )
@@ -68,6 +71,8 @@ workflow SOPA {
     ch_input.join( SOPA_RESOLVE_STARDIST.out.zarr ).tap { sopa_extract_stardist_result_input }
 
     SOPA_EXTRACT_RESULT_STARDIST( sopa_extract_stardist_result_input )
+
+    SOPA_EXTRACT_RESULT_STARDIST.out.shapes.map { tuple(it[0], it[1], "stardist") }.tap { stardist_results }
 
     // Baysor
 
@@ -86,4 +91,12 @@ workflow SOPA {
     ch_input.join( SOPA_RESOLVE_BAYSOR.out.zarr ).tap { sopa_extract_baysor_result_input }
 
     SOPA_EXTRACT_RESULT_BAYSOR( sopa_extract_baysor_result_input )
+
+    SOPA_EXTRACT_RESULT_BAYSOR.out.shapes.map { tuple(it[0], it[1], "baysor") }.tap { baysor_results }
+
+    // Calculate benchmarks
+
+    ch_input.join( concat(cellpose_results, stardist_results, baysor_results) ).tap { calculate_benchmarks_input }
+
+    CALCULATE_BENCHMARKS( calculate_benchmarks_input )
 }

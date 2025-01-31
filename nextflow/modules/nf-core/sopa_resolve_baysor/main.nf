@@ -1,15 +1,15 @@
 process SOPA_RESOLVE_BAYSOR {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_high'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/sopa:' + params.sopa_version) :
         ('docker.io/jeffquinnmsk/sopa:' + params.sopa_version) }"
 
     input:
-    tuple val(meta), path(sopa_zarr), path(segments)
+    tuple val(meta), path(sopa_zarr), val(segments)
 
     output:
-    tuple val(meta), path("${sopa_zarr}/shapes/baysor_boundaries/shapes.parquet"), emit: done_file
+    tuple val(meta), path("${sopa_zarr}/shapes/baysor_boundaries/shapes.parquet"), emit: shapes
     tuple val(meta), path("${sopa_zarr}"), emit: zarr
 
     when:
