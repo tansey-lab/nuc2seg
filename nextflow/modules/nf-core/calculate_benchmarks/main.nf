@@ -9,7 +9,7 @@ process CALCULATE_BENCHMARKS {
     tuple val(meta), path(xenium_dir), path(segmentation_shapes), val(method_name)
 
     output:
-    tuple val(meta), path("${prefix}/benchmark_results"), emit: results
+    tuple val(meta), path("${prefix}/${method_name}_benchmarks.parquet"), emit: results
     path  "versions.yml"                , emit: versions
 
 
