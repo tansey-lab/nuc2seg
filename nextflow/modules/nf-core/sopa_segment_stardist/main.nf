@@ -22,6 +22,11 @@ process SOPA_SEGMENT_STARDIST {
 
     if [ ! -f "${sopa_zarr}/.sopa_cache/stardist_patch/${patch_index}.parquet" ]; then
         mkdir -p /tmp/.keras
+
+        if [ -d \$HOME/.keras ]; then
+            cp -r \$HOME/.keras/* /tmp/.keras
+        fi
+
         KERAS_HOME=/tmp/.keras sopa segmentation generic-staining \
             --method-name stardist_patch \
             --method-kwargs '{"model_type":"2D_versatile_fluo","prob_thresh":${params.stardist_prob_thresh},"nms_thresh":${params.nms_thresh}}' \
