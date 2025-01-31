@@ -9,7 +9,7 @@ process SOPA_EXTRACT_RESULT_BAYSOR {
     tuple val(meta), path(xenium_dir), path(sopa_zarr)
 
     output:
-    tuple val(meta), path("${prefix}/sopa_shapes.parquet"), emit: shapes
+    tuple val(meta), path("${prefix}/baysor_shapes.parquet"), emit: shapes
 
     when:
     task.ext.when == null || task.ext.when
@@ -20,7 +20,7 @@ process SOPA_EXTRACT_RESULT_BAYSOR {
     """
     mkdir -p "${prefix}"
     extract_shapefile_from_sopa \
-        --output "${prefix}/sopa_shapes.parquet" \
+        --output "${prefix}/baysor_shapes.parquet" \
         --xenium-experiment "${xenium_dir}/experiment.xenium" \
         --shapes-key baysor_boundaries \
         --zarr ${sopa_zarr} \
