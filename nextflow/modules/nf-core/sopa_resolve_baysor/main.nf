@@ -21,6 +21,7 @@ process SOPA_RESOLVE_BAYSOR {
     """
     mkdir -p "${prefix}"
     sopa resolve baysor \
+        --gene-column ${params.gene_column_name} \
         ${sopa_zarr} \
         ${args}
     """
