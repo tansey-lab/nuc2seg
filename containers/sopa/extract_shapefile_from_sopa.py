@@ -55,7 +55,7 @@ def get_args():
 def main():
     args = get_args()
 
-    sd = spatialdata.SpatialData.load(args.zarr)
+    sd = spatialdata.SpatialData.read(args.zarr)
     with open(args.xenium_experiment) as f:
         experiment = json.load(f)
         pixel_size = experiment["pixel_size"]
