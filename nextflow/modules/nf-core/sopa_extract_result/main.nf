@@ -9,7 +9,7 @@ process SOPA_EXTRACT_RESULT {
     tuple val(meta), path(xenium_dir), path(sopa_zarr)
 
     output:
-    tuple val(meta), path("${prefix}/sopa_shapes.parquet"), emit: shapes
+    tuple val(meta), path("${prefix}/cellpose_shapes.parquet"), emit: shapes
 
     when:
     task.ext.when == null || task.ext.when
