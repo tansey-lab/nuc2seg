@@ -159,15 +159,23 @@ def main():
                     args.true_boundaries, sample_area=box(*tile_bbox)
                 )
             except ValueError:
-                logger.exception(f"Skipping tile {tile_id}")
+                logger.exception(
+                    f"Skipping tile {tile_id}, no ground truth cells in sample area"
+                )
                 continue
 
             transcripts = load_and_filter_transcripts_as_points(
                 args.transcripts, sample_area=box(*tile_bbox)
             )
-            nuclear_gdf = load_vertex_file(
-                args.nuclei_boundaries, sample_area=box(*tile_bbox)
-            )
+
+            try:
+                nuclear_gdf = load_vertex_file(
+                    args.nuclei_boundaries, sample_area=box(*tile_bbox)
+                )
+            except ValueError:
+                logger.exception(f"Skipping tile {tile_id}, no nuclei in sample area")
+                continue
+
             true_gdf = geopandas.sjoin(true_gdf, cell_metadata_gdf, how="inner")
 
             dfs.append(
