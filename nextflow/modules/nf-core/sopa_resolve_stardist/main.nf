@@ -20,9 +20,12 @@ process SOPA_RESOLVE_STARDIST {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    sopa resolve generic \
-        --method-name stardist_patch \
-        ${sopa_zarr} \
-        ${args}
+
+    if [ ! -f "${sopa_zarr}/shapes/stardist_patch/shapes.parquet" ]; then
+        sopa resolve generic \
+            --method-name stardist_patch \
+            ${sopa_zarr} \
+            ${args}
+    fi
     """
 }

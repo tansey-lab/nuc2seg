@@ -20,9 +20,12 @@ process SOPA_RESOLVE_BAYSOR {
     def args = task.ext.args ?: ""
     """
     mkdir -p "${prefix}"
-    sopa resolve baysor \
-        --gene-column ${params.gene_column_name} \
-        ${sopa_zarr} \
-        ${args}
+
+    if [ ! -f "${sopa_zarr}/shapes/baysor_boundaries/shapes.parquet" ]; then
+        sopa resolve baysor \
+            --gene-column ${params.gene_column_name} \
+            ${sopa_zarr} \
+            ${args}
+    fi
     """
 }
