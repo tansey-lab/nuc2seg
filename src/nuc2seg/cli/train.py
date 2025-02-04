@@ -224,7 +224,7 @@ def main():
     if args.checkpoint is None:
         logger.info("Training new model")
         model = SparseUNet(
-            n_channels=ds.n_genes + 2,
+            n_channels=ds.n_genes,
             n_classes=ds.n_classes,
             angle_loss_factor=args.angle_loss_factor,
             foreground_loss_factor=args.foreground_loss_factor,
