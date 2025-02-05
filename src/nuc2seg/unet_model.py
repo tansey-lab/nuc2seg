@@ -251,7 +251,7 @@ class SparseUNet(LightningModule):
             (moving_average_size,), device=self.device, dtype=torch.float
         )
         self.celltype_loss_history[:] = torch.nan
-        self.filters = Embedding(n_channels, n_filters)
+        self.filters = XavierInitEmbedding(n_channels, n_filters)
         self.n_classes = n_classes + 2
         self.unet = UNet(
             self.hparams.n_filters, self.n_classes, bilinear=self.hparams.bilinear
@@ -406,15 +406,21 @@ class SparseUNet(LightningModule):
         )
 
         self.log("foreground_loss", foreground_loss)
+        total_loss = foreground_loss
 
         if unlabeled_foreground_loss is not None:
+            total_loss = total_loss + unlabeled_foreground_loss
             self.log("unlabeled_foreground_loss", unlabeled_foreground_loss)
 
         if angle_loss is not None:
+            total_loss = total_loss + angle_loss
             self.log("angle_loss", angle_loss)
 
         if celltype_loss is not None:
+            total_loss = total_loss + celltype_loss
             self.log("celltype_loss", celltype_loss)
+
+        self.log("loss", total_loss)
 
         if self.hparams.loss_reweighting:
             self.update_moving_average(
@@ -464,7 +470,7 @@ class SparseUNet(LightningModule):
             self.log("unlabeled_foreground_loss_weighted", unlabeled_foreground_loss)
             train_loss = train_loss + unlabeled_foreground_loss
 
-        self.log("train_loss", train_loss)
+        self.log("weighted_train_loss", train_loss)
 
         return train_loss
 

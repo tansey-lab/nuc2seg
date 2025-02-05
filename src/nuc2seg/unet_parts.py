@@ -75,3 +75,8 @@ class OutConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
+
+
+class XavierInitEmbedding(nn.Embedding):
+    def reset_parameters(self):
+        nn.init.xavier_uniform_(self.weight)
