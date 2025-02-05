@@ -326,11 +326,13 @@ def calculate_average_intersection_over_union(
     )
 
     result["union"] = result.apply(
-        lambda row: row["geometry_x"].union(row["geometry_y"]).area, axis=1
+        lambda row: row["geometry_x"].union(row["geometry_y"]).area,
+        axis=1,
+        result_type="reduce",
     )
 
     result["iou"] = result.apply(
-        lambda row: row[overlap_area_col] / row["union"], axis=1
+        lambda row: row[overlap_area_col] / row["union"], axis=1, result_type="reduce"
     )
 
     return result
@@ -472,7 +474,9 @@ def calculate_benchmarks_with_nuclear_prior(
             else:
                 return np.nan
 
-    results["union"] = results.apply(lambda row: get_union(row), axis=1)
+    results["union"] = results.apply(
+        lambda row: get_union(row), axis=1, result_type="reduce"
+    )
 
     def get_intersection(row):
         if row["geometry_method"] is None:
@@ -495,7 +499,9 @@ def calculate_benchmarks_with_nuclear_prior(
             else:
                 return np.nan
 
-    results["intersection"] = results.apply(lambda row: get_intersection(row), axis=1)
+    results["intersection"] = results.apply(
+        lambda row: get_intersection(row), axis=1, result_type="reduce"
+    )
 
     results["iou"] = results["intersection"] / results["union"]
 
@@ -521,11 +527,11 @@ def calculate_benchmarks_with_nuclear_prior(
             return row["geometry_truth"]
 
     results["jaccard_method_segment"] = results.apply(
-        lambda row: get_jaccard_method_segment(row), axis=1
+        lambda row: get_jaccard_method_segment(row), axis=1, result_type="reduce"
     )
 
     results["jaccard_truth_segment"] = results.apply(
-        lambda row: get_jaccard_truth_segment(row), axis=1
+        lambda row: get_jaccard_truth_segment(row), axis=1, result_type="reduce"
     )
 
     method_transcripts = spatial_join_polygons_and_transcripts(
@@ -580,12 +586,15 @@ def calculate_benchmarks_with_nuclear_prior(
                 ]
             ),
             axis=1,
+            result_type="reduce",
         )
     )
 
     method_to_truth_transcripts_agg["n_background_transcripts"] = (
         method_to_truth_transcripts_agg.apply(
-            lambda row: len([x for x in row["truth_segment_id"] if x == -1]), axis=1
+            lambda row: len([x for x in row["truth_segment_id"] if x == -1]),
+            axis=1,
+            result_type="reduce",
         )
     )
 
@@ -624,11 +633,13 @@ def calculate_benchmarks_with_nuclear_prior(
             row["method_transcripts"].intersection(row["truth_transcripts"])
         ),
         axis=1,
+        result_type="reduce",
     )
 
     segment_id_to_transcripts["jaccard_union"] = segment_id_to_transcripts.apply(
         lambda row: len(row["method_transcripts"].union(row["truth_transcripts"])),
         axis=1,
+        result_type="reduce",
     )
 
     segment_id_to_transcripts["jaccard_index"] = (
