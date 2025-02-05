@@ -258,8 +258,9 @@ def main():
     # save checkpoints based on "val_loss" metric
     checkpoint_callback = ModelCheckpoint(
         save_top_k=1,
-        monitor="val_accuracy",
-        mode="max",
+        monitor="loss",
+        mode="min",
+        every_n_train_steps=min(100, len(tiled_ds) - 1),
     )
 
     # Init trainer
