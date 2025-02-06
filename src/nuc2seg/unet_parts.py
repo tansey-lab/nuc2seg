@@ -80,3 +80,4 @@ class OutConv(nn.Module):
 class XavierInitEmbedding(nn.Embedding):
     def reset_parameters(self):
         nn.init.xavier_uniform_(self.weight)
+        self._fill_padding_idx_with_zero()
