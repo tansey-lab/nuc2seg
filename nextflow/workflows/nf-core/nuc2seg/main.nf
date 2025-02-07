@@ -215,11 +215,4 @@ workflow NUC2SEG {
     }
 
     COMBINE_SEGMENTATIONS( combine_segmentations_input )
-
-    COMBINE_SEGMENTATIONS.out.shapefile
-        .join(SEGMENT.out.anndata)
-        .join(ch_input.map { tuple(it[0], it[1]) })
-        .set{ create_spatialdata_input }
-
-    CREATE_SPATIALDATA( create_spatialdata_input )
 }
