@@ -40,7 +40,7 @@ workflow SOPA {
     }
 
     // Cellpose
-    if (params.zarr_file == null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet").exists() ) {
+    if (params.zarr_file == null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
         SOPA_PATCHIFY_IMAGE( sopa_read_output )
 
         SOPA_PATCHIFY_IMAGE.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_image_patches }
@@ -65,7 +65,7 @@ workflow SOPA {
     }
 
     // Stardist
-    if (params.zarr_file == null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet").exists() ) {
+    if (params.zarr_file == null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
         SOPA_SEGMENT_STARDIST( sopa_segment_input )
 
         sopa_read_output.join( SOPA_SEGMENT_STARDIST.out.segments.groupTuple() ).tap { sopa_resolve_stardist_input }
@@ -84,7 +84,7 @@ workflow SOPA {
     }
 
     // Baysor
-    if (params.zarr_file == null && file("${params.zarr_file}/shapes/baysor_boundaries/shapes.parquet").exists()) {
+    if (params.zarr_file == null && file("${params.zarr_file}/shapes/baysor_boundaries/shapes.parquet", checkIfExists: false).exists()) {
         SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
 
         SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.transpose().tap { sopa_tx_patches }
