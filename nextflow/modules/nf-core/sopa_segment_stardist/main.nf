@@ -9,7 +9,7 @@ process SOPA_SEGMENT_STARDIST {
     tuple val(meta), path(sopa_zarr), val(patch_index)
 
     output:
-    tuple val(meta), path("${sopa_zarr}/.sopa_cache/cellpose_boundaries/${patch_index}.parquet"), emit: segments
+    tuple val(meta), path("${sopa_zarr}/.sopa_cache/stardist_patch/${patch_index}.parquet"), emit: segments
 
     when:
     task.ext.when == null || task.ext.when
