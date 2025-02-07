@@ -40,58 +40,67 @@ workflow SOPA {
     }
 
     // Cellpose
+    if (params.zarr_file != null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
+        ch_input.join( sopa_read_output ).tap { sopa_extract_result_input }
+        SOPA_EXTRACT_RESULT( sopa_extract_result_input )
+        SOPA_EXTRACT_RESULT.out.shapes.map { tuple(it[0], it[1], "cellpose") }.tap { cellpose_results }
+    } else {
+        SOPA_PATCHIFY_IMAGE( sopa_read_output )
 
-    SOPA_PATCHIFY_IMAGE( sopa_read_output )
+        SOPA_PATCHIFY_IMAGE.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_image_patches }
 
-    SOPA_PATCHIFY_IMAGE.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_image_patches }
+        sopa_segment_input = sopa_read_output.combine( sopa_image_patches, by: 0 )
 
-    sopa_segment_input = sopa_read_output.combine( sopa_image_patches, by: 0 )
+        SOPA_SEGMENT( sopa_segment_input )
 
-    SOPA_SEGMENT( sopa_segment_input )
+        sopa_read_output.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
 
-    sopa_read_output.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
-
-    SOPA_RESOLVE( sopa_resolve_input )
-
-    ch_input.join( SOPA_RESOLVE.out.zarr ).tap { sopa_extract_result_input }
-
-    SOPA_EXTRACT_RESULT( sopa_extract_result_input )
-
-    SOPA_EXTRACT_RESULT.out.shapes.map { tuple(it[0], it[1], "cellpose") }.tap { cellpose_results }
+        SOPA_RESOLVE( sopa_resolve_input )
+    }
 
     // Stardist
+    if (params.zarr_file != null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
+        ch_input.join( sopa_read_output ).tap { sopa_extract_stardist_result_input }
+        SOPA_EXTRACT_RESULT_STARDIST( sopa_extract_stardist_result_input )
+        SOPA_EXTRACT_RESULT_STARDIST.out.shapes.map { tuple(it[0], it[1], "stardist") }.tap { stardist_results }
+    } else {
+        SOPA_SEGMENT_STARDIST( sopa_segment_input )
 
-    SOPA_SEGMENT_STARDIST( sopa_segment_input )
+        sopa_read_output.join( SOPA_SEGMENT_STARDIST.out.segments.groupTuple() ).tap { sopa_resolve_stardist_input }
 
-    sopa_read_output.join( SOPA_SEGMENT_STARDIST.out.segments.groupTuple() ).tap { sopa_resolve_stardist_input }
+        SOPA_RESOLVE_STARDIST( sopa_resolve_stardist_input )
 
-    SOPA_RESOLVE_STARDIST( sopa_resolve_stardist_input )
+        ch_input.join( SOPA_RESOLVE_STARDIST.out.zarr ).tap { sopa_extract_stardist_result_input }
 
-    ch_input.join( SOPA_RESOLVE_STARDIST.out.zarr ).tap { sopa_extract_stardist_result_input }
+        SOPA_EXTRACT_RESULT_STARDIST( sopa_extract_stardist_result_input )
 
-    SOPA_EXTRACT_RESULT_STARDIST( sopa_extract_stardist_result_input )
-
-    SOPA_EXTRACT_RESULT_STARDIST.out.shapes.map { tuple(it[0], it[1], "stardist") }.tap { stardist_results }
+        SOPA_EXTRACT_RESULT_STARDIST.out.shapes.map { tuple(it[0], it[1], "stardist") }.tap { stardist_results }
+    }
 
     // Baysor
+    if (params.zarr_file != null && file("${params.zarr_file}/shapes/baysor_boundaries/shapes.parquet", checkIfExists: false).exists()) {
+        ch_input.join( sopa_read_output ).tap { sopa_extract_baysor_result_input }
+        SOPA_EXTRACT_RESULT_BAYSOR( sopa_extract_baysor_result_input )
+        SOPA_EXTRACT_RESULT_BAYSOR.out.shapes.map { tuple(it[0], it[1], "baysor") }.tap { baysor_results }
+    } else {
+        SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
 
-    SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
+        SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.transpose().tap { sopa_tx_patches }
 
-    SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.transpose().tap { sopa_tx_patches }
+        sopa_segment_baysor_input = sopa_read_output.combine( sopa_tx_patches, by: 0 )
 
-    sopa_segment_baysor_input = sopa_read_output.combine( sopa_tx_patches, by: 0 )
+        SOPA_SEGMENT_BAYSOR( sopa_segment_baysor_input )
 
-    SOPA_SEGMENT_BAYSOR( sopa_segment_baysor_input )
+        sopa_read_output.join( SOPA_SEGMENT_BAYSOR.out.segments.groupTuple() ).tap { sopa_resolve_baysor_input }
 
-    sopa_read_output.join( SOPA_SEGMENT_BAYSOR.out.segments.groupTuple() ).tap { sopa_resolve_baysor_input }
+        SOPA_RESOLVE_BAYSOR( sopa_resolve_baysor_input )
 
-    SOPA_RESOLVE_BAYSOR( sopa_resolve_baysor_input )
+        ch_input.join( SOPA_RESOLVE_BAYSOR.out.zarr ).tap { sopa_extract_baysor_result_input }
 
-    ch_input.join( SOPA_RESOLVE_BAYSOR.out.zarr ).tap { sopa_extract_baysor_result_input }
+        SOPA_EXTRACT_RESULT_BAYSOR( sopa_extract_baysor_result_input )
 
-    SOPA_EXTRACT_RESULT_BAYSOR( sopa_extract_baysor_result_input )
-
-    SOPA_EXTRACT_RESULT_BAYSOR.out.shapes.map { tuple(it[0], it[1], "baysor") }.tap { baysor_results }
+        SOPA_EXTRACT_RESULT_BAYSOR.out.shapes.map { tuple(it[0], it[1], "baysor") }.tap { baysor_results }
+    }
 
     // Calculate benchmarks
 
