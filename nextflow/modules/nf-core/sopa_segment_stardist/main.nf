@@ -2,8 +2,8 @@ process SOPA_SEGMENT_STARDIST {
     tag "$meta.id"
     label 'process_medium'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
-        ('docker://jeffquinnmsk/sopa:' + params.sopa_version) :
-        ('docker.io/jeffquinnmsk/sopa:' + params.sopa_version) }"
+        ('docker://jeffquinnmsk/sopa-stardist:' + params.sopa_version) :
+        ('docker.io/jeffquinnmsk/sopa-stardist:' + params.sopa_version) }"
 
     input:
     tuple val(meta), path(sopa_zarr), val(patch_index)

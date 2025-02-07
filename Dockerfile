@@ -15,3 +15,5 @@ RUN --mount=type=cache,target=/.cache/pip cd /app && pip install '.[dev,test]'
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
+
+ENTRYPOINT ["/bin/bash"]

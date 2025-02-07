@@ -2,8 +2,8 @@ process SOPA_SEGMENT_BAYSOR {
     tag "$meta.id"
     label 'process_medium'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
-        ('docker://jeffquinnmsk/sopa:' + params.sopa_version) :
-        ('docker.io/jeffquinnmsk/sopa:' + params.sopa_version) }"
+        ('docker://jeffquinnmsk/sopa-baysor:' + params.sopa_version) :
+        ('docker.io/jeffquinnmsk/sopa-baysor:' + params.sopa_version) }"
 
     input:
     tuple val(meta), path(sopa_zarr), path(patch_index_fn)
