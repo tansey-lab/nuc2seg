@@ -40,7 +40,11 @@ workflow SOPA {
     }
 
     // Cellpose
-    if (params.zarr_file == null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
+    if (params.zarr_file != null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
+        cellpose_results = Channel.fromList([
+            tuple( [ id: name, single_end:false ], file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: true))
+        ])
+    } else {
         SOPA_PATCHIFY_IMAGE( sopa_read_output )
 
         SOPA_PATCHIFY_IMAGE.out.n_patches.flatMap { create_parallel_sequence(it[0], it[1]) }.tap { sopa_image_patches }
@@ -58,14 +62,14 @@ workflow SOPA {
         SOPA_EXTRACT_RESULT( sopa_extract_result_input )
 
         SOPA_EXTRACT_RESULT.out.shapes.map { tuple(it[0], it[1], "cellpose") }.tap { cellpose_results }
-    } else {
-        cellpose_results = Channel.fromList([
-            tuple( [ id: name, single_end:false ], file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: true))
-        ])
     }
 
     // Stardist
-    if (params.zarr_file == null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
+    if (params.zarr_file != null && file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: false).exists() ) {
+        stardist_results = Channel.fromList([
+            tuple( [ id: name, single_end:false ], file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: true))
+        ])
+    } else {
         SOPA_SEGMENT_STARDIST( sopa_segment_input )
 
         sopa_read_output.join( SOPA_SEGMENT_STARDIST.out.segments.groupTuple() ).tap { sopa_resolve_stardist_input }
@@ -77,14 +81,14 @@ workflow SOPA {
         SOPA_EXTRACT_RESULT_STARDIST( sopa_extract_stardist_result_input )
 
         SOPA_EXTRACT_RESULT_STARDIST.out.shapes.map { tuple(it[0], it[1], "stardist") }.tap { stardist_results }
-    } else {
-        stardist_results = Channel.fromList([
-            tuple( [ id: name, single_end:false ], file("${params.zarr_file}/shapes/cellpose_boundaries/shapes.parquet", checkIfExists: true))
-        ])
     }
 
     // Baysor
-    if (params.zarr_file == null && file("${params.zarr_file}/shapes/baysor_boundaries/shapes.parquet", checkIfExists: false).exists()) {
+    if (params.zarr_file != null && file("${params.zarr_file}/shapes/baysor_boundaries/shapes.parquet", checkIfExists: false).exists()) {
+        baysor_results = Channel.fromList([
+            tuple( [ id: name, single_end:false ], file("${params.zarr_file}/shapes/baysor_boundaries/shapes.parquet", checkIfExists: true))
+        ])
+    } else {
         SOPA_PATCHIFY_TRANSCRIPTS( sopa_read_output )
 
         SOPA_PATCHIFY_TRANSCRIPTS.out.tx_patches.transpose().tap { sopa_tx_patches }
@@ -102,11 +106,8 @@ workflow SOPA {
         SOPA_EXTRACT_RESULT_BAYSOR( sopa_extract_baysor_result_input )
 
         SOPA_EXTRACT_RESULT_BAYSOR.out.shapes.map { tuple(it[0], it[1], "baysor") }.tap { baysor_results }
-    } else {
-        baysor_results = Channel.fromList([
-            tuple( [ id: name, single_end:false ], file("${params.zarr_file}/shapes/baysor_boundaries/shapes.parquet", checkIfExists: true))
-        ])
     }
+
     // Calculate benchmarks
 
     ch_input.join( cellpose_results.concat(stardist_results).concat(baysor_results) ).tap { calculate_benchmarks_input }
