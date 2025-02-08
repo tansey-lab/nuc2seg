@@ -72,7 +72,11 @@ def main():
         [[pixel_size, 0.0, 0.0], [0.0, pixel_size, 0.0], [0.0, 0.0, 1.0]]
     )
 
-    transformed_gdf = transform_geodataframe(gdf, transformation_matrix)
+    if args.translate_image_coords:
+        transformed_gdf = transform_geodataframe(gdf, transformation_matrix)
+    else:
+        transformed_gdf = gdf
+
     transformed_gdf.to_parquet(args.output)
 
 
