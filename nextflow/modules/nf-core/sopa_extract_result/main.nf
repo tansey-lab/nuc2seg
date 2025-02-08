@@ -24,6 +24,7 @@ process SOPA_EXTRACT_RESULT {
         --xenium-experiment "${xenium_dir}/experiment.xenium" \
         --zarr ${sopa_zarr} \
         --shapes-key cellpose_boundaries \
+        --translate-image-coords \
         ${args}
     """
 }

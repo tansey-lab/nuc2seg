@@ -24,6 +24,7 @@ process SOPA_EXTRACT_RESULT_STARDIST {
         --xenium-experiment "${xenium_dir}/experiment.xenium" \
         --zarr ${sopa_zarr} \
         --shapes-key stardist_patch \
+        --translate-image-coords \
         ${args}
     """
 }

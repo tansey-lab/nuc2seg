@@ -49,6 +49,12 @@ def get_args():
         default="cellpose_boundaries",
     )
     parser.add_argument("--output", type=str, help="The output GeoParquet file")
+    parser.add_argument(
+        "--translate-image-coords",
+        action="store_true",
+        default=False,
+        help="Translate image coordinates to transcript coordinates.",
+    )
     return parser.parse_args()
 
 
