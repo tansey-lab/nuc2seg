@@ -103,8 +103,7 @@ workflow SOPA {
     }
 
     // Calculate benchmarks
-
-    ch_input.join( cellpose_results.concat(stardist_results).concat(baysor_results) ).tap { calculate_benchmarks_input }
+    ch_input.combine( cellpose_results.concat(stardist_results).concat(baysor_results), by: 0 ).tap { calculate_benchmarks_input }
 
     CALCULATE_BENCHMARKS( calculate_benchmarks_input )
 }
