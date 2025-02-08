@@ -98,7 +98,6 @@ def test_run_cell_type_estimation(test_nuclei_df, test_transcripts_df):
     results = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
-        foreground_nucleus_distance=1,
         max_components=3,
         min_components=2,
         rng=rng,
@@ -117,7 +116,6 @@ def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
     results = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
-        foreground_nucleus_distance=1,
         max_components=3,
         min_components=2,
         rng=rng,
@@ -126,7 +124,6 @@ def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
     results2 = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
-        foreground_nucleus_distance=1,
         max_components=3,
         min_components=2,
         rng=rng,

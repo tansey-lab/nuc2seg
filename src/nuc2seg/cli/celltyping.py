@@ -142,7 +142,6 @@ def main():
     celltype_results = fit_celltyping_on_segments_and_transcripts(
         nuclei_geo_df=nuclei_geo_df,
         tx_geo_df=tx_geo_df,
-        foreground_nucleus_distance=args.foreground_nucleus_distance,
         min_components=args.min_n_celltypes,
         max_components=args.max_n_celltypes,
         rng=rng,
