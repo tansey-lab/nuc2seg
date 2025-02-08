@@ -215,7 +215,6 @@ def create_dense_gene_counts_matrix(
     segmentation_geo_df: geopandas.GeoDataFrame,
     transcript_geo_df: geopandas.GeoDataFrame,
     n_genes: int,
-    max_distance: float = 0,
     gene_id_col: str = "gene_id",
 ):
     """
@@ -232,25 +231,19 @@ def create_dense_gene_counts_matrix(
     segmentation_geo_df = segmentation_geo_df.reset_index(names="segment_id")
 
     # Create a nuclei x gene count matrix
-    joined_df = geopandas.sjoin_nearest(
-        transcript_geo_df, segmentation_geo_df, distance_col="_sjoin_distance"
+    nuclei_count_geo_df = geopandas.sjoin(transcript_geo_df, segmentation_geo_df)
+
+    if "transcript_id" in nuclei_count_geo_df.columns:
+        del nuclei_count_geo_df["transcript_id"]
+
+    nuclei_count_geo_df = nuclei_count_geo_df.reset_index(
+        drop=False, names="transcript_id"
     )
-
-    if "transcript_id" in joined_df.columns:
-        del joined_df["transcript_id"]
-
-    joined_df = joined_df.reset_index(drop=False, names="transcript_id")
 
     # dedupe ties where transcript is equidistant to multiple nuclei
-    joined_df = joined_df.drop_duplicates(subset=["transcript_id"]).reset_index(
-        drop=True
-    )
-
-    nuclei_count_geo_df = joined_df[
-        joined_df["_sjoin_distance"] <= max_distance
-    ].reset_index(drop=True)
-
-    del joined_df["_sjoin_distance"]
+    nuclei_count_geo_df = nuclei_count_geo_df.drop_duplicates(
+        subset=["transcript_id"]
+    ).reset_index(drop=True)
 
     nuclei_count_matrix = np.zeros((len(segmentation_geo_df), n_genes), dtype=int)
     np.add.at(
@@ -268,22 +261,14 @@ def create_dense_gene_counts_matrix(
 def fit_celltyping_on_segments_and_transcripts(
     nuclei_geo_df: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
-    foreground_nucleus_distance: float = 1,
     min_components: int = 2,
     max_components: int = 20,
     rng: np.random.Generator = None,
 ):
-    # Create a nuclei x gene count matrix
-    tx_nuclei_geo_df = geopandas.sjoin_nearest(
-        tx_geo_df, nuclei_geo_df, distance_col="nucleus_distance"
-    )
-
     n_genes = tx_geo_df["gene_id"].max() + 1
-    gene_id_to_name = dict(zip(tx_geo_df["gene_id"], tx_geo_df["feature_name"]))
 
-    nuclei_count_geo_df = tx_nuclei_geo_df[
-        tx_nuclei_geo_df["nucleus_distance"] <= foreground_nucleus_distance
-    ]
+    # Create a nuclei x gene count matrix
+    nuclei_count_geo_df = geopandas.sjoin(tx_geo_df, nuclei_geo_df)
 
     # I think we have enough memory to just store this as a dense array
     nuclei_count_matrix = np.zeros((nuclei_geo_df.shape[0] + 1, n_genes), dtype=int)
@@ -426,7 +411,6 @@ def predict_celltypes_for_segments_and_transcripts(
             segment_chunk,
             transcript_chunk,
             n_genes,
-            max_distance=max_distinace,
             gene_id_col="gene_id",
         )
 
