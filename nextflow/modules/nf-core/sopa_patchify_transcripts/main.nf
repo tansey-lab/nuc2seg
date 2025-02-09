@@ -26,8 +26,8 @@ process SOPA_PATCHIFY_TRANSCRIPTS {
 
     if [ ! -f "${sopa_zarr}/.sopa_cache/patches_file_transcripts" ]; then
         sopa patchify transcripts \
-            --patch-width-microns ${micron_size} \
-            --patch-overlap-microns 50 \
+            --patch-width-microns 300 \
+            --patch-overlap-microns 30 \
             --unassigned-value UNASSIGNED \
             --prior-shapes-key baysor_nuclear_prior \
             ${sopa_zarr} \
