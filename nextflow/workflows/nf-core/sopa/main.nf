@@ -56,6 +56,12 @@ workflow SOPA {
         sopa_read_output.join( SOPA_SEGMENT.out.segments.groupTuple() ).tap { sopa_resolve_input }
 
         SOPA_RESOLVE( sopa_resolve_input )
+
+        ch_input.join( SOPA_RESOLVE.out.zarr ).tap { sopa_extract_cellpose_result_input }
+
+        SOPA_EXTRACT_RESULT( sopa_extract_cellpose_result_input )
+
+        SOPA_EXTRACT_RESULT.out.shapes.map { tuple(it[0], it[1], "cellpose") }.tap { cellpose_results }
     }
 
     // Stardist
