@@ -10,6 +10,7 @@ include { TILE_XENIUM } from '../../../modules/nf-core/tile_xenium/main'
 include { GET_N_TILES } from '../../../modules/nf-core/get_n_tiles/main'
 include { COMBINE_SEGMENTATIONS } from '../../../modules/nf-core/combine_segmentations/main'
 include { COMBINE_PREDICTIONS } from '../../../modules/nf-core/combine_predictions/main'
+include { CALCULATE_BENCHMARKS } from '../../../modules/nf-core/calculate_benchmarks/main'
 
 def create_parallel_sequence_with_file(meta, fn, n_par) {
     def output = []
@@ -215,4 +216,10 @@ workflow NUC2SEG {
     }
 
     COMBINE_SEGMENTATIONS( combine_segmentations_input )
+
+    Channel.fromList([
+        tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true))
+    ]).join(COMBINE_SEGMENTATIONS.out.shapefile.map { tuple(it[0], it[1], "nuc2seg") }).tap { benchmarks_input }
+
+    CALCULATE_BENCHMARKS( benchmarks_input )
 }
