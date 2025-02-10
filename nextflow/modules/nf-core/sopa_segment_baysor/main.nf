@@ -1,5 +1,6 @@
 process SOPA_SEGMENT_BAYSOR {
     tag "$meta.id"
+    errorStrategy 'ignore'
     label 'process_medium'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/sopa-baysor:' + params.sopa_version) :
