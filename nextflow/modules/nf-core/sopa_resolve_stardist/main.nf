@@ -1,6 +1,5 @@
 process SOPA_RESOLVE_STARDIST {
     tag "$meta.id"
-    errorStrategy { task.exitStatus in [134] ? 'ignore' : (task.exitStatus in [1] ? 'finish' : 'retry') }
     label 'process_high'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/sopa:' + params.sopa_version) :
