@@ -1,6 +1,6 @@
 process SOPA_SEGMENT_STARDIST {
     tag "$meta.id"
-    errorStrategy { task.exitStatus in [134] ? 'ignore' : (task.exitStatus in [1] ? 'finish' : 'retry') }
+    errorStrategy { task.exitStatus in [134] ? 'ignore' : 'retry' }
     label 'process_medium'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/sopa-stardist:' + params.sopa_version) :
