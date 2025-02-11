@@ -49,7 +49,8 @@ dependencies = [
     "scikit-image",
     "pyometiff",
     "numpy_groupies",
-    "statannotations"
+    "statannotations",
+    "bokeh"
 ]
 
 [project.optional-dependencies]
@@ -77,6 +78,7 @@ combine_predictions = "nuc2seg.cli.combine_predictions:main"
 get_n_tiles = "nuc2seg.cli.get_n_tiles:main"
 segmented_xenium_to_anndata = "nuc2seg.cli.segmented_xenium_to_anndata:main"
 calculate_benchmarks = "nuc2seg.cli.calculate_benchmarks:main"
+create_interactive_segmentation_comparison = "nuc2seg.cli.create_interactive_segmentation_comparison:main"
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]

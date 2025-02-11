@@ -1,3 +1,4 @@
+import json
 import os.path
 
 import geopandas
@@ -5,6 +6,23 @@ import numpy as np
 import pandas
 import seaborn as sns
 import tqdm
+from bokeh.io import output_file, save
+from bokeh.layouts import column, row
+from bokeh.models import (
+    GeoJSONDataSource,
+    ColumnDataSource,
+    CheckboxGroup,
+    CustomJS,
+    WheelZoomTool,
+    PanTool,
+    ResetTool,
+    SaveTool,
+    TapTool,
+    InlineStyleSheet,
+)
+from bokeh.palettes import Category10
+from bokeh.plotting import figure
+from bokeh.resources import INLINE
 from matplotlib import cm, gridspec, animation
 from matplotlib import pyplot as plt
 from shapely import box
@@ -850,3 +868,181 @@ def plot_greedy_cell_segmentation(
     )
 
     plotting_callback.plot(output_path)
+
+
+def create_interactive_segmentation_comparison(
+    polygon_gdfs,
+    names,
+    points_gdf,
+    point_layer_name="Show Tx",
+    title="Segmentation Viewer",
+    output_path="geoplot.html",
+):
+    """
+    Create an interactive Bokeh plot to display multiple polygon GeoDataFrames with radio button selection
+    and optional point data with checkbox control.
+
+    Parameters:
+    -----------
+    polygon_gdfs : list of GeoDataFrames
+        List of GeoDataFrames containing polygon data to visualize
+    names : list of str
+        Names for each polygon GeoDataFrame to display in radio buttons
+    points_gdf : GeoDataFrame, optional
+        GeoDataFrame containing point data to overlay
+    point_layer_name : str
+        Name for the point layer checkbox
+    title : str
+        Title for the plot
+    output_path : str
+        Path where the HTML file will be saved
+    """
+    # Convert Polygon GeoDataFrames to GeoJSONDataSource format
+    geojson_sources = []
+    for gdf in polygon_gdfs:
+        geojson = json.loads(gdf.to_json())
+        geojson_source = GeoJSONDataSource(geojson=json.dumps(geojson))
+        geojson_sources.append(geojson_source)
+
+    # Convert Points GeoDataFrame to GeoJSONDataSource if provided
+    points_df = pandas.DataFrame(
+        {"x": points_gdf.geometry.x, "y": points_gdf.geometry.y}
+    )
+
+    points_source = ColumnDataSource(points_df)
+
+    # Create figure with explicit tools
+    tools = [PanTool(), WheelZoomTool(), ResetTool(), SaveTool(), TapTool()]
+
+    p = figure(title=title, height=1000, width=1000, tools=tools)
+    p.title.text_font_size = "48pt"
+    p.axis.visible = False
+    p.grid.visible = False
+
+    # Create polygon renderers
+    polygon_renderers = []
+    colors = Category10[10][: len(polygon_gdfs)]
+    colors_with_alpha = [
+        f"rgba({int(int(color[1:3], 16))}, {int(int(color[3:5], 16))}, {int(int(color[5:7], 16))}, 0.7)"
+        for color in colors
+    ]
+
+    for source, color in zip(geojson_sources, colors):
+        renderer = p.patches(
+            "xs",
+            "ys",
+            fill_color=color,
+            fill_alpha=0.7,
+            line_color="black",
+            line_width=0.5,
+            source=source,
+        )
+        polygon_renderers.append(renderer)
+        renderer.visible = False
+
+        # Add tap callback to hide clicked shapes
+        tap_callback = CustomJS(
+            args=dict(source=source),
+            code="""
+                        // Get the clicked feature index
+                        const ind = cb_obj.indices[0];
+                        if (ind !== undefined) {
+                            // Get the current visible data
+                            const visible = source.data['visible'];
+
+                            // Toggle visibility
+                            visible[ind] = 0;  // Hide the clicked shape
+
+                            // Trigger a data change
+                            source.change.emit();
+                        }
+                    """,
+        )
+        renderer.data_source.selected.js_on_change("indices", tap_callback)
+
+    # Make first polygon renderer visible by default
+    polygon_renderers[0].visible = True
+
+    # Create point renderer if points provided
+    print(points_source)
+    point_renderer = p.scatter(
+        "x", "y", source=points_source, size=1.5, color="black", alpha=0.5
+    )
+    point_renderer.visible = False
+
+    # Create radio buttons for polygons
+    checkbox_styles = []
+    for i, (name, color) in enumerate(zip(names, colors_with_alpha)):
+        checkbox_styles.append(
+            f"""
+            .bk-input-group label:nth-child({i + 1}) {{
+                font-size: 30px;
+                font-weight: bold;
+                padding: 5px 10px;
+                background-color: {color};
+                border-radius: 4px;
+                margin: 5px 0;
+                display: inline-block;
+            }}
+            """
+        )
+
+    # Create polygon checkbox with styles
+    polygon_stylesheet = InlineStyleSheet(css="\n".join(checkbox_styles))
+    polygon_checkbox = CheckboxGroup(
+        labels=names, active=[], stylesheets=[polygon_stylesheet]
+    )
+
+    tx_stylesheet = InlineStyleSheet(
+        css="""
+        label {
+            font-size: 30px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            display: inline-block;
+            border: 1px solid black;
+        }
+    """
+    )
+    # Create checkbox for points if provided
+    checkbox = CheckboxGroup(
+        labels=[point_layer_name], active=[], stylesheets=[tx_stylesheet]
+    )
+
+    # Create JavaScript callback for radio buttons
+    polygon_callback = CustomJS(
+        args={"renderers": polygon_renderers},
+        code="""
+            // Update visibility based on checked boxes
+            const active = cb_obj.active;
+            renderers.forEach((r, i) => {
+                r.visible = active.includes(i);
+            });
+            """,
+    )
+
+    polygon_checkbox.js_on_change("active", polygon_callback)
+
+    # Create JavaScript callback for checkbox if points provided
+    if checkbox and point_renderer:
+        checkbox_callback = CustomJS(
+            args={"renderer": point_renderer},
+            code="""
+            // Toggle point layer visibility
+            renderer.visible = cb_obj.active.includes(0);
+            """,
+        )
+        checkbox.js_on_change("active", checkbox_callback)
+
+    # Create layout
+
+    layout = row(p, column(polygon_checkbox, checkbox))
+    # Configure output to save as standalone HTML
+    output_file(output_path, title=title, mode="inline")
+
+    # Save the plot as HTML with embedded data
+    save(layout, filename=output_path, title=title, resources=INLINE)
+
+    return layout
