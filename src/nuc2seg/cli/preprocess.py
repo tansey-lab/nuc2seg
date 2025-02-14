@@ -201,12 +201,12 @@ def main():
         plt.close()
 
     rasterized_dataset = create_rasterized_dataset(
-        nuclei_geo_df=nuclei_geo_df,
+        prior_segmentation_gdf=nuclei_geo_df,
         tx_geo_df=tx_geo_df,
         sample_area=sample_area,
         resolution=args.resolution,
-        foreground_nucleus_distance=args.foreground_nucleus_distance,
-        background_nucleus_distance=args.background_nucleus_distance,
+        foreground_distance=args.foreground_nucleus_distance,
+        background_distance=args.background_nucleus_distance,
         background_pixel_transcripts=args.background_pixel_transcripts,
         background_transcript_distance=args.background_transcript_distance,
     )
