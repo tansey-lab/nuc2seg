@@ -102,6 +102,7 @@ def main():
     gb = true_gdf.groupby("segmentation_method")
     for group_name in gb.groups:
         df = gb.get_group(group_name)
+        del df["nucleus_centroid"]
         polygon_layers.append(df)
         names.append(group_name)
 
