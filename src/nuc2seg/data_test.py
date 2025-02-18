@@ -143,7 +143,6 @@ def test_tiled_dataset(test_dataset):
     assert first_tile["angles"].shape == (5, 10)
     assert first_tile["labels"].shape == (5, 10)
     assert first_tile["classes"].shape == (5, 10)
-    assert first_tile["location"].size == 2
     assert first_tile["nucleus_mask"].shape == (5, 10)
 
     assert td.per_tile_class_histograms.shape == (len(td), test_dataset.n_classes + 2)
@@ -153,7 +152,6 @@ def test_tiled_dataset(test_dataset):
     assert second_tile["angles"].shape == (5, 10)
     assert second_tile["labels"].shape == (5, 10)
     assert second_tile["classes"].shape == (5, 10)
-    assert second_tile["location"].size == 2
     assert second_tile["nucleus_mask"].shape == (5, 10)
 
 

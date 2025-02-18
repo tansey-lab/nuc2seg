@@ -637,6 +637,11 @@ def convert_segmentation_to_shapefile(
                 xoff=dataset.bbox[0],
                 yoff=dataset.bbox[1],
             )
+        poly = affinity.scale(
+            poly,
+            xfact=dataset.resolution,
+            yfact=dataset.resolution,
+        )
 
         record["geometry"] = poly
         gb_idx = groupby_idx_lookup[cell_id]
