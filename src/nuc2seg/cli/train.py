@@ -179,6 +179,12 @@ def get_parser():
         action=argparse.BooleanOptionalAction,
         default=True,
     )
+    parser.add_argument(
+        "--batch-size",
+        help="Training batch size.",
+        type=int,
+        default=1,
+    )
     return parser
 
 
@@ -213,7 +219,7 @@ def main():
     dm = Nuc2SegDataModule(
         preprocessed_data_path=args.dataset,
         val_percent=args.val_percent,
-        train_batch_size=1,
+        train_batch_size=args.batch_size,
         val_batch_size=1,
         tile_height=args.tile_height,
         tile_width=args.tile_width,
