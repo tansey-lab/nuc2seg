@@ -7,7 +7,7 @@ from torch import optim
 from torch.nn import Embedding
 from torch.utils.data import DataLoader, random_split, Subset
 
-from nuc2seg.data import TiledDataset, Nuc2SegDataset
+from nuc2seg.data import TiledDataset, Nuc2SegDataset, collate_tiles
 from nuc2seg.evaluate import (
     foreground_accuracy,
     squared_angle_difference,
@@ -345,6 +345,12 @@ class SparseUNet(LightningModule):
         )
 
     def forward(self, x, y, z):
+        """
+
+        :param x: X coordinate of transcripts, <Batch x Max N Transcripts per Tile in Batch>
+        :param y: Y coordinate of transcripts, <Batch x Max N Transcripts per Tile in Batch>
+        :param z: gene id, <Batch x Max N Transcripts per Tile in Batch>
+        """
         mask = z > -1
         b = (
             torch.tile(torch.arange(z.shape[0]), (z.shape[1], 1))
@@ -510,13 +516,12 @@ class SparseUNet(LightningModule):
         )
 
     def predict_step(self, batch, batch_idx):
-        x, y, z, tile_index = (
+        x, y, z = (
             batch["X"],
             batch["Y"],
             batch["gene"],
-            batch["tile_index"].item(),
         )
-        return {"value": self.forward(x, y, z), "tile_index": tile_index}
+        return {"value": self.forward(x, y, z), "tile_index": batch_idx}
 
     def on_validation_epoch_end(self):
         if len(self.validation_step_outputs) == 0:
@@ -645,6 +650,7 @@ class Nuc2SegDataModule(LightningDataModule):
             self.train_set,
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
+            collate_fn=collate_tiles,
         )
 
     def val_dataloader(self):
@@ -652,7 +658,10 @@ class Nuc2SegDataModule(LightningDataModule):
             raise ValueError("You must call setup() before train_dataloader()")
 
         return DataLoader(
-            self.val_set, batch_size=self.val_batch_size, num_workers=self.num_workers
+            self.val_set,
+            batch_size=self.val_batch_size,
+            num_workers=self.num_workers,
+            collate_fn=collate_tiles,
         )
 
     def predict_dataloader(self):
@@ -660,4 +669,5 @@ class Nuc2SegDataModule(LightningDataModule):
             self.predict_set,
             batch_size=self.predict_batch_size,
             num_workers=self.num_workers,
+            collate_fn=collate_tiles,
         )
