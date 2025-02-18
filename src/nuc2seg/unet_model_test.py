@@ -1,7 +1,7 @@
 import os
 import shutil
 import tempfile
-
+import pytest
 import numpy as np
 import torch
 from pytorch_lightning import Trainer
@@ -44,7 +44,8 @@ def test_model_predict():
     assert pred.shape == (1, 64, 64, 5)
 
 
-def test_model():
+@pytest.mark.parametrize("batch_size", [1, 2])
+def test_model_train(batch_size):
     tile_height = 50
     tile_width = 50
     tile_overlap = 0.0
@@ -106,7 +107,8 @@ def test_model():
 
     dm = Nuc2SegDataModule(
         preprocessed_data_path=output_path,
-        val_percent=0,
+        val_percent=0.5,
+        train_batch_size=batch_size,
         tile_width=tile_width,
         tile_height=tile_height,
         tile_overlap=tile_overlap,

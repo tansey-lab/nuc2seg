@@ -76,6 +76,9 @@ def create_rasterized_dataset(
     prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
     prior_segmentation_gdf["segment_id"] += 1
     n_genes = tx_geo_df["gene_id"].max() + 1
+    if "transcript_id" in tx_geo_df.columns:
+        del tx_geo_df["transcript_id"]
+    tx_geo_df.reset_index(names="transcript_id", inplace=True)
 
     x_min, y_min, x_max, y_max = sample_area.bounds
     x_min, x_max = math.floor(x_min), math.ceil(x_max)
@@ -83,6 +86,11 @@ def create_rasterized_dataset(
 
     width = x_max - x_min
     height = y_max - y_min
+
+    prior_segmentation_gdf["geometry"] = prior_segmentation_gdf.translate(
+        -x_min, -y_min
+    )
+    tx_geo_df["geometry"] = tx_geo_df.translate(-x_min, -y_min)
 
     logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
@@ -103,7 +111,8 @@ def create_rasterized_dataset(
         max_distance=background_distance,
     )
     labels_geo_df.rename(columns={"index_right": "prior_segment_id"}, inplace=True)
-
+    # break ties arbitrarily
+    labels_geo_df.drop_duplicates(subset=["x_index", "y_index"], inplace=True)
     logger.info("Calculating the nearest transcript neighbors")
     transcript_xy = np.array(
         [tx_geo_df["x_location"].values, tx_geo_df["y_location"].values]
@@ -121,7 +130,9 @@ def create_rasterized_dataset(
     logger.info("Assign pixels roughly on top of nuclei to belong to that nuclei label")
     pixel_labels = np.zeros(labels_geo_df.shape[0], dtype=int) - 1
     segmented_pixels = labels_geo_df["distance"] <= foreground_distance
-    pixel_labels[segmented_pixels] = labels_geo_df["segment_id"][segmented_pixels]
+    pixel_labels[segmented_pixels] = (
+        labels_geo_df["prior_segment_id"][segmented_pixels] + 1
+    )
 
     logger.info(
         "Assign pixels to the background if they are far from nuclei and not near a dense region of transcripts"
