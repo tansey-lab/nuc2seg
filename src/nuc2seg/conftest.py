@@ -1,7 +1,10 @@
 import geopandas
+import numpy as np
 import pandas
 import pytest
 import shapely
+
+from nuc2seg.data import Nuc2SegDataset
 
 
 @pytest.fixture(scope="session")
@@ -280,4 +283,50 @@ def test_nucleus_boundaries():
                 "vertex_y": 10.0,
             },
         ]
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_dataset():
+    rng = np.random.default_rng(42)
+
+    labels = np.ones((20, 20))
+
+    labels[:, 1] = -1
+    labels[:, 2] = -1
+    labels[:, 3] = -1
+
+    labels[:, -1] = -1
+    labels[:, -2] = -1
+    labels[:, -3] = -1
+
+    labels[1, :] = -1
+    labels[2, :] = -1
+    labels[3, :] = -1
+
+    labels[-1, :] = -1
+    labels[-2, :] = -1
+    labels[-3, :] = -1
+
+    labels[:, 0] = 0
+    labels[:, -1] = 0
+    labels[0, :] = 0
+    labels[-1, :] = 0
+
+    tx = []
+    for i in range(100):
+        tx.append([rng.integers(0, 20), rng.integers(0, 20), rng.integers(0, 3)])
+    transcripts = np.array(tx)
+
+    classes = rng.choice([0, 1, 2], (20, 20)) + 1
+
+    return Nuc2SegDataset(
+        labels=labels,
+        angles=np.ones((20, 20)),
+        classes=classes,
+        transcripts=transcripts,
+        bbox=np.array([100, 100, 120, 120]),
+        n_classes=len(np.unique(classes)),
+        n_genes=len(np.unique(transcripts[:, 2])),
+        resolution=1,
     )

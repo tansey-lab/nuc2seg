@@ -94,40 +94,57 @@ def calculate_unlabeled_foreground_loss(
     celltype_frequencies,
 ):
     """
-    :param x: vector of transcript x coordinates, shape (n_transcripts,)
-    :param y: vector of transcript y coordinates, shape (n_transcripts,)
-    :param gene: vector of gene indices, shape (n_transcripts,)
-    :param label_mask: mask of pixels, True if labeled as foreground/background, false if unlabeled, shape (tile_height, tile_width)
-    :param foreground_pred: foreground/background prediction, shape (tile_height, tile_width)
-    :param class_pred: cell type prediction, shape (tile_height, tile_width, n_classes)
+    :param x: vector of transcript x coordinates, shape (batch_dim, n_transcripts,)
+    :param y: vector of transcript y coordinates, shape (batch_dim, n_transcripts,)
+    :param gene: vector of gene indices, shape (batch_dim, n_transcripts,)
+    :param label_mask: mask of pixels, True if labeled as foreground/background, false if unlabeled, shape (batch_dim, tile_height, tile_width)
+    :param foreground_pred: foreground/background prediction, shape (batch_dim, tile_height, tile_width)
+    :param class_pred: cell type prediction, shape (batch_dim, tile_height, tile_width, n_classes)
     :param background_frequencies: prior frequency of each gene in the background, shape (n_genes,)
     :param celltype_frequencies: prior frequency of each gene in each cell type, shape (n_celltypes, n_genes)
     """
-    selection_vector = ~label_mask[x, y]
+    batch_dim = foreground_pred.shape[0]
+    max_n_transcripts_in_minibatch = gene.shape[1]
+    ragged_mask = torch.flatten(gene) > -1
+    valid_x = torch.flatten(x)[ragged_mask]
+    valid_y = torch.flatten(y)[ragged_mask]
+    valid_gene = torch.flatten(gene)[ragged_mask]
+    batch_index = torch.arange(batch_dim).repeat_interleave(
+        max_n_transcripts_in_minibatch
+    )[ragged_mask]
+    selection_vector = ~label_mask[batch_index, valid_x, valid_y]
 
     if torch.count_nonzero(selection_vector) == 0:
         return None
 
-    gene = gene[selection_vector]
-    x = x[selection_vector]
-    y = y[selection_vector]
+    unlabeled_pixels_gene = valid_gene[selection_vector]
+    unlabeled_pixels_x = valid_x[selection_vector]
+    unlabeled_pixels_y = valid_y[selection_vector]
+    unlabeled_batch_index = batch_index[selection_vector]
 
-    p_foreground = foreground_pred[x, y]
-    p_background = 1 - foreground_pred[x, y]
-    p_celltype = class_pred[x, y, :]  # <N Transcript x N Celltype>
+    flattened_p_foreground = foreground_pred[
+        unlabeled_batch_index, unlabeled_pixels_x, unlabeled_pixels_y
+    ]
+    flattened_p_background = (
+        1
+        - foreground_pred[unlabeled_batch_index, unlabeled_pixels_x, unlabeled_pixels_y]
+    )
+    p_celltype = class_pred[
+        unlabeled_batch_index, unlabeled_pixels_x, unlabeled_pixels_y, :
+    ]  # <N Batch x N Transcript x N Celltype>
 
     p_gene_given_background = torch.index_select(
-        background_frequencies, 0, gene
+        background_frequencies, 0, unlabeled_pixels_gene
     )  # <N Transcript>
 
     p_gene_given_celltype = torch.index_select(
-        celltype_frequencies.T, 0, gene
+        celltype_frequencies.T, 0, unlabeled_pixels_gene
     )  # <N Transcript x N Celltype>
 
     per_transcript_likelihood = (
-        p_foreground * (p_gene_given_celltype * p_celltype).sum(dim=1)
+        flattened_p_foreground * (p_gene_given_celltype * p_celltype).sum(dim=1)
     ) + (
-        p_background * p_gene_given_background
+        flattened_p_background * p_gene_given_background
     )  # <N Transcript>
 
     return -1 * torch.log(per_transcript_likelihood).sum()
