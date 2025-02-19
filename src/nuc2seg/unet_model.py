@@ -4,7 +4,6 @@ from typing import Optional
 
 from pytorch_lightning.core import LightningModule, LightningDataModule
 from torch import optim
-from torch.nn import Embedding
 from torch.utils.data import DataLoader, random_split, Subset
 
 from nuc2seg.data import TiledDataset, Nuc2SegDataset, collate_tiles
