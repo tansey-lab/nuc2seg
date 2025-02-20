@@ -1,6 +1,7 @@
 import geopandas
 import numpy as np
-from shapely import Polygon, Point
+import pytest
+from shapely import Polygon, Point, box
 
 from nuc2seg.celltyping import (
     fit_celltype_em_model,
@@ -168,11 +169,14 @@ def test_create_dense_gene_counts_matrix():
     np.testing.assert_array_equal(result, np.array([[1, 0], [1, 1]]))
 
 
-def test_predict_celltypes_for_segments_and_transcripts():
+@pytest.mark.parametrize("chunk_size", [1, 2, 3, 4])
+def test_predict_celltypes_for_segments_and_transcripts(chunk_size):
     boundaries = geopandas.GeoDataFrame(
         [
-            [Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
-            [Polygon([(1, 0), (1, 1), (3, 1), (3, 0)])],
+            [box(0, 0, 1, 1)],
+            [box(1, 1, 2, 2)],
+            [box(2, 2, 3, 3)],
+            [box(3, 3, 4, 4)],
         ],
         columns=["geometry"],
     )
@@ -180,24 +184,25 @@ def test_predict_celltypes_for_segments_and_transcripts():
     transcripts = geopandas.GeoDataFrame(
         [
             ["a", Point(0.5, 0.5)],
-            ["b", Point(2, 0.5)],
+            ["b", Point(1.5, 1.5)],
+            ["a", Point(2.5, 2.5)],
+            ["b", Point(3.5, 3.5)],
         ],
         columns=["feature_name", "geometry"],
     )
 
-    transcripts["gene_id"] = [0, 1]
+    transcripts["gene_id"] = [0, 1, 0, 1]
 
     result = predict_celltypes_for_segments_and_transcripts(
         expression_profiles=np.array([[1, 1e-3], [1e-3, 1]]),
         prior_probs=np.array([0.6, 0.4]),
         segment_geo_df=boundaries,
         transcript_geo_df=transcripts,
-        chunk_size=1,
+        chunk_size=chunk_size,
         gene_name_column="gene_id",
     )
 
-    assert result.argmax(axis=0).tolist() == [0, 1]
-    assert result[0][0] > result[1][1]
+    assert result.argmax(axis=1).tolist() == [0, 1, 0, 1]
 
 
 def test_predict_celltype_probabilities_for_all_segments():
