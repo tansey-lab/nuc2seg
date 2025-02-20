@@ -11,6 +11,7 @@ include { GET_N_TILES } from '../../../modules/nf-core/get_n_tiles/main'
 include { COMBINE_SEGMENTATIONS } from '../../../modules/nf-core/combine_segmentations/main'
 include { COMBINE_PREDICTIONS } from '../../../modules/nf-core/combine_predictions/main'
 include { CALCULATE_BENCHMARKS } from '../../../modules/nf-core/calculate_benchmarks/main'
+include { CREATE_NUCLEAR_ANNDATA } from '../../../modules/nf-core/create_nuclear_anndata/main'
 
 def create_parallel_sequence_with_file(meta, fn, n_par) {
     def output = []
@@ -53,11 +54,18 @@ workflow NUC2SEG {
 
     if (params.weights == null && params.dataset == null && params.resume_weights == null) {
 
+        CREATE_NUCLEAR_ANNDATA( ch_input )
+
         if (params.celltyping_results == null) {
-            ch_input.flatMap { create_parallel_sequence_with_file(it[0], it[1], it[2]) }.tap { cell_typing_input }
+            ch_input.flatMap { create_parallel_sequence_with_file(it[0], it[1], it[2]) }
+                .join(CREATE_NUCLEAR_ANNDATA.out.adata)
+                .tap { cell_typing_input }
+
             CELLTYPING( cell_typing_input )
             CELLTYPING.out.cell_typing_results.groupTuple().tap { celltyping_results }
-            ch_input.map { tuple(it[0], it[1]) }.join(celltyping_results).tap { preprocess_input }
+            ch_input.map { tuple(it[0], it[1]) }.join(celltyping_results)
+                .join(CREATE_NUCLEAR_ANNDATA.out.adata)
+                .tap { preprocess_input }
         } else {
             preprocess_input = Channel.fromList(
                 [
@@ -67,7 +75,7 @@ workflow NUC2SEG {
                         file(params.celltyping_results, checkIfExists: true)
                     )
                 ]
-            )
+            ).join(CREATE_NUCLEAR_ANNDATA.out.adata)
         }
 
         PREPROCESS ( preprocess_input )

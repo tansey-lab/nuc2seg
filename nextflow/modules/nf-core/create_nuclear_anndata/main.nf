@@ -1,4 +1,4 @@
-process CELLTYPING {
+process CREATE_NUCLEAR_ANNDATA {
     tag "$meta.id"
     label 'process_high_memory'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
@@ -25,6 +25,7 @@ process CELLTYPING {
         --vertex-file ${xenium_dir}/nucleus_boundaries.parquet \
         --transcripts-file ${xenium_dir}/transcripts.parquet \
         --output ${prefix}/nucleus_anndata.h5ad \
+        ${sample_area_arg} \
         ${args}
 
     cat <<-END_VERSIONS > versions.yml

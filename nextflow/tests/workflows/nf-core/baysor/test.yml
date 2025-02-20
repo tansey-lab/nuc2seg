@@ -1,5 +1,5 @@
 - name: baysor_workflow
-  command: nextflow -C ./nextflow/tests/workflows/nf-core/baysor/nextflow.config,./nextflow/tests/config/nextflow.config run ./nextflow/tests/workflows/nf-core/baysor -stub-run -entry baysor_workflow
+  command: nextflow -C ./nextflow/tests/workflows/nf-core/baysor/batch.config,./nextflow/tests/config/batch.config run ./nextflow/tests/workflows/nf-core/baysor -stub-run -entry baysor_workflow
   tags:
     - baysor_workflow
   files: []

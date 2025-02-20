@@ -267,13 +267,13 @@ def fit_celltyping_on_adata(
     adata = adata[:, sorted(adata.var_names)]
 
     if issparse(adata.X):
-        counts_matrix = adata.X.todense()
+        counts_matrix = np.array(adata.X.todense())
     else:
-        counts_matrix = adata.X
+        counts_matrix = np.array(adata.X)
 
     return fit_celltype_em_model(
         counts_matrix,
-        gene_names=adata.var_names,
+        gene_names=adata.var_names.tolist(),
         min_components=min_components,
         max_components=max_components,
         rng=rng,

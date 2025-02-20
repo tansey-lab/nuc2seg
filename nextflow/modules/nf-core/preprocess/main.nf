@@ -6,7 +6,7 @@ process PREPROCESS {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(xenium_dir), path(cell_typing_results)
+    tuple val(meta), path(xenium_dir), path(cell_typing_results), path(adata)
 
     output:
     tuple val(meta), path("${prefix}/preprocessed.h5")                  , emit: dataset
@@ -27,6 +27,7 @@ process PREPROCESS {
     preprocess \
         --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
         --transcripts-file ${xenium_dir}/transcripts.parquet \
+        --adata ${adata} \
         --output ${prefix}/preprocessed.h5 \
         --celltyping-results ${cell_typing_results} \
         ${n_celltypes_arg} \

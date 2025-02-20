@@ -146,7 +146,7 @@ def main():
     nuclei_geo_df = load_vertex_file(
         fn=args.nuclei_file,
         sample_area=sample_area,
-    )
+    ).reset_index(drop=True)
 
     tx_geo_df = load_and_filter_transcripts_as_points(
         transcripts_file=args.transcripts_file,
@@ -228,22 +228,27 @@ def main():
     )
 
     celltypes = (
-        geopandas.sjoin(nuclei_geo_df, nucleus_celltype_geodf)
+        geopandas.sjoin_nearest(nuclei_geo_df, nucleus_celltype_geodf)
         .drop_duplicates(subset="segment_id")
         .set_index("segment_id")["celltype"]
     )
     n_noisy_cells = (celltypes == NOISE_CELLTYPE).sum()
     logger.info(f"Found {n_noisy_cells} noisy cells, will not label")
-    celltypes = celltypes[celltypes != NOISE_CELLTYPE]
-    segment_id_to_celltype = (celltypes - 1).to_dict()
-
-    del tx_geo_df
-    del nuclei_geo_df
+    segment_id_to_celltype = celltypes.to_dict()
 
     # Assign hard labels to nuclei
     class_labels = np.copy(rasterized_dataset.labels)
-    for segment_id, celltype in segment_id_to_celltype.items():
-        class_labels[rasterized_dataset.labels == segment_id] = celltype + 1
+    for segment_id in np.unique(rasterized_dataset.labels):
+        if segment_id < 1:
+            continue
+        celltype_for_segment = segment_id_to_celltype.get(segment_id, NOISE_CELLTYPE)
+
+        if celltype_for_segment == NOISE_CELLTYPE:
+            class_labels[rasterized_dataset.labels == segment_id] = 0
+        else:
+            class_labels[rasterized_dataset.labels == segment_id] = (
+                celltype_for_segment - 1
+            )
 
     ds = Nuc2SegDataset(
         labels=rasterized_dataset.labels,

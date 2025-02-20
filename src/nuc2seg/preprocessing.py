@@ -75,14 +75,14 @@ def create_rasterized_dataset(
         del prior_segmentation_gdf["segment_id"]
     prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
     prior_segmentation_gdf["segment_id"] += 1
+
+    prior_segmentation_gdf = prior_segmentation_gdf.copy()
     n_genes = tx_geo_df["gene_id"].max() + 1
     if "transcript_id" in tx_geo_df.columns:
         del tx_geo_df["transcript_id"]
     tx_geo_df.reset_index(names="transcript_id", inplace=True)
 
     x_min, y_min, x_max, y_max = sample_area.bounds
-    x_min, x_max = math.floor(x_min), math.ceil(x_max)
-    y_min, y_max = math.floor(y_min), math.ceil(y_max)
 
     width = x_max - x_min
     height = y_max - y_min
@@ -190,8 +190,8 @@ def create_rasterized_dataset(
     logger.info("Creating dataset")
     transcripts_arr = np.column_stack(
         [
-            np.ceil((tx_geo_df["x_location"].values.astype(int) - x_min) / resolution),
-            np.ceil((tx_geo_df["y_location"].values.astype(int) - y_min) / resolution),
+            tx_geo_df["x_index"].values,
+            tx_geo_df["y_index"].values,
             (tx_geo_df["gene_id"].values.astype(int)),
         ]
     )

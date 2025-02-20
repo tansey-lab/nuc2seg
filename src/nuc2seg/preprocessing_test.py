@@ -35,7 +35,7 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
 
     # Assert coordinated are transformed relative to the bbox
     assert ds.transcripts[:, 0].min() == 9.0
-    assert ds.transcripts[:, 1].min() == 9.0
+    assert ds.transcripts[:, 1].min() == 8.0
     assert sorted(np.unique(ds.labels).tolist()) == [-1, 0, 1, 2]
 
 

@@ -268,7 +268,7 @@ def filter_anndata_to_sample_area(adata: anndata.AnnData, sample_area: shapely.P
 
 
 def filter_anndata_to_min_transcripts(adata: anndata.AnnData, min_transcripts: int):
-    total_per_cell = np.array(adata.X.sum(axis=0)).squeeze()
+    total_per_cell = np.array(adata.X.sum(axis=1)).squeeze()
 
     selection = total_per_cell >= min_transcripts
 
