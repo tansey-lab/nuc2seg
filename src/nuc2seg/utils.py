@@ -2,6 +2,7 @@ import os
 import re
 import logging
 
+import anndata
 import geopandas
 import numpy as np
 import shapely
@@ -252,3 +253,36 @@ def safe_squeeze(arr):
         return np.array([squeezed])
     else:
         return squeezed
+
+
+def filter_anndata_to_sample_area(adata: anndata.AnnData, sample_area: shapely.Polygon):
+    centroids = adata.obsm["spatial"]
+    points = [shapely.geometry.Point(x, y) for x, y in centroids]
+    selection = np.array([sample_area.contains(point) for point in points])
+
+    logger.info(
+        f"Filtering {len(adata)} cells to {selection.sum()} cells within the sample area"
+    )
+
+    return adata[selection, :]
+
+
+def filter_anndata_to_min_transcripts(adata: anndata.AnnData, min_transcripts: int):
+    total_per_cell = np.array(adata.X.sum(axis=0)).squeeze()
+
+    selection = total_per_cell >= min_transcripts
+
+    logger.info(
+        f"Filtering {len(adata)} cells to {selection.sum()} cells with more than {min_transcripts} transcripts"
+    )
+
+    return adata[selection, :]
+
+
+def subset_anndata(adata: anndata.AnnData, n_cells: int, rng=None):
+    if rng is None:
+        rng = np.random.default_rng()
+
+    n_cells = min(n_cells, len(adata))
+    selection = rng.choice(len(adata), n_cells, replace=False)
+    return adata[selection, :]

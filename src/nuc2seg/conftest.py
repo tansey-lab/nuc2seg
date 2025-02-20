@@ -5,6 +5,7 @@ import pytest
 import shapely
 
 from nuc2seg.data import Nuc2SegDataset
+from nuc2seg.postprocess import convert_transcripts_to_anndata
 
 
 @pytest.fixture(scope="session")
@@ -329,4 +330,13 @@ def test_dataset():
         n_classes=len(np.unique(classes)),
         n_genes=len(np.unique(transcripts[:, 2])),
         resolution=1,
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_adata(test_transcripts_df, test_nuclei_df):
+    return convert_transcripts_to_anndata(
+        segmentation_gdf=test_nuclei_df,
+        transcript_gdf=test_transcripts_df,
+        min_molecules_per_cell=1,
     )

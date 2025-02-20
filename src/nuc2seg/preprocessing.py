@@ -210,34 +210,6 @@ def create_rasterized_dataset(
     return ds
 
 
-def create_nuc2seg_dataset(
-    rasterized_dataset: RasterizedDataset,
-    cell_type_probs: np.array,
-):
-    n_classes = cell_type_probs.shape[1]
-
-    # Assign hard labels to nuclei
-    cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
-    pixel_types = np.copy(rasterized_dataset.labels)
-    nuclei_mask = rasterized_dataset.labels > 0
-    pixel_types[nuclei_mask] = cell_type_labels[
-        rasterized_dataset.labels[nuclei_mask] - 1
-    ]
-
-    ds = Nuc2SegDataset(
-        labels=rasterized_dataset.labels,
-        angles=rasterized_dataset.angles,
-        classes=pixel_types,
-        transcripts=rasterized_dataset.transcripts,
-        bbox=rasterized_dataset.bbox,
-        n_classes=n_classes,
-        n_genes=rasterized_dataset.n_genes,
-        resolution=rasterized_dataset.resolution,
-    )
-
-    return ds
-
-
 def tile_transcripts_to_disk(
     transcripts, bounds, tile_size, overlap, output_dir, output_format: str, n_threads=8
 ):

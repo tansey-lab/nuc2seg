@@ -2,21 +2,26 @@ import argparse
 import logging
 import os.path
 
+import anndata
+import numpy as np
 import pandas
+import geopandas
+import shapely
 from matplotlib import pyplot as plt
 
 from nuc2seg import log_config
 from nuc2seg.celltyping import (
     select_best_celltyping_chain,
-    predict_celltypes_for_segments_and_transcripts,
+    predict_celltypes_for_anndata_with_noise_type,
 )
-from nuc2seg.data import CelltypingResults
+from nuc2seg.data import CelltypingResults, Nuc2SegDataset
 from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
-from nuc2seg.preprocessing import create_rasterized_dataset, create_nuc2seg_dataset
+from nuc2seg.preprocessing import create_rasterized_dataset
 from nuc2seg.xenium import (
     load_vertex_file,
     load_and_filter_transcripts_as_points,
 )
+from nuc2seg.constants import NOISE_CELLTYPE
 from nuc2seg.utils import create_shapely_rectangle
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,12 @@ def get_parser():
         "--nuclei-file",
         help="Path to the Xenium nuclei boundaries parquet file",
         type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--adata",
+        type=str,
+        help="Anndata containing prior segmented data.",
         required=True,
     )
     parser.add_argument(
@@ -100,6 +111,7 @@ def get_parser():
         type=int,
         help="Force using this number of celltypes, otherwise pick via BIC.",
     )
+
     return parser
 
 
@@ -153,15 +165,19 @@ def main():
             select_best_celltyping_chain(celltyping_chains, None)
         )
 
+    n_celltypes = celltyping_results.n_component_values[best_k]
     logger.info("Predicting celltypes for segments and transcripts")
-
-    celltype_predictions = predict_celltypes_for_segments_and_transcripts(
+    adata = anndata.read_h5ad(args.adata)
+    celltype_predictions = predict_celltypes_for_anndata_with_noise_type(
         prior_probs=celltyping_results.prior_probs[best_k],
         expression_profiles=celltyping_results.expression_profiles[best_k],
-        segment_geo_df=nuclei_geo_df,
-        transcript_geo_df=tx_geo_df,
-        max_distinace=args.foreground_nucleus_distance,
+        ad=adata,
     )
+    cell_type_labels = np.argmax(celltype_predictions, axis=1) + 1
+    nucleus_centroids = adata.obsm["spatial"]
+    points = [shapely.geometry.Point(x, y) for x, y in nucleus_centroids]
+    nucleus_celltype_geodf = geopandas.GeoDataFrame(geometry=points)
+    nucleus_celltype_geodf["celltype"] = cell_type_labels
 
     logger.info("Plotting celltype estimation results")
 
@@ -211,12 +227,34 @@ def main():
         background_transcript_distance=args.background_transcript_distance,
     )
 
+    celltypes = (
+        geopandas.sjoin(nuclei_geo_df, nucleus_celltype_geodf)
+        .drop_duplicates(subset="segment_id")
+        .set_index("segment_id")["celltype"]
+    )
+    n_noisy_cells = (celltypes == NOISE_CELLTYPE).sum()
+    logger.info(f"Found {n_noisy_cells} noisy cells, will not label")
+    celltypes = celltypes[celltypes != NOISE_CELLTYPE]
+    segment_id_to_celltype = (celltypes - 1).to_dict()
+
     del tx_geo_df
     del nuclei_geo_df
 
-    logger.info("Creating Nuc2Seg dataset")
+    # Assign hard labels to nuclei
+    class_labels = np.copy(rasterized_dataset.labels)
+    for segment_id, celltype in segment_id_to_celltype.items():
+        class_labels[rasterized_dataset.labels == segment_id] = celltype + 1
 
-    ds = create_nuc2seg_dataset(rasterized_dataset, celltype_predictions)
+    ds = Nuc2SegDataset(
+        labels=rasterized_dataset.labels,
+        angles=rasterized_dataset.angles,
+        classes=class_labels,
+        transcripts=rasterized_dataset.transcripts,
+        bbox=rasterized_dataset.bbox,
+        n_classes=n_celltypes,
+        n_genes=rasterized_dataset.n_genes,
+        resolution=rasterized_dataset.resolution,
+    )
 
     logger.info("Saving to h5")
     ds.save_h5(args.output)

@@ -5,7 +5,7 @@ import tqdm
 from kneed import KneeLocator
 from scipy.special import logsumexp
 from scipy.special import softmax
-
+from scipy.sparse import issparse
 from nuc2seg.data import CelltypingResults
 from nuc2seg.xenium import logger
 
@@ -258,36 +258,22 @@ def create_dense_gene_counts_matrix(
     return nuclei_count_matrix
 
 
-def fit_celltyping_on_segments_and_transcripts(
-    nuclei_geo_df: geopandas.GeoDataFrame,
-    tx_geo_df: geopandas.GeoDataFrame,
+def fit_celltyping_on_adata(
+    adata: anndata.AnnData,
     min_components: int = 2,
     max_components: int = 20,
     rng: np.random.Generator = None,
 ):
-    n_genes = tx_geo_df["gene_id"].max() + 1
+    adata = adata[:, sorted(adata.var_names)]
 
-    # Create a nuclei x gene count matrix
-    nuclei_count_geo_df = geopandas.sjoin(tx_geo_df, nuclei_geo_df)
-
-    # I think we have enough memory to just store this as a dense array
-    nuclei_count_matrix = np.zeros((nuclei_geo_df.shape[0] + 1, n_genes), dtype=int)
-    np.add.at(
-        nuclei_count_matrix,
-        (
-            nuclei_count_geo_df["nucleus_label"].values.astype(int),
-            nuclei_count_geo_df["gene_id"].values.astype(int),
-        ),
-        1,
-    )
-
-    gene_name_map = dict(zip(tx_geo_df["gene_id"], tx_geo_df["feature_name"]))
-
-    gene_names = np.array([gene_name_map[i] for i in range(n_genes)])
+    if issparse(adata.X):
+        counts_matrix = adata.X.todense()
+    else:
+        counts_matrix = adata.X
 
     return fit_celltype_em_model(
-        nuclei_count_matrix,
-        gene_names=gene_names,
+        counts_matrix,
+        gene_names=adata.var_names,
         min_components=min_components,
         max_components=max_components,
         rng=rng,
@@ -452,6 +438,55 @@ def predict_celltypes_for_anndata(
             estimate_cell_types(
                 expression_profiles=expression_profiles,
                 prior_probs=prior_probs,
+                gene_counts=gene_counts,
+            )
+        )
+        current_index += chunk_size
+        pbar.update(len(ad_chunk))
+
+    return np.concatenate(results)
+
+
+def predict_celltypes_for_anndata_with_noise_type(
+    expression_profiles,
+    prior_probs,
+    ad: anndata.AnnData,
+    chunk_size: int = 10_000,
+    min_transcripts: int = 10,
+):
+    if len(ad) == 0:
+        return None
+
+    proportion_noise = (np.array(ad.X.sum(axis=0)).squeeze() < min_transcripts).mean()
+
+    adjusted_prior_probs = np.concatenate(
+        [
+            np.array([proportion_noise / (prior_probs.sum() + proportion_noise)]),
+            prior_probs / (prior_probs.sum() + proportion_noise),
+        ]
+    )
+    expression_profiles_with_noise_profile = np.concatenate(
+        [
+            np.ones((1, expression_profiles.shape[1])) / len(ad.var_names),
+            expression_profiles,
+        ]
+    )
+
+    results = []
+    current_index = 0
+    pbar = tqdm.tqdm(total=len(ad), desc="predict_celltypes")
+    while current_index < len(ad):
+        ad_chunk = ad[current_index : current_index + chunk_size]
+
+        if issparse(ad_chunk.X):
+            gene_counts = np.array(ad_chunk.X.todense())
+        else:
+            gene_counts = np.array(ad_chunk.X)
+
+        results.append(
+            estimate_cell_types(
+                expression_profiles=expression_profiles_with_noise_profile,
+                prior_probs=adjusted_prior_probs,
                 gene_counts=gene_counts,
             )
         )
