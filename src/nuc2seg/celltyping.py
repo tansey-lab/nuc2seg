@@ -399,7 +399,7 @@ def predict_celltypes_for_segments_and_transcripts(
         segment_chunk = segment_geo_df.iloc[
             current_index : current_index + chunk_size
         ].reset_index(drop=True)
-        xmin, ymin, xmax, ymax = segment_chunk.bounds.values[0]
+        xmin, ymin, xmax, ymax = segment_chunk.total_bounds
         transcript_chunk = transcript_geo_df.cx[xmin:xmax, ymin:ymax].reset_index(
             drop=True
         )
