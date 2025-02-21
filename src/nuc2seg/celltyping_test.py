@@ -2,10 +2,11 @@ import geopandas
 import numpy as np
 import pytest
 from shapely import Polygon, Point, box
+from nuc2seg.constants import NOISE_CELLTYPE
 
 from nuc2seg.celltyping import (
     fit_celltype_em_model,
-    fit_celltyping_on_segments_and_transcripts,
+    predict_celltypes_for_anndata_with_noise_type,
     select_best_celltyping_chain,
     create_dense_gene_counts_matrix,
     predict_celltypes_for_segments_and_transcripts,
@@ -94,51 +95,6 @@ def test_estimate_cell_types2():
     assert aic_scores.argmin() == bic_scores.argmin() == 1
 
 
-def test_run_cell_type_estimation(test_nuclei_df, test_transcripts_df):
-    rng = np.random.default_rng(0)
-    results = fit_celltyping_on_segments_and_transcripts(
-        nuclei_geo_df=test_nuclei_df,
-        tx_geo_df=test_transcripts_df,
-        max_components=3,
-        min_components=2,
-        rng=rng,
-    )
-
-    assert len(results.expression_profiles) == 2
-    assert len(results.prior_probs) == 2
-    assert len(results.relative_expression) == 2
-    assert len(results.aic_scores) == 2
-    assert len(results.bic_scores) == 2
-    assert results.n_component_values.tolist() == [2, 3]
-
-
-def test_combine_celltyping_chains(test_nuclei_df, test_transcripts_df):
-    rng = np.random.default_rng(0)
-    results = fit_celltyping_on_segments_and_transcripts(
-        nuclei_geo_df=test_nuclei_df,
-        tx_geo_df=test_transcripts_df,
-        max_components=3,
-        min_components=2,
-        rng=rng,
-    )
-    rng = np.random.default_rng(1)
-    results2 = fit_celltyping_on_segments_and_transcripts(
-        nuclei_geo_df=test_nuclei_df,
-        tx_geo_df=test_transcripts_df,
-        max_components=3,
-        min_components=2,
-        rng=rng,
-    )
-
-    results.bic_scores = np.array([1.0, 2.0])
-    results2.bic_scores = np.array([2.0, -1.0])
-
-    final_result, _, _, best_k = select_best_celltyping_chain([results, results2])
-
-    assert best_k == 1
-    assert final_result is results2
-
-
 def test_create_dense_gene_counts_matrix():
     boundaries = geopandas.GeoDataFrame(
         [
@@ -215,3 +171,24 @@ def test_predict_celltype_probabilities_for_all_segments():
     result = predict_celltype_probabilities_for_all_segments(
         labels, transcripts, expression_profiles, prior_probs
     )
+
+
+def test_predict_celltypes_for_anndata_with_noise_type(test_adata):
+    results = predict_celltypes_for_anndata_with_noise_type(
+        ad=test_adata,
+        prior_probs=np.array([0.6, 0.4]),
+        expression_profiles=np.array([[1, 1e-3], [1e-3, 1]]),
+    )
+
+    assert (results.argmax(axis=1) + 1).tolist() == [NOISE_CELLTYPE, NOISE_CELLTYPE]
+
+    test_adata = test_adata.copy()
+    test_adata.X = test_adata.X * 10
+
+    results = predict_celltypes_for_anndata_with_noise_type(
+        ad=test_adata,
+        prior_probs=np.array([0.6, 0.4]),
+        expression_profiles=np.array([[1, 1e-3], [1e-3, 1]]),
+    )
+
+    assert (results.argmax(axis=1) + 1).tolist() == [2, 2]

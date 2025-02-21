@@ -652,6 +652,13 @@ def convert_segmentation_to_shapefile(
 
     gdf = geopandas.GeoDataFrame(records, geometry="geometry")
 
+    if translate:
+        gdf["geometry"] = gdf.geometry.scale(
+            xfact=dataset.resolution,
+            yfact=dataset.resolution,
+            origin=(dataset.bbox[0], dataset.bbox[1]),
+        )
+
     gdf.reset_index(inplace=True, drop=True)
 
     return gdf

@@ -144,17 +144,17 @@ class Nuc2SegDataset:
         :param labels: array of shape (x, y) of pixel labels,
             0 is background, -1 is border, > 1 is a unique contiguous nucleus
         :param angles: array of shape (x, y) of angles in radians
-        :param classes: array of shape (x, y, k) of cell type probabilities
+        :param classes: array of shape (x, y) of the cell type of each pixel, 1-indexed
         :param transcripts: array of shape (n_transcripts, 3), where the columns are x, y, gene_id
         :param bbox: array of shape (4,) of the bounding box of the dataset
         :param n_classes: int of the number of cell types
         :param n_genes: int of the number of genes
         :param resolution: float of the resolution of the dataset (width of a pixel in microns)
         """
-        self.labels = labels
-        self.angles = angles
-        self.classes = classes
-        self.transcripts = transcripts
+        self.labels = labels.astype(int)
+        self.angles = angles.astype(float)
+        self.classes = classes.astype(int)
+        self.transcripts = transcripts.astype(int)
         self.bbox = bbox
         self.n_classes = n_classes
         self.n_genes = n_genes
@@ -309,7 +309,7 @@ class Nuc2SegDataset:
                 n_classes = f.attrs["n_classes"]
                 n_genes = f.attrs["n_genes"]
                 resolution = f.attrs["resolution"]
-                bbox = f["bbox"][:]
+                original_bbox = f["bbox"][:]
                 transcripts = f["transcripts"][:]
                 transcript_selector = (
                     (transcripts[:, 0] >= x1)
@@ -319,10 +319,10 @@ class Nuc2SegDataset:
                 )
                 new_bbox = np.array(
                     [
-                        bbox[0] + x1,
-                        bbox[1] + y1,
-                        bbox[0] + x2,
-                        bbox[1] + y2,
+                        original_bbox[0] + x1,
+                        original_bbox[1] + y1,
+                        original_bbox[0] + x2,
+                        original_bbox[1] + y2,
                     ]
                 )
 
@@ -422,7 +422,6 @@ def collate_tiles(data):
     outputs["classes"] = torch.stack(outputs["classes"])
     outputs["label_mask"] = torch.stack(outputs["label_mask"]).type(torch.bool)
     outputs["nucleus_mask"] = torch.stack(outputs["nucleus_mask"]).type(torch.bool)
-    outputs["location"] = torch.tensor(np.stack(outputs["location"])).type(torch.long)
 
     # Edge case: pad_sequence will squeeze tensors if there are no entries.
     # In that case, we just need to add the dimension back.
@@ -491,17 +490,7 @@ class TiledDataset(Dataset):
 
         return weights
 
-    def __getitem__(self, idx):
-        x1, y1, x2, y2 = next(
-            generate_tiles(
-                tiler=self.tiler,
-                x_extent=self.ds.x_extent_pixels,
-                y_extent=self.ds.y_extent_pixels,
-                tile_size=(self.tile_height, self.tile_width),
-                overlap_fraction=self.tile_overlap,
-                tile_ids=[idx],
-            )
-        )
+    def _get_tile(self, x1, y1, x2, y2):
         transcripts = self.ds.transcripts
         labels = self.ds.labels
         angles = self.ds.angles
@@ -535,17 +524,44 @@ class TiledDataset(Dataset):
         nucleus_mask = tile_labels > 0
 
         return {
-            "X": torch.as_tensor(tile_transcripts[:, 0]).long().contiguous(),
-            "Y": torch.as_tensor(tile_transcripts[:, 1]).long().contiguous(),
-            "gene": torch.as_tensor(tile_transcripts[:, 2]).long().contiguous(),
-            "labels": torch.as_tensor(tile_labels).long().contiguous(),
-            "angles": torch.as_tensor(tile_angles).float().contiguous(),
-            "classes": torch.as_tensor(tile_classes).long().contiguous(),
-            "label_mask": torch.as_tensor(labels_mask).bool().contiguous(),
-            "nucleus_mask": torch.as_tensor(nucleus_mask).bool().contiguous(),
-            "location": np.array([x1, y1]),
-            "tile_index": idx,
+            "X": torch.as_tensor(tile_transcripts[:, 0]).long(),
+            "Y": torch.as_tensor(tile_transcripts[:, 1]).long(),
+            "gene": torch.as_tensor(tile_transcripts[:, 2]).long(),
+            "labels": torch.as_tensor(tile_labels).long(),
+            "angles": torch.as_tensor(tile_angles).float(),
+            "classes": torch.as_tensor(tile_classes).long(),
+            "label_mask": torch.as_tensor(labels_mask).bool(),
+            "nucleus_mask": torch.as_tensor(nucleus_mask).bool(),
         }
+
+    def __getitem__(self, idx):
+        x1, y1, x2, y2 = next(
+            generate_tiles(
+                tiler=self.tiler,
+                x_extent=self.ds.x_extent_pixels,
+                y_extent=self.ds.y_extent_pixels,
+                tile_size=(self.tile_height, self.tile_width),
+                overlap_fraction=self.tile_overlap,
+                tile_ids=[idx],
+            )
+        )
+        return self._get_tile(x1, y1, x2, y2)
+
+    def __getitems__(self, indices: list[int]):
+        tile_generator = generate_tiles(
+            tiler=self.tiler,
+            x_extent=self.ds.x_extent_pixels,
+            y_extent=self.ds.y_extent_pixels,
+            tile_size=(self.tile_height, self.tile_width),
+            overlap_fraction=self.tile_overlap,
+            tile_ids=indices,
+        )
+
+        tiles = []
+        for x1, y1, x2, y2 in tile_generator:
+            tiles.append(self._get_tile(x1, y1, x2, y2))
+
+        return tiles
 
 
 class TrainTestSplit:

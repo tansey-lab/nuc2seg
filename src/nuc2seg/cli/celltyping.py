@@ -1,15 +1,17 @@
 import argparse
 import logging
+import anndata
 
 import numpy as np
 
 from nuc2seg import log_config
-from nuc2seg.celltyping import fit_celltyping_on_segments_and_transcripts
-from nuc2seg.xenium import (
-    load_vertex_file,
-    load_and_filter_transcripts_as_points,
+from nuc2seg.celltyping import fit_celltyping_on_adata
+from nuc2seg.utils import (
+    create_shapely_rectangle,
+    filter_anndata_to_sample_area,
+    filter_anndata_to_min_transcripts,
+    subset_anndata,
 )
-from nuc2seg.utils import create_shapely_rectangle
 
 logger = logging.getLogger(__name__)
 
@@ -19,18 +21,6 @@ def get_parser():
         description="Run celltype estimation on nucelus-segmented reads."
     )
     log_config.add_logging_args(parser)
-    parser.add_argument(
-        "--transcripts-file",
-        help="Path to the Xenium transcripts parquet file.",
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
-        "--nuclei-file",
-        help="Path to the Xenium nuclei boundaries parquet file",
-        type=str,
-        required=True,
-    )
     parser.add_argument(
         "--output",
         help="Output path.",
@@ -56,16 +46,10 @@ def get_parser():
         default=1,
     )
     parser.add_argument(
-        "--min-qv",
-        help="Minimum quality value for a transcript to be included.",
-        type=float,
-        default=20.0,
-    )
-    parser.add_argument(
-        "--foreground-nucleus-distance",
-        help="Distance from a nucleus to be considered foreground.",
-        type=int,
-        default=1,
+        "--adata",
+        default=None,
+        type=str,
+        help="Anndata containing nuclear segmented data.",
     )
     parser.add_argument(
         "--sample-area",
@@ -90,6 +74,12 @@ def get_parser():
         help="Maximum number of cells to sample from data for celltype estimation.",
         type=int,
         default=20_000,
+    )
+    parser.add_argument(
+        "--transcript-count-percentile",
+        help="Only use cells above this percentile of total transcript count for model fitting",
+        type=int,
+        default=25,
     )
     return parser
 
@@ -118,30 +108,20 @@ def main():
     else:
         sample_area = None
 
-    nuclei_geo_df = load_vertex_file(
-        fn=args.nuclei_file,
-        sample_area=sample_area,
-    )
+    adata = anndata.read_h5ad(args.adata)
 
-    # randomly downsample nuclei_df if it's too big
-    if nuclei_geo_df.shape[0] > args.max_cells:
-        prior_size = len(nuclei_geo_df)
-        nuclei_geo_df = nuclei_geo_df.sample(
-            n=args.max_cells, replace=False, random_state=args.seed, ignore_index=True
-        )
-        nuclei_geo_df["nucleus_label"] = np.arange(1, nuclei_geo_df.shape[0] + 1)
-        after_size = len(nuclei_geo_df)
-        logger.info(f"Downsampled nuclei from {prior_size} to {after_size}")
+    if sample_area:
+        adata = filter_anndata_to_sample_area(adata, sample_area)
 
-    tx_geo_df = load_and_filter_transcripts_as_points(
-        transcripts_file=args.transcripts_file,
-        sample_area=sample_area,
-        min_qv=args.min_qv,
-    )
+    total_per_cell = np.array(adata.X.sum(axis=1)).squeeze()
+    cutoff = np.floor(np.percentile(total_per_cell, 25))
 
-    celltype_results = fit_celltyping_on_segments_and_transcripts(
-        nuclei_geo_df=nuclei_geo_df,
-        tx_geo_df=tx_geo_df,
+    adata = filter_anndata_to_min_transcripts(adata, min_transcripts=cutoff)
+
+    adata = subset_anndata(adata, args.max_cells, rng=rng)
+
+    celltype_results = fit_celltyping_on_adata(
+        adata=adata,
         min_components=args.min_n_celltypes,
         max_components=args.max_n_celltypes,
         rng=rng,

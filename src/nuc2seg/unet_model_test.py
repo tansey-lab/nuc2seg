@@ -1,13 +1,13 @@
 import os
 import shutil
 import tempfile
-
+import pytest
 import numpy as np
 import torch
 from pytorch_lightning import Trainer
 from torch import nn
 
-from nuc2seg.data import Nuc2SegDataset
+from nuc2seg.data import Nuc2SegDataset, TiledDataset, collate_tiles
 from nuc2seg.preprocessing import cart2pol
 from nuc2seg.unet_model import (
     SparseUNet,
@@ -44,7 +44,8 @@ def test_model_predict():
     assert pred.shape == (1, 64, 64, 5)
 
 
-def test_model():
+@pytest.mark.parametrize("batch_size", [1, 2])
+def test_model_train(batch_size):
     tile_height = 50
     tile_width = 50
     tile_overlap = 0.0
@@ -106,7 +107,8 @@ def test_model():
 
     dm = Nuc2SegDataModule(
         preprocessed_data_path=output_path,
-        val_percent=0,
+        val_percent=0.5,
+        train_batch_size=batch_size,
         tile_width=tile_width,
         tile_height=tile_height,
         tile_overlap=tile_overlap,
@@ -126,40 +128,41 @@ def test_training_step():
         weight=torch.tensor([1.0, 1.0, 1.0]),
     )
 
-    x = torch.tensor([0, 3, 5], dtype=torch.long)
-    y = torch.tensor([0, 3, 5], dtype=torch.long)
-    gene = torch.tensor([0, 0, 0], dtype=torch.long)
+    x = torch.tensor([[0, 3, 5]], dtype=torch.long)
+    y = torch.tensor([[0, 3, 5]], dtype=torch.long)
+    gene = torch.tensor([[0, 0, 0]], dtype=torch.long)
     background_frequencies = torch.tensor([0.01])
     celltype_frequencies = torch.tensor([[0.5], [0.5], [0.5]])
 
-    labels = torch.zeros((10, 10))
-    labels[3:8, 3:8] = -1
-    labels[4:7, 4:7] = 1
+    labels = torch.zeros((1, 10, 10))
+    labels[0, 3:8, 3:8] = -1
+    labels[0, 4:7, 4:7] = 1
 
-    classes = torch.zeros((10, 10))
-    classes[4:7, 4:7] = 3
+    classes = torch.zeros((1, 10, 10))
+    classes[0, 4:7, 4:7] = 3
+    classes[0, 4, 4] = 0
 
     labels_mask = (labels > -1).bool()
     nucleus_mask = (labels > 0).bool()
 
-    predictions = torch.zeros((10, 10, 5)).float()
-    predictions[:, :, 0] = torch.logit(torch.tensor(1e-5))
-    predictions[3:8, 3:8, 0] = torch.logit(torch.tensor(0.9999))
+    predictions = torch.zeros((1, 10, 10, 5)).float()
+    predictions[0, :, :, 0] = torch.logit(torch.tensor(1e-5))
+    predictions[0, 3:8, 3:8, 0] = torch.logit(torch.tensor(0.9999))
 
-    angles = torch.zeros((10, 10))
+    angles = torch.zeros((1, 10, 10))
 
-    for x in range(10):
-        for y in range(10):
-            x_component = 5 - x
-            y_component = 5 - y
+    for i in range(10):
+        for j in range(10):
+            x_component = 5 - i
+            y_component = 5 - j
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = angle[1]
+            angles[0, x, y] = angle[1]
 
     angles = (angles + np.pi) / (2 * np.pi)
 
-    predictions[:, :, 1] = torch.logit(angles)
+    predictions[0, :, :, 1] = torch.logit(angles)
 
-    predictions[:, :, 2:] = torch.logit(torch.tensor([0.01, 0.01, 0.99]))
+    predictions[0, :, :, 2:] = torch.logit(torch.tensor([0.01, 0.01, 0.99]))
     classes = classes.long()
 
     (
@@ -190,12 +193,12 @@ def test_training_step():
     assert torch.isclose(perfect_angle_loss, torch.tensor(0.0), atol=1e-3)
     assert torch.isclose(perfect_celltype_loss, torch.tensor(0.0), atol=1e-3)
 
-    for x in range(10):
-        for y in range(10):
-            x_component = 1 - x
-            y_component = 1 - y
+    for i in range(10):
+        for j in range(10):
+            x_component = 1 - i
+            y_component = 1 - j
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = angle[1]
+            angles[0, x, y] = angle[1]
 
     angles = (angles + np.pi) / (2 * np.pi)
 
@@ -218,7 +221,7 @@ def test_training_step():
 
     assert bad_angle_loss > perfect_angle_loss
 
-    predictions[:, :, 2:] = torch.logit(torch.tensor([0.33, 0.33, 0.33]))
+    predictions[0, :, :, 2:] = torch.logit(torch.tensor([0.33, 0.33, 0.33]))
 
     bad_foreground_loss, _, bad_angle_loss, bad_celltype_loss = training_step(
         x=x,
@@ -239,7 +242,7 @@ def test_training_step():
 
     assert bad_celltype_loss > perfect_celltype_loss
 
-    predictions[3:8, 3:8, 0] = torch.logit(torch.tensor(0.5))
+    predictions[0, 3:8, 3:8, 0] = torch.logit(torch.tensor(0.5))
 
     bad_foreground_loss, _, bad_angle_loss, bad_celltype_loss = training_step(
         x=x,
@@ -264,6 +267,50 @@ def test_training_step():
         > train_loss_worse_2
         > train_loss_worse_1
         > perfect_train_loss
+    )
+
+
+def test_training_step_minibatch(test_dataset):
+    td = TiledDataset(
+        dataset=test_dataset, tile_height=10, tile_width=10, tile_overlap=0.25
+    )
+
+    minibatch = collate_tiles(td.__getitems__([0, 1, 2, 3]))
+
+    predictions = torch.zeros((4, 10, 10, test_dataset.n_classes + 2)).float()
+    predictions[:, :, :, :] = torch.logit(torch.tensor(1e-5))
+
+    foreground_criterion = nn.BCEWithLogitsLoss(reduction="mean")
+    # Class imbalance reweighting
+    celltype_criterion = nn.CrossEntropyLoss(
+        reduction="mean",
+        weight=torch.tensor([1.0] * test_dataset.n_classes),
+    )
+    background_frequencies = torch.tensor([0.01] * test_dataset.n_genes)
+
+    celltype_frequencies = torch.ones(test_dataset.n_classes, test_dataset.n_genes) * (
+        1 / test_dataset.n_genes
+    )
+
+    (
+        perfect_foreground_loss,
+        _,
+        perfect_angle_loss,
+        perfect_celltype_loss,
+    ) = training_step(
+        x=minibatch["X"],
+        y=minibatch["Y"],
+        gene=minibatch["gene"],
+        prediction=predictions,
+        labels=minibatch["labels"],
+        classes=minibatch["classes"],
+        label_mask=minibatch["label_mask"],
+        nucleus_mask=minibatch["nucleus_mask"],
+        angles=minibatch["angles"],
+        foreground_criterion=foreground_criterion,
+        celltype_criterion=celltype_criterion,
+        background_frequencies=background_frequencies,
+        celltype_frequencies=celltype_frequencies,
     )
 
 
@@ -299,14 +346,15 @@ def test_calculate_even_weights():
 
 
 def test_calculate_unlabeled_foreground_loss():
-    x = torch.tensor([0, 1], dtype=torch.long)
-    y = torch.tensor([0, 0], dtype=torch.long)
-    gene = torch.tensor([0, 1], dtype=torch.long)
-    foreground_pred = torch.tensor([[0.99, 0.99], [0.01, 0.01]], dtype=torch.float)
+    x = torch.tensor([[0, 1]], dtype=torch.long)
+    y = torch.tensor([[0, 0]], dtype=torch.long)
+    gene = torch.tensor([[0, 1]], dtype=torch.long)
+    foreground_pred = torch.tensor([[[0.99, 0.99], [0.01, 0.01]]], dtype=torch.float)
     class_pred = torch.tensor(
-        [[[0.99, 0.01], [0.99, 0.01]], [[0.01, 0.99], [0.01, 0.99]]], dtype=torch.float
+        [[[[0.99, 0.01], [0.99, 0.01]], [[0.01, 0.99], [0.01, 0.99]]]],
+        dtype=torch.float,
     )
-    label_mask = torch.tensor([[0, 0], [0, 0]], dtype=torch.bool)
+    label_mask = torch.tensor([[[0, 0], [0, 0]]], dtype=torch.bool)
 
     background_frequencies = torch.tensor([0.01, 0.1], dtype=torch.float)
     celltype_frequencies = torch.tensor([0.5, 0.6], dtype=torch.float)

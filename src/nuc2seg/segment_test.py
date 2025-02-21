@@ -380,7 +380,7 @@ def test_convert_segmentation_to_shapefile():
         bbox=np.array([0, 0, 64, 100]),
         n_classes=3,
         n_genes=3,
-        resolution=1,
+        resolution=0.5,
     )
 
     segmentation = np.zeros((64, 100))
@@ -390,7 +390,26 @@ def test_convert_segmentation_to_shapefile():
     segmentation[30:40, 30:40] = 2
     segmentation[1, 1] = -1
     gdf = convert_segmentation_to_shapefile(
-        dataset=dataset, predictions=predictions, segmentation=segmentation
+        dataset=dataset,
+        predictions=predictions,
+        segmentation=segmentation,
+        translate=True,
+    )
+
+    assert gdf.shape[0] == 2
+    assert gdf.iloc[0].unet_celltype_assignment == 0
+    assert gdf.iloc[1].unet_celltype_assignment == 1
+    assert gdf.iloc[0].geometry.area == 25
+    assert gdf.iloc[1].geometry.area == 25
+    assert gdf.iloc[0].unet_celltype_0_prob >= 0.89
+    assert gdf.iloc[1].unet_celltype_1_prob >= 0.89
+
+    dataset.resolution = 1.0
+    gdf = convert_segmentation_to_shapefile(
+        dataset=dataset,
+        predictions=predictions,
+        segmentation=segmentation,
+        translate=True,
     )
 
     assert gdf.shape[0] == 2

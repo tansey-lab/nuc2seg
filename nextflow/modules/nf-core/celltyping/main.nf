@@ -6,7 +6,7 @@ process CELLTYPING {
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"
 
     input:
-    tuple val(meta), path(xenium_dir), val(chain_idx), val(n_chains)
+    tuple val(meta), path(xenium_dir), val(chain_idx), val(n_chains), path(adata)
 
     output:
     tuple val(meta), path("${prefix}/cell_typing_chain_${chain_idx}.h5"), emit: cell_typing_results
@@ -22,8 +22,7 @@ process CELLTYPING {
     """
     mkdir -p "${prefix}"
     celltyping \
-        --nuclei-file ${xenium_dir}/nucleus_boundaries.parquet \
-        --transcripts-file ${xenium_dir}/transcripts.parquet \
+        --adata ${adata} \
         --output ${prefix}/cell_typing_chain_${chain_idx}.h5 \
         --n-chains ${n_chains} \
         --index ${chain_idx} \

@@ -147,7 +147,7 @@ def get_parser():
         "--val-check-interval",
         help="Check validation set after this many fractional epochs.",
         type=float,
-        default=0.25,
+        default=0.5,
     )
     parser.add_argument(
         "--foreground-loss-factor",
@@ -178,6 +178,12 @@ def get_parser():
         help="Reweight losses to be even.",
         action=argparse.BooleanOptionalAction,
         default=True,
+    )
+    parser.add_argument(
+        "--batch-size",
+        help="Training batch size.",
+        type=int,
+        default=1,
     )
     return parser
 
@@ -213,7 +219,7 @@ def main():
     dm = Nuc2SegDataModule(
         preprocessed_data_path=args.dataset,
         val_percent=args.val_percent,
-        train_batch_size=1,
+        train_batch_size=args.batch_size,
         val_batch_size=1,
         tile_height=args.tile_height,
         tile_width=args.tile_width,
@@ -257,10 +263,7 @@ def main():
 
     # save checkpoints based on "val_loss" metric
     checkpoint_callback = ModelCheckpoint(
-        save_top_k=1,
-        monitor="loss",
-        mode="min",
-        every_n_train_steps=min(100, len(tiled_ds) - 1),
+        save_top_k=1, monitor="val_accuracy", mode="max"
     )
 
     # Init trainer

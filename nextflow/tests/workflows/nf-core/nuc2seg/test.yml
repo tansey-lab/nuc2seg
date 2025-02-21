@@ -1,5 +1,20 @@
-- name: nuc2seg_workflow
-  command: nextflow -C ./nextflow/tests/workflows/nf-core/nuc2seg/nextflow.config,./nextflow/tests/config/nextflow.config run ./nextflow/tests/workflows/nf-core/nuc2seg -stub-run -entry nuc2seg_workflow
+- name: nuc2seg_batch_workflow
+  command: nextflow -C ./nextflow/tests/workflows/nf-core/nuc2seg/batch.config,./nextflow/tests/config/nextflow.config run ./nextflow/tests/workflows/nf-core/nuc2seg -entry nuc2seg_workflow
+  tags:
+    - nuc2seg_workflow
+  files: []
+- name: nuc2seg_no_batch_workflow
+  command: nextflow -C ./nextflow/tests/workflows/nf-core/nuc2seg/no_batch.config,./nextflow/tests/config/nextflow.config run ./nextflow/tests/workflows/nf-core/nuc2seg -entry nuc2seg_workflow
+  tags:
+    - nuc2seg_workflow
+  files: []
+- name: nuc2seg_no_sample_area_workflow
+  command: nextflow -C ./nextflow/tests/workflows/nf-core/nuc2seg/no_sample_area.config,./nextflow/tests/config/nextflow.config run ./nextflow/tests/workflows/nf-core/nuc2seg -entry nuc2seg_workflow
+  tags:
+    - nuc2seg_workflow
+  files: []
+- name: nuc2seg_resolution
+  command: nextflow -C ./nextflow/tests/workflows/nf-core/nuc2seg/resolution.config,./nextflow/tests/config/nextflow.config run ./nextflow/tests/workflows/nf-core/nuc2seg -entry nuc2seg_workflow
   tags:
     - nuc2seg_workflow
   files: []

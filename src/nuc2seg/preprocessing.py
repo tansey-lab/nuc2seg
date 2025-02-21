@@ -11,6 +11,7 @@ import shapely
 import tqdm
 from blended_tiling import TilingModule
 from scipy.spatial import KDTree
+from shapely import box
 
 from nuc2seg.data import (
     RasterizedDataset,
@@ -34,54 +35,84 @@ def pol2cart(rho, phi):
     return (x, y)
 
 
-def create_pixel_geodf(x_min, x_max, y_min, y_max):
-    # Create the list of all pixels
-    grid_df = pd.DataFrame(
-        np.array(
-            np.meshgrid(np.arange(x_min, x_max + 1), np.arange(y_min, y_max + 1))
-        ).T.reshape(-1, 2),
-        columns=["X", "Y"],
-    )
+def create_pixel_geodf(width, height, resolution=1):
+    n_width_pixels = math.ceil(width / resolution)
+    n_height_pixels = math.ceil(height / resolution)
 
-    # Convert the xy locations to a geopandas data frame
-    idx_geo_df = gpd.GeoDataFrame(
-        grid_df,
-        geometry=gpd.points_from_xy(grid_df["X"], grid_df["Y"]),
-    )
+    rows = []
+    for i in range(n_width_pixels):
+        for j in range(n_height_pixels):
+            rows.append(
+                {
+                    "x_index": i,
+                    "y_index": j,
+                    "geometry": box(
+                        i * resolution,
+                        j * resolution,
+                        (i + 1) * resolution,
+                        (j + 1) * resolution,
+                    ),
+                    "pixel_center_x": i * resolution + resolution / 2,
+                    "pixel_center_y": j * resolution + resolution / 2,
+                }
+            )
 
-    return idx_geo_df
+    df = pd.DataFrame(rows)
+    return geopandas.GeoDataFrame(df, geometry="geometry")
 
 
 def create_rasterized_dataset(
-    nuclei_geo_df: geopandas.GeoDataFrame,
+    prior_segmentation_gdf: geopandas.GeoDataFrame,
     tx_geo_df: geopandas.GeoDataFrame,
     sample_area: shapely.Polygon,
     resolution=1,
-    foreground_nucleus_distance=1,
-    background_nucleus_distance=10,
+    foreground_distance=1,
+    background_distance=10,
     background_transcript_distance=4,
     background_pixel_transcripts=5,
 ):
+    if "segment_id" in prior_segmentation_gdf.columns:
+        del prior_segmentation_gdf["segment_id"]
+    prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
+    prior_segmentation_gdf["segment_id"] += 1
+
+    prior_segmentation_gdf = prior_segmentation_gdf.copy()
     n_genes = tx_geo_df["gene_id"].max() + 1
+    if "transcript_id" in tx_geo_df.columns:
+        del tx_geo_df["transcript_id"]
+    tx_geo_df.reset_index(names="transcript_id", inplace=True)
 
     x_min, y_min, x_max, y_max = sample_area.bounds
-    x_min, x_max = math.floor(x_min), math.ceil(x_max)
-    y_min, y_max = math.floor(y_min), math.ceil(y_max)
 
-    x_size = (x_max - x_min) + 1
-    y_size = (y_max - y_min) + 1
+    width = x_max - x_min
+    height = y_max - y_min
+
+    prior_segmentation_gdf["geometry"] = prior_segmentation_gdf.translate(
+        -x_min, -y_min
+    )
+    tx_geo_df["geometry"] = tx_geo_df.translate(-x_min, -y_min)
 
     logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
-    idx_geo_df = create_pixel_geodf(x_max=x_max, x_min=x_min, y_min=y_min, y_max=y_max)
+    idx_geo_df = create_pixel_geodf(width, height, resolution)
 
-    logger.info("Find the nearest nucleus to each pixel")
-    # Find the nearest nucleus to each pixel
+    x_max_idx = idx_geo_df["x_index"].max()
+    y_max_idx = idx_geo_df["y_index"].max()
+
+    logger.info("Find the nearest segment to each pixel")
+    # Find the nearest segment to each pixel
+    prior_segmentation_gdf["centroid_x"] = prior_segmentation_gdf.centroid.x - x_min
+    prior_segmentation_gdf["centroid_y"] = prior_segmentation_gdf.centroid.y - y_min
     labels_geo_df = gpd.sjoin_nearest(
-        idx_geo_df, nuclei_geo_df, how="left", distance_col="nucleus_distance"
+        idx_geo_df,
+        prior_segmentation_gdf,
+        how="left",
+        distance_col="distance",
+        max_distance=background_distance,
     )
-    labels_geo_df.rename(columns={"index_right": "nucleus_id_xenium"}, inplace=True)
-
+    labels_geo_df.rename(columns={"index_right": "prior_segment_id"}, inplace=True)
+    # break ties arbitrarily
+    labels_geo_df.drop_duplicates(subset=["x_index", "y_index"], inplace=True)
     logger.info("Calculating the nearest transcript neighbors")
     transcript_xy = np.array(
         [tx_geo_df["x_location"].values, tx_geo_df["y_location"].values]
@@ -89,50 +120,51 @@ def create_rasterized_dataset(
     kdtree = KDTree(transcript_xy)
 
     logger.info("Get the distance to the k'th nearest transcript")
-    pixels_xy = np.array([labels_geo_df["X"].values, labels_geo_df["Y"].values]).T
+    pixels_xy = np.array(
+        [labels_geo_df["x_index"].values, labels_geo_df["y_index"].values]
+    ).T
     labels_geo_df["transcript_distance"] = kdtree.query(
         pixels_xy, k=background_pixel_transcripts + 1
     )[0][:, -1]
 
     logger.info("Assign pixels roughly on top of nuclei to belong to that nuclei label")
     pixel_labels = np.zeros(labels_geo_df.shape[0], dtype=int) - 1
-    nucleus_pixels = labels_geo_df["nucleus_distance"] <= foreground_nucleus_distance
-    pixel_labels[nucleus_pixels] = labels_geo_df["nucleus_label"][nucleus_pixels]
+    segmented_pixels = labels_geo_df["distance"] <= foreground_distance
+    pixel_labels[segmented_pixels] = (
+        labels_geo_df["prior_segment_id"][segmented_pixels] + 1
+    )
 
     logger.info(
         "Assign pixels to the background if they are far from nuclei and not near a dense region of transcripts"
     )
     background_pixels = (
-        labels_geo_df["nucleus_distance"] > background_nucleus_distance
+        (labels_geo_df["distance"] > background_distance)
+        | labels_geo_df["distance"].isna()
     ) & (labels_geo_df["transcript_distance"] > background_transcript_distance)
     pixel_labels[background_pixels] = 0
 
     logger.info("Convert pixel labels to a grid")
-    labels = np.zeros((x_size, y_size), dtype=int)
-    labels[labels_geo_df["X"] - x_min, labels_geo_df["Y"] - y_min] = pixel_labels
+    labels = pixel_labels.reshape(x_max_idx + 1, y_max_idx + 1)
 
     # Assume for simplicity that it's a homogeneous poisson process for transcripts.
     # Add up all the transcripts in each pixel.
     logger.info("Add up all transcripts in each pixel")
-    tx_count_grid = np.zeros((x_size, y_size), dtype=int)
+
+    tx_geo_df = tx_geo_df.sjoin(idx_geo_df, how="inner")
+
+    # Arbtirarily drop ties (transcript is on pixel edge)
+    tx_geo_df.drop_duplicates(subset=["transcript_id"], inplace=True)
+
+    tx_count_grid = np.zeros((x_max_idx + 1, y_max_idx + 1), dtype=int)
     np.add.at(
         tx_count_grid,
-        (
-            tx_geo_df["x_location"].values.astype(int) - x_min,
-            tx_geo_df["y_location"].values.astype(int) - y_min,
-        ),
+        (tx_geo_df["x_index"], tx_geo_df["y_index"]),
         1,
     )
 
     # Estimate the background rate
     logger.info("Estimating background rate")
-    tx_background_mask = (
-        labels[
-            tx_geo_df["x_location"].values.astype(int) - x_min,
-            tx_geo_df["y_location"].values.astype(int) - y_min,
-        ]
-        == 0
-    )
+    tx_background_mask = labels[tx_geo_df["x_index"], tx_geo_df["y_index"]] == 0
     background_probs = np.zeros(n_genes)
     tx_geo_df_background = tx_geo_df[tx_background_mask]
     for g in range(n_genes):
@@ -143,23 +175,23 @@ def create_rasterized_dataset(
     logger.info(
         "Calculating the angle at which each pixel faces to point at its nearest nucleus centroid"
     )
-    labels_geo_df["nucleus_angle"] = (
+    labels_geo_df["angle"] = (
         cart2pol(
-            labels_geo_df["nucleus_centroid_x"].values - labels_geo_df["X"].values,
-            labels_geo_df["nucleus_centroid_y"].values - labels_geo_df["Y"].values,
+            labels_geo_df["centroid_x"].values - labels_geo_df["pixel_center_x"].values,
+            labels_geo_df["centroid_y"].values - labels_geo_df["pixel_center_y"].values,
         )[1]
         + np.pi
     ) / (2 * np.pi)
     angles = np.zeros(labels.shape)
-    angles[labels_geo_df["X"].values - x_min, labels_geo_df["Y"].values - y_min] = (
-        labels_geo_df["nucleus_angle"].values
-    )
+    angles[labels_geo_df["x_index"], labels_geo_df["y_index"]] = labels_geo_df[
+        "angle"
+    ].values
 
     logger.info("Creating dataset")
     transcripts_arr = np.column_stack(
         [
-            (tx_geo_df["x_location"].values.astype(int) - x_min),
-            (tx_geo_df["y_location"].values.astype(int) - y_min),
+            tx_geo_df["x_index"].values,
+            tx_geo_df["y_index"].values,
             (tx_geo_df["gene_id"].values.astype(int)),
         ]
     )
@@ -172,35 +204,7 @@ def create_rasterized_dataset(
         transcripts=transcripts_arr,
         bbox=np.array([x_min, y_min, x_max, y_max]),
         n_genes=n_genes,
-        resolution=1.0,
-    )
-
-    return ds
-
-
-def create_nuc2seg_dataset(
-    rasterized_dataset: RasterizedDataset,
-    cell_type_probs: np.array,
-):
-    n_classes = cell_type_probs.shape[1]
-
-    # Assign hard labels to nuclei
-    cell_type_labels = np.argmax(cell_type_probs, axis=1) + 1
-    pixel_types = np.copy(rasterized_dataset.labels)
-    nuclei_mask = rasterized_dataset.labels > 0
-    pixel_types[nuclei_mask] = cell_type_labels[
-        rasterized_dataset.labels[nuclei_mask] - 1
-    ]
-
-    ds = Nuc2SegDataset(
-        labels=rasterized_dataset.labels,
-        angles=rasterized_dataset.angles,
-        classes=pixel_types,
-        transcripts=rasterized_dataset.transcripts,
-        bbox=rasterized_dataset.bbox,
-        n_classes=n_classes,
-        n_genes=rasterized_dataset.n_genes,
-        resolution=rasterized_dataset.resolution,
+        resolution=resolution,
     )
 
     return ds

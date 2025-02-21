@@ -3,9 +3,9 @@ import shutil
 import tempfile
 
 import numpy as np
-import pytest
 from blended_tiling import TilingModule
 
+from nuc2seg.conftest import test_dataset
 from nuc2seg.data import (
     Nuc2SegDataset,
     TiledDataset,
@@ -14,20 +14,6 @@ from nuc2seg.data import (
     ModelPredictions,
 )
 from nuc2seg.utils import generate_tiles, get_indexed_tiles
-
-
-@pytest.fixture(scope="package")
-def test_dataset():
-    return Nuc2SegDataset(
-        labels=np.ones((10, 20)),
-        angles=np.ones((10, 20)),
-        classes=np.ones((10, 20)),
-        transcripts=np.array([[0, 0, 0], [5, 5, 1], [10, 10, 2]]),
-        bbox=np.array([100, 100, 110, 120]),
-        n_classes=3,
-        n_genes=3,
-        resolution=1,
-    )
 
 
 def test_Nuc2SegDataset():
@@ -77,7 +63,7 @@ def test_Nuc2SegDataset_load_tile():
         angles=np.ones((10, 10)),
         classes=np.ones((10, 10, 3)),
         transcripts=np.array([[0, 0, 0], [9, 9, 2]]),
-        bbox=np.array([100, 100, 110, 120]),
+        bbox=np.array([100, 100, 110, 110]),
         n_classes=3,
         n_genes=3,
         resolution=1,
@@ -105,11 +91,13 @@ def test_Nuc2SegDataset_load_tile():
         assert ds2.x_extent_pixels == 5
         assert ds2.y_extent_pixels == 5
         assert len(ds2.transcripts) == 1
+        np.testing.assert_almost_equal(ds2.bbox, np.array([100, 100, 105, 105]))
 
         assert ds3.x_extent_pixels == 5
         assert ds3.y_extent_pixels == 5
         assert len(ds3.transcripts) == 1
         assert tuple(ds3.transcripts[0]) == (4, 4, 2)
+        np.testing.assert_almost_equal(ds3.bbox, np.array([105, 105, 110, 110]))
     finally:
         shutil.rmtree(tmpdir)
 
@@ -133,28 +121,26 @@ def test_generate_tiles():
 
 def test_tiled_dataset(test_dataset):
     td = TiledDataset(
-        dataset=test_dataset, tile_height=10, tile_width=5, tile_overlap=0.25
+        dataset=test_dataset, tile_height=10, tile_width=10, tile_overlap=0.25
     )
 
     assert len(td) == 9
 
     first_tile = td[0]
 
-    assert first_tile["angles"].shape == (5, 10)
-    assert first_tile["labels"].shape == (5, 10)
-    assert first_tile["classes"].shape == (5, 10)
-    assert first_tile["location"].size == 2
-    assert first_tile["nucleus_mask"].shape == (5, 10)
+    assert first_tile["angles"].shape == (10, 10)
+    assert first_tile["labels"].shape == (10, 10)
+    assert first_tile["classes"].shape == (10, 10)
+    assert first_tile["nucleus_mask"].shape == (10, 10)
 
     assert td.per_tile_class_histograms.shape == (len(td), test_dataset.n_classes + 2)
 
     second_tile = td[1]
 
-    assert second_tile["angles"].shape == (5, 10)
-    assert second_tile["labels"].shape == (5, 10)
-    assert second_tile["classes"].shape == (5, 10)
-    assert second_tile["location"].size == 2
-    assert second_tile["nucleus_mask"].shape == (5, 10)
+    assert second_tile["angles"].shape == (10, 10)
+    assert second_tile["labels"].shape == (10, 10)
+    assert second_tile["classes"].shape == (10, 10)
+    assert second_tile["nucleus_mask"].shape == (10, 10)
 
 
 def test_celltype_results():
