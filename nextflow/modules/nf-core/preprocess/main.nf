@@ -30,6 +30,7 @@ process PREPROCESS {
         --adata ${adata} \
         --output ${prefix}/preprocessed.h5 \
         --celltyping-results ${cell_typing_results} \
+        --resolution ${params.resolution} \
         ${n_celltypes_arg} \
         ${sample_area_arg} \
         ${args}

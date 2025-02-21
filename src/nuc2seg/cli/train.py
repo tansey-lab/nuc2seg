@@ -147,7 +147,7 @@ def get_parser():
         "--val-check-interval",
         help="Check validation set after this many fractional epochs.",
         type=float,
-        default=0.25,
+        default=0.5,
     )
     parser.add_argument(
         "--foreground-loss-factor",
@@ -263,10 +263,7 @@ def main():
 
     # save checkpoints based on "val_loss" metric
     checkpoint_callback = ModelCheckpoint(
-        save_top_k=1,
-        monitor="loss",
-        mode="min",
-        every_n_train_steps=min(100, len(tiled_ds) - 1),
+        save_top_k=1, monitor="val_accuracy", mode="max"
     )
 
     # Init trainer

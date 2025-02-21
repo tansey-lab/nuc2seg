@@ -5,7 +5,6 @@ include { PLOT_PREDICTIONS } from '../../../modules/nf-core/plot_predictions/mai
 include { SEGMENT } from '../../../modules/nf-core/segment/main'
 include { CREATE_SPATIALDATA } from '../../../modules/nf-core/create_spatialdata/main'
 include { CELLTYPING } from '../../../modules/nf-core/celltyping/main'
-include { TILE_DATASET } from '../../../modules/nf-core/tile_dataset/main'
 include { TILE_XENIUM } from '../../../modules/nf-core/tile_xenium/main'
 include { GET_N_TILES } from '../../../modules/nf-core/get_n_tiles/main'
 include { COMBINE_SEGMENTATIONS } from '../../../modules/nf-core/combine_segmentations/main'

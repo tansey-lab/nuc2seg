@@ -637,11 +637,6 @@ def convert_segmentation_to_shapefile(
                 xoff=dataset.bbox[0],
                 yoff=dataset.bbox[1],
             )
-        poly = affinity.scale(
-            poly,
-            xfact=dataset.resolution,
-            yfact=dataset.resolution,
-        )
 
         record["geometry"] = poly
         gb_idx = groupby_idx_lookup[cell_id]
@@ -656,6 +651,13 @@ def convert_segmentation_to_shapefile(
         records.append(record)
 
     gdf = geopandas.GeoDataFrame(records, geometry="geometry")
+
+    if translate:
+        gdf["geometry"] = gdf.geometry.scale(
+            xfact=dataset.resolution,
+            yfact=dataset.resolution,
+            origin=(dataset.bbox[0], dataset.bbox[1]),
+        )
 
     gdf.reset_index(inplace=True, drop=True)
 

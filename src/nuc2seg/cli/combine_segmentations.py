@@ -97,6 +97,7 @@ def combine_segmentation_results(
     overlap: float,
     base_size: tuple[int, int],
     sample_area: Optional[Polygon] = None,
+    resolution: float = 1.0,
 ):
     h5_fns = {get_tile_idx(fn): fn for fn in h5_fns}
     anndata_fns = {get_tile_idx(fn): fn for fn in anndata_fns}
@@ -144,8 +145,8 @@ def combine_segmentation_results(
             {
                 "tile_idx": idx,
                 "geometry": shapely.Point(
-                    ((bbox[0] + bbox[2]) / 2) + x_offset,
-                    ((bbox[1] + bbox[3]) / 2) + y_offset,
+                    (((bbox[0] + bbox[2]) / 2) + x_offset),
+                    (((bbox[1] + bbox[3]) / 2) + y_offset),
                 ),
             }
         )
@@ -154,6 +155,13 @@ def combine_segmentation_results(
 
     centroid_gdf = gpd.GeoDataFrame(centroids, geometry="geometry")
 
+    centroid_gdf["geometry"] = centroid_gdf.geometry.scale(
+        xfact=resolution,
+        yfact=resolution,
+        origin=(
+            (sample_area.bounds[0], sample_area.bounds[1]) if sample_area else (0, 0)
+        ),
+    )
     current_n_segments = 0
 
     concatenated_anndata = None
@@ -233,6 +241,7 @@ def main():
         overlap=args.overlap_percentage,
         base_size=dataset.labels.shape,
         sample_area=sample_area,
+        resolution=dataset.resolution,
     )
 
     concatenated_anndata.write_h5ad(os.path.join(args.output_dir, "anndata.h5ad"))

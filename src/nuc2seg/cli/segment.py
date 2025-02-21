@@ -193,10 +193,10 @@ def main():
 
         if sample_area:
             slide_bbox = (
-                tile_bbox.bounds[0] + sample_area.bounds[0],
-                tile_bbox.bounds[1] + sample_area.bounds[1],
-                tile_bbox.bounds[2] + sample_area.bounds[0],
-                tile_bbox.bounds[3] + sample_area.bounds[1],
+                (tile_bbox.bounds[0] * dataset.resolution) + sample_area.bounds[0],
+                (tile_bbox.bounds[1] * dataset.resolution) + sample_area.bounds[1],
+                (tile_bbox.bounds[2] * dataset.resolution) + sample_area.bounds[0],
+                (tile_bbox.bounds[3] * dataset.resolution) + sample_area.bounds[1],
             )
         else:
             slide_bbox = tile_bbox.bounds
@@ -256,7 +256,6 @@ def main():
 
     logger.info(f"Saving segmentation to {args.output}")
     result.save_h5(args.output)
-
     gdf = convert_segmentation_to_shapefile(
         segmentation=result.segmentation,
         dataset=dataset,
@@ -269,8 +268,14 @@ def main():
         return
 
     gdf["geometry"] = gdf.translate(*slide_bbox[:2])
+    gdf["geometry"] = gdf.geometry.scale(
+        xfact=dataset.resolution,
+        yfact=dataset.resolution,
+        origin=(slide_bbox[0], slide_bbox[1]),
+    )
 
     logger.info("Creating anndata")
+
     ad = convert_transcripts_to_anndata(
         transcript_gdf=transcripts, segmentation_gdf=gdf
     )

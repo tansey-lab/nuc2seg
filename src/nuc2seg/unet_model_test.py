@@ -140,6 +140,7 @@ def test_training_step():
 
     classes = torch.zeros((1, 10, 10))
     classes[0, 4:7, 4:7] = 3
+    classes[0, 4, 4] = 0
 
     labels_mask = (labels > -1).bool()
     nucleus_mask = (labels > 0).bool()

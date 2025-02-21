@@ -309,7 +309,7 @@ class Nuc2SegDataset:
                 n_classes = f.attrs["n_classes"]
                 n_genes = f.attrs["n_genes"]
                 resolution = f.attrs["resolution"]
-                bbox = f["bbox"][:]
+                original_bbox = f["bbox"][:]
                 transcripts = f["transcripts"][:]
                 transcript_selector = (
                     (transcripts[:, 0] >= x1)
@@ -319,10 +319,10 @@ class Nuc2SegDataset:
                 )
                 new_bbox = np.array(
                     [
-                        bbox[0] + x1,
-                        bbox[1] + y1,
-                        bbox[0] + x2,
-                        bbox[1] + y2,
+                        original_bbox[0] + x1,
+                        original_bbox[1] + y1,
+                        original_bbox[0] + x2,
+                        original_bbox[1] + y2,
                     ]
                 )
 

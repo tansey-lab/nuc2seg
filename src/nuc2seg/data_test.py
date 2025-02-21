@@ -63,7 +63,7 @@ def test_Nuc2SegDataset_load_tile():
         angles=np.ones((10, 10)),
         classes=np.ones((10, 10, 3)),
         transcripts=np.array([[0, 0, 0], [9, 9, 2]]),
-        bbox=np.array([100, 100, 110, 120]),
+        bbox=np.array([100, 100, 110, 110]),
         n_classes=3,
         n_genes=3,
         resolution=1,
@@ -91,11 +91,13 @@ def test_Nuc2SegDataset_load_tile():
         assert ds2.x_extent_pixels == 5
         assert ds2.y_extent_pixels == 5
         assert len(ds2.transcripts) == 1
+        np.testing.assert_almost_equal(ds2.bbox, np.array([100, 100, 105, 105]))
 
         assert ds3.x_extent_pixels == 5
         assert ds3.y_extent_pixels == 5
         assert len(ds3.transcripts) == 1
         assert tuple(ds3.transcripts[0]) == (4, 4, 2)
+        np.testing.assert_almost_equal(ds3.bbox, np.array([105, 105, 110, 110]))
     finally:
         shutil.rmtree(tmpdir)
 

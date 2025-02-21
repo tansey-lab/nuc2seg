@@ -211,9 +211,12 @@ def training_step(
             angles_pred[nucleus_mask], angles[nucleus_mask]
         ).mean()
 
+        celltype_labeled_nucleus_mask = nucleus_mask & (classes > 0)
+
         # Add the cross-entropy loss on the cell type prediction for nucleus pixels
         celltype_loss = celltype_criterion(
-            class_pred[nucleus_mask], classes[nucleus_mask] - 1
+            class_pred[celltype_labeled_nucleus_mask],
+            classes[celltype_labeled_nucleus_mask] - 1,
         )
 
         return foreground_loss, unlabeled_foreground_loss, angle_loss_val, celltype_loss
