@@ -69,7 +69,7 @@ def get_parser():
         "--max-plots",
         help="Number of plots to make",
         type=int,
-        default=100,
+        default=10,
     )
     return parser
 

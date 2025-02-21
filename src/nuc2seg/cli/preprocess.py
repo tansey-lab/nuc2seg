@@ -111,6 +111,13 @@ def get_parser():
         type=int,
         help="Force using this number of celltypes, otherwise pick via BIC.",
     )
+    parser.add_argument(
+        "--min-celltyping-transcripts",
+        help="Threshold for determining whether a cell can be labeled with a celltype, "
+        "cells with less than this many transcripts will be more likely to remain unlabeled.",
+        type=int,
+        default=10,
+    )
 
     return parser
 
@@ -172,6 +179,7 @@ def main():
         prior_probs=celltyping_results.prior_probs[best_k],
         expression_profiles=celltyping_results.expression_profiles[best_k],
         ad=adata,
+        min_transcripts=args.min_celltyping_transcripts,
     )
     cell_type_labels = np.argmax(celltype_predictions, axis=1) + 1
     nucleus_centroids = adata.obsm["spatial"]

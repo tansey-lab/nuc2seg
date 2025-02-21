@@ -53,7 +53,7 @@ workflow NUC2SEG {
 
     if (params.weights == null && params.dataset == null && params.resume_weights == null) {
 
-        CREATE_NUCLEAR_ANNDATA( ch_input )
+        CREATE_NUCLEAR_ANNDATA( ch_input.map { tuple(it[0], it[1])} )
 
         if (params.celltyping_results == null) {
             ch_input.flatMap { create_parallel_sequence_with_file(it[0], it[1], it[2]) }

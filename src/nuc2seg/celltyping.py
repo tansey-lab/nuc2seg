@@ -457,7 +457,7 @@ def predict_celltypes_for_anndata_with_noise_type(
     if len(ad) == 0:
         return None
 
-    proportion_noise = (np.array(ad.X.sum(axis=0)).squeeze() < min_transcripts).mean()
+    proportion_noise = (np.array(ad.X.sum(axis=1)).squeeze() < min_transcripts).mean()
 
     adjusted_prior_probs = np.concatenate(
         [

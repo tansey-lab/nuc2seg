@@ -70,16 +70,16 @@ def get_parser():
         default=2,
     )
     parser.add_argument(
-        "--min-n-transcripts",
-        help="Filter cells with less than this many transcripts from the training subset.",
-        type=int,
-        default=30,
-    )
-    parser.add_argument(
         "--max-cells",
         help="Maximum number of cells to sample from data for celltype estimation.",
         type=int,
         default=20_000,
+    )
+    parser.add_argument(
+        "--transcript-count-percentile",
+        help="Only use cells above this percentile of total transcript count for model fitting",
+        type=int,
+        default=25,
     )
     return parser
 
@@ -113,7 +113,10 @@ def main():
     if sample_area:
         adata = filter_anndata_to_sample_area(adata, sample_area)
 
-    adata = filter_anndata_to_min_transcripts(adata, args.min_n_transcripts)
+    total_per_cell = np.array(adata.X.sum(axis=1)).squeeze()
+    cutoff = np.floor(np.percentile(total_per_cell, 25))
+
+    adata = filter_anndata_to_min_transcripts(adata, min_transcripts=cutoff)
 
     adata = subset_anndata(adata, args.max_cells, rng=rng)
 
