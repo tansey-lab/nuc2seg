@@ -57,13 +57,13 @@ workflow NUC2SEG {
 
         if (params.celltyping_results == null) {
             ch_input.flatMap { create_parallel_sequence_with_file(it[0], it[1], it[2]) }
-                .join(CREATE_NUCLEAR_ANNDATA.out.adata)
+                .combine(CREATE_NUCLEAR_ANNDATA.out.adata, by: 0)
                 .tap { cell_typing_input }
 
             CELLTYPING( cell_typing_input )
             CELLTYPING.out.cell_typing_results.groupTuple().tap { celltyping_results }
             ch_input.map { tuple(it[0], it[1]) }.join(celltyping_results)
-                .join(CREATE_NUCLEAR_ANNDATA.out.adata)
+                .combine(CREATE_NUCLEAR_ANNDATA.out.adata, by: 0)
                 .tap { preprocess_input }
         } else {
             preprocess_input = Channel.fromList(
@@ -74,7 +74,7 @@ workflow NUC2SEG {
                         file(params.celltyping_results, checkIfExists: true)
                     )
                 ]
-            ).join(CREATE_NUCLEAR_ANNDATA.out.adata)
+            ).combine(CREATE_NUCLEAR_ANNDATA.out.adata, by: 0)
         }
 
         PREPROCESS ( preprocess_input )
