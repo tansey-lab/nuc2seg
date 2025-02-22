@@ -223,6 +223,7 @@ def main():
             sharey=True,
         )
         plt.close()
+    logger.info("Finished plotting rank_genes_groups_plot")
 
     rasterized_dataset = create_rasterized_dataset(
         prior_segmentation_gdf=nuclei_geo_df,
