@@ -187,44 +187,6 @@ def main():
     nucleus_celltype_geodf = geopandas.GeoDataFrame(geometry=points)
     nucleus_celltype_geodf["celltype"] = cell_type_labels
 
-    logger.info("Plotting celltype estimation results")
-
-    plot_celltype_estimation_results(
-        aic_scores,
-        bic_scores,
-        celltyping_results.expression_profiles,
-        celltyping_results.prior_probs,
-        celltyping_results.relative_expression,
-        celltyping_results.n_component_values,
-        os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
-    )
-
-    logger.info("Plotting rank_genes_groups_plot")
-    for k in celltyping_results.n_component_values:
-        rank_genes_groups_plot(
-            celltyping_results=celltyping_results,
-            k=k,
-            output_path=os.path.join(
-                os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
-                f"rank_genes_groups_k={k}.pdf",
-            ),
-            n_genes=10,
-            sharey=False,
-        )
-        plt.close()
-        rank_genes_groups_plot(
-            celltyping_results=celltyping_results,
-            k=k,
-            output_path=os.path.join(
-                os.path.join(os.path.dirname(args.output), "cell_typing_plots"),
-                f"rank_genes_groups_sharey_k={k}.pdf",
-            ),
-            n_genes=10,
-            sharey=True,
-        )
-        plt.close()
-    logger.info("Finished plotting rank_genes_groups_plot")
-
     rasterized_dataset = create_rasterized_dataset(
         prior_segmentation_gdf=nuclei_geo_df,
         tx_geo_df=tx_geo_df,

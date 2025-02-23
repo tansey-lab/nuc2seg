@@ -280,7 +280,6 @@ def main():
         logger=wandb_logger,
         val_check_interval=args.val_check_interval,
         callbacks=[checkpoint_callback],
-        log_every_n_steps=min(50, len(tiled_ds) - 1),
     )
 
     # Fit model
