@@ -3,6 +3,7 @@ from nuc2seg.utils import (
     filter_anndata_to_sample_area,
     filter_anndata_to_min_transcripts,
     subset_anndata,
+    transform_shapefile_to_rasterized_space,
 )
 
 
@@ -23,3 +24,11 @@ def test_subset_anndata(test_adata):
 
     filtered = subset_anndata(test_adata, 100)
     assert len(filtered) == 2
+
+
+def test_transform_shapefile_to_rasterized_space(test_nuclei_df):
+    result = transform_shapefile_to_rasterized_space(
+        gdf=test_nuclei_df, sample_area=(5, 5, 20, 20), resolution=0.5
+    )
+    assert len(result) == 1
+    assert result.geometry.tolist()[0].area == 4.0

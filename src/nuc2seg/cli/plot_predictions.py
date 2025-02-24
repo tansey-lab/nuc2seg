@@ -2,18 +2,15 @@ import argparse
 import logging
 import os.path
 
-import numpy as np
-import tqdm
+import geopandas
 
 from nuc2seg import log_config
 from nuc2seg.data import (
     Nuc2SegDataset,
-    TiledDataset,
     ModelPredictions,
-    SegmentationResults,
 )
+from nuc2seg.utils import create_shapely_rectangle
 from nuc2seg.plotting import plot_model_predictions
-from nuc2seg.utils import generate_tiles
 
 logger = logging.getLogger(__name__)
 
@@ -30,34 +27,22 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--dataset",
-        help="Path to dataset in h5 format.",
+        "--prior-segmentation",
+        help="Prior segmentation in geoparquet.",
         type=str,
         required=True,
     )
     parser.add_argument(
         "--segmentation",
-        help="Segmentation output in h5 format.",
+        help="Segmentation in geoparquet.",
         type=str,
         required=True,
     )
     parser.add_argument(
-        "--tile-height",
-        help="Height of the tiles.",
-        type=int,
-        default=64,
-    )
-    parser.add_argument(
-        "--tile-width",
-        help="Width of the tiles.",
-        type=int,
-        default=64,
-    )
-    parser.add_argument(
-        "--overlap-percentage",
-        help="What percent of each tile dimension overlaps with the next tile.",
-        type=float,
-        default=0.25,
+        "--dataset",
+        help="Preprocessed dataset in h5 format.",
+        type=str,
+        required=True,
     )
     parser.add_argument(
         "--output-dir",
@@ -66,10 +51,10 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
-        "--max-plots",
-        help="Number of plots to make",
-        type=int,
-        default=10,
+        "--sample-area",
+        default=None,
+        type=str,
+        help='Crop the dataset to this rectangle, provided in in "x1,y1,x2,y2" format.',
     )
     return parser
 
@@ -85,49 +70,36 @@ def get_args():
 def main():
     args = get_args()
 
+    if args.sample_area:
+        sample_area = create_shapely_rectangle(
+            *[float(x) for x in args.sample_area.split(",")]
+        )
+    else:
+        sample_area = None
+
     log_config.configure_logging(args)
 
-    logger.info(f"Loading dataset from {args.dataset}")
-
-    ds = Nuc2SegDataset.load_h5(args.dataset)
-
-    tiled_dataset = TiledDataset(
-        ds,
-        tile_height=args.tile_height,
-        tile_width=args.tile_width,
-        tile_overlap=args.overlap_percentage,
-    )
+    logger.info(f"Loading model predictions from {args.predictions}")
     predictions = ModelPredictions.load_h5(args.predictions)
 
-    tile_generator = generate_tiles(
-        tiler=tiled_dataset.tiler,
-        x_extent=ds.x_extent_pixels,
-        y_extent=ds.y_extent_pixels,
-        tile_size=(args.tile_width, args.tile_height),
-        overlap_fraction=args.overlap_percentage,
-    )
+    logger.info(f"Loading prior segmentation from {args.prior_segmentation}")
+    prior_segmentation = geopandas.read_parquet(args.prior_segmentation)
 
-    segmentation = SegmentationResults.load_h5(args.segmentation)
+    logger.info(f"Loading segmentation from {args.segmentation}")
+    segmentation = geopandas.read_parquet(args.segmentation)
+
+    logger.info(f"Loading dataset from {args.dataset}")
+    dataset = Nuc2SegDataset.load_h5(args.dataset)
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    plots = 0
-
-    for bbox in tqdm.tqdm(tile_generator, total=len(tiled_dataset), unit="plot"):
-        if plots >= args.max_plots:
-            break
-
-        if np.count_nonzero(ds.labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]) == 0:
-            continue
-
-        plot_model_predictions(
-            segmentation=segmentation,
-            dataset=ds,
-            model_predictions=predictions,
-            bbox=bbox,
-            output_path=os.path.join(
-                args.output_dir, "_".join([str(x) for x in bbox]) + ".pdf"
-            ),
-        )
-
-        plots += 1
+    plot_model_predictions(
+        model_predictions=predictions,
+        dataset=dataset,
+        prior_segmentation_gdf=prior_segmentation,
+        segmentation_gdf=segmentation,
+        bbox=sample_area,
+        output_path=os.path.join(
+            args.output_dir, "_".join([str(x) for x in sample_area.bounds]) + ".pdf"
+        ),
+    )

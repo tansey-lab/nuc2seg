@@ -10,6 +10,7 @@ process CREATE_NUCLEAR_ANNDATA {
 
     output:
     tuple val(meta), path("${prefix}/nucleus_anndata.h5ad"), emit: adata
+    tuple val(meta), path("${prefix}/nucleus_segments.parquet"), emit: shapes
     path  "versions.yml", emit: versions
 
     when:
@@ -25,6 +26,7 @@ process CREATE_NUCLEAR_ANNDATA {
         --vertex-file ${xenium_dir}/nucleus_boundaries.parquet \
         --transcripts-file ${xenium_dir}/transcripts.parquet \
         --output ${prefix}/nucleus_anndata.h5ad \
+        --prior-segments-output ${prefix}/nucleus_segments.parquet \
         ${sample_area_arg} \
         ${args}
 

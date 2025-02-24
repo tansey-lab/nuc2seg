@@ -20,7 +20,7 @@ def test_Nuc2SegDataset():
     ds = Nuc2SegDataset(
         labels=np.ones((10, 20)),
         angles=np.ones((10, 20)),
-        classes=np.ones((10, 20, 3)),
+        classes=np.ones((10, 20)),
         transcripts=np.array([[0, 0, 0], [5, 5, 1], [10, 10, 2]]),
         bbox=np.array([100, 100, 110, 120]),
         n_classes=3,
@@ -61,7 +61,7 @@ def test_Nuc2SegDataset_load_tile():
     ds = Nuc2SegDataset(
         labels=np.ones((10, 10)),
         angles=np.ones((10, 10)),
-        classes=np.ones((10, 10, 3)),
+        classes=np.ones((10, 10)),
         transcripts=np.array([[0, 0, 0], [9, 9, 2]]),
         bbox=np.array([100, 100, 110, 110]),
         n_classes=3,

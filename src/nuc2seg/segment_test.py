@@ -170,7 +170,7 @@ def test_greedy_cell_segmentation_early_stop():
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
         angles=angles,
-        classes=np.ones((64, 64, 3)).astype(float),
+        classes=np.ones((64, 64)),
         transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
         bbox=np.array([0, 0, 64, 64]),
         n_classes=3,
@@ -216,7 +216,7 @@ def test_ray_tracing_segmentation_early_stop():
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
         angles=angles,
-        classes=np.ones((64, 50, 3)).astype(float),
+        classes=np.ones((64, 50)),
         transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
         bbox=np.array([0, 0, 64, 50]),
         n_classes=3,
@@ -375,7 +375,7 @@ def test_convert_segmentation_to_shapefile():
     dataset = Nuc2SegDataset(
         labels=np.zeros((64, 100)),
         angles=np.zeros((64, 100)),
-        classes=np.zeros((64, 100, 4)),
+        classes=np.zeros((64, 100)),
         transcripts=np.array([[0, 0, 0], [32, 32, 1], [35, 35, 2], [22, 22, 2]]),
         bbox=np.array([0, 0, 64, 100]),
         n_classes=3,

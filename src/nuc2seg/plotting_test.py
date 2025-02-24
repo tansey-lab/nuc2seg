@@ -1,11 +1,13 @@
 import os.path
 import shutil
 import tempfile
+import geopandas
+import shapely
 
 import numpy as np
 
 from nuc2seg.celltyping import fit_celltype_em_model
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions, SegmentationResults
+from nuc2seg.data import Nuc2SegDataset, ModelPredictions
 from nuc2seg.plotting import (
     plot_model_predictions,
     plot_celltype_estimation_results,
@@ -33,7 +35,7 @@ def test_plot_model_predictions():
     ds = Nuc2SegDataset(
         labels=labels,
         angles=angles,
-        classes=np.ones((10, 20)),
+        classes=np.ones((64, 64)),
         transcripts=np.array([[0, 0, 0], [32, 32, 1], [35, 35, 2], [22, 22, 2]]),
         bbox=np.array([0, 0, 64, 64]),
         n_classes=3,
@@ -43,27 +45,30 @@ def test_plot_model_predictions():
 
     predictions = ModelPredictions(
         angles=angles,
-        classes=np.ones((10, 20)),
+        classes=np.ones((64, 64, 3)),
         foreground=np.random.random((64, 64)),
     )
 
-    segmentation_arr = labels.copy()
+    prior_segmentation_gdf = geopandas.GeoDataFrame(
+        {"segment_id": [1], "geometry": [shapely.box(26, 22, 38, 42)]}
+    )
 
-    segmentation_arr[30:39, 20:43] = 10
+    segmentation_gdf = geopandas.GeoDataFrame(
+        {"segment_id": [1], "geometry": [shapely.box(22, 10, 42, 50)]}
+    )
 
-    segmentation = SegmentationResults(segmentation=segmentation_arr)
-
-    output_path = "test.png"
+    output_path = "test.pdf"
 
     tmpdir = tempfile.mkdtemp()
 
     try:
         plot_model_predictions(
-            segmentation=segmentation,
+            prior_segmentation_gdf=prior_segmentation_gdf,
+            segmentation_gdf=segmentation_gdf,
             dataset=ds,
             model_predictions=predictions,
             output_path=os.path.join(tmpdir, output_path),
-            bbox=[1, 1, 63, 63],
+            bbox=shapely.box(1, 5, 63, 63),
         )
     finally:
         shutil.rmtree(tmpdir)
@@ -161,7 +166,7 @@ def test_plot_greedy_cell_segmentation():
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
         angles=angles,
-        classes=np.ones((64, 64, 3)).astype(float),
+        classes=np.ones((64, 64)).astype(float),
         transcripts=np.array([[30, 11, 1], [30, 13, 0], [30, 20, 0], [30, 21, 0]]),
         bbox=np.array([0, 0, 64, 64]),
         n_classes=3,

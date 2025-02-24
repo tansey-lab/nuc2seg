@@ -1,10 +1,12 @@
 import json
 import os.path
+from typing import Optional
 
 import geopandas
 import numpy as np
 import pandas
 import seaborn as sns
+import shapely
 import tqdm
 from bokeh.io import output_file, save
 from bokeh.layouts import column, row
@@ -30,11 +32,14 @@ from shapely import box
 from nuc2seg.data import (
     Nuc2SegDataset,
     ModelPredictions,
-    SegmentationResults,
     CelltypingResults,
 )
 from nuc2seg.preprocessing import pol2cart
 from nuc2seg.segment import greedy_cell_segmentation
+from nuc2seg.utils import (
+    transform_shapefile_to_rasterized_space,
+    bbox_geometry_to_rasterized_slice,
+)
 
 
 def plot_tiling(bboxes, output_path):
@@ -127,61 +132,33 @@ def plot_angles_quiver(
     ax,
     dataset: Nuc2SegDataset,
     predictions: ModelPredictions,
-    segmentation: SegmentationResults,
     bbox=None,
 ):
     angles = predictions.angles
     labels = dataset.labels
-    segmentation = segmentation.segmentation.copy().astype(float)
 
     if bbox is not None:
         angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
         labels = labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-        segmentation = segmentation[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-        segmentation[segmentation == 0] = np.nan
-        segmentation[segmentation == -1] = np.nan
         nuclei = labels > 0
         mask = labels == -1
     else:
-        segmentation[segmentation == 0] = np.nan
-        segmentation[segmentation == -1] = np.nan
         nuclei = labels > 0
         mask = labels == -1
 
     nuclei = nuclei.T
-    segmentation = segmentation.T
 
     imshow_data = np.zeros((nuclei.shape[0], nuclei.shape[1], 4)).astype(float)
-
-    unique_segments = np.unique(segmentation)
-    # filter nan from array
-    unique_segments = unique_segments[~np.isnan(unique_segments)]
-    n_unique_segments = unique_segments.shape[0]
-
-    palette = sns.color_palette("tab10")
 
     for i in range(mask.T.shape[0]):
         for j in range(mask.T.shape[1]):
             if not mask.T[i, j]:
                 imshow_data[i, j, :] = np.array([0.45, 0.57, 0.70, 0.5]).astype(float)
 
-    for i in range(segmentation.shape[0]):
-        for j in range(segmentation.shape[1]):
-            if not np.isnan(segmentation[i, j]):
-                color_idx = np.where(unique_segments == segmentation[i, j])[0][0]
-                imshow_data[i, j, :] = np.concatenate(
-                    [palette[color_idx % len(palette)], [0.9]]
-                )
-
-    for i in range(nuclei.shape[0]):
-        for j in range(nuclei.shape[1]):
-            if nuclei[i, j]:
-                imshow_data[i, j, :] = np.array([0, 0, 0, 1]).astype(float)
-
     ax.imshow(imshow_data)
 
-    for xi in range(nuclei.shape[0]):
-        for yi in range(nuclei.shape[1]):
+    for xi in range(nuclei.shape[1]):
+        for yi in range(nuclei.shape[0]):
             if mask[xi, yi]:
                 dx, dy = pol2cart(0.5, angles[xi, yi])
                 ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07)
@@ -212,21 +189,6 @@ def plot_angles_quiver(
         )
     )
 
-    for idx, v in enumerate(unique_segments):
-        color_idx = np.where(unique_segments == v)[0][0]
-        color = palette[color_idx % len(palette)]
-        legend_handles.append(
-            plt.Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor=color,
-                markersize=10,
-                label=f"Segment {idx}",
-            )
-        )
-
     ax.legend(
         handles=legend_handles,
         loc="center left",
@@ -253,11 +215,12 @@ def update_projection(ax_dict, ax_key, projection="3d", fig=None):
 
 
 def plot_model_predictions(
-    segmentation: SegmentationResults,
     dataset: Nuc2SegDataset,
+    prior_segmentation_gdf: geopandas.GeoDataFrame,
+    segmentation_gdf: geopandas.GeoDataFrame,
     model_predictions: ModelPredictions,
-    output_path=None,
-    bbox=None,
+    output_path: str,
+    bbox: shapely.Polygon,
 ):
     layout = """
     A
@@ -265,18 +228,45 @@ def plot_model_predictions(
     C
     """
 
-    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 10))
-    plot_angles_quiver(
-        ax=ax["B"],
-        dataset=dataset,
-        predictions=model_predictions,
-        segmentation=segmentation,
-        bbox=bbox,
+    x1, y1, x2, y2 = bbox_geometry_to_rasterized_slice(
+        bbox=bbox, resolution=dataset.resolution, sample_area=dataset.bbox
     )
 
-    plot_labels(ax["A"], dataset, bbox=bbox)
-    plot_foreground(ax["C"], model_predictions, bbox=bbox)
+    prior_segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=prior_segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+    segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
 
+    model_predictions = model_predictions.clip((x1, y1, x2, y2))
+    dataset = dataset.clip((x1, y1, x2, y2))
+
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(30, 10))
+    plot_angles_quiver(
+        ax=ax["B"],
+        predictions=model_predictions,
+        bbox=None,
+        dataset=dataset,
+    )
+
+    plot_monocolored_seg_outlines(
+        ax=ax["B"],
+        gdf=prior_segmentation_transformed,
+    )
+
+    plot_monocolored_seg_outlines(
+        ax=ax["B"],
+        gdf=segmentation_transformed,
+    )
+
+    plot_labels(ax["A"], dataset, bbox=None)
+    plot_foreground(ax["C"], model_predictions, bbox=None)
+    plot_monocolored_seg_outlines(ax=ax["C"], gdf=segmentation_gdf)
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
@@ -290,6 +280,21 @@ def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
 
     fig.savefig(output_path)
     plt.close(fig)
+
+
+def plot_multicolored_seg_outlines(
+    ax,
+    gdf: geopandas.GeoDataFrame,
+):
+    edge_colors = [cm.tab10(i % 10) for i in range(len(gdf))]
+    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=edge_colors, linewidth=0.5)
+
+
+def plot_monocolored_seg_outlines(
+    ax,
+    gdf: geopandas.GeoDataFrame,
+):
+    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor="black", linewidth=1.0)
 
 
 def plot_segmentation_comparison(

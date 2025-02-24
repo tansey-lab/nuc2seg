@@ -35,6 +35,12 @@ def get_args():
         required=True,
     )
     parser.add_argument(
+        "--prior-segments-output",
+        help="Output geoparquet file",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
         "--sample-area",
         default=None,
         type=str,
@@ -60,6 +66,8 @@ def main():
     segments = load_vertex_file(args.vertex_file, sample_area=sample_area)
 
     logger.info(f"Read {len(transcripts)} transcripts and {len(segments)} segments")
+
+    segments.to_parquet(args.prior_segments_output)
 
     segments_chunk_size = args.chunk_size
 

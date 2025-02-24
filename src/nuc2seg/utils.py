@@ -1,6 +1,8 @@
+import math
 import os
 import re
 import logging
+from typing import Optional
 
 import anndata
 import geopandas
@@ -9,6 +11,7 @@ import shapely
 from blended_tiling import TilingModule
 from shapely import box, Polygon
 from shapely.geometry import box
+from shapely.affinity import translate, scale
 import torch
 
 logger = logging.getLogger(__name__)
@@ -286,3 +289,39 @@ def subset_anndata(adata: anndata.AnnData, n_cells: int, rng=None):
     n_cells = min(n_cells, len(adata))
     selection = rng.choice(len(adata), n_cells, replace=False)
     return adata[selection, :]
+
+
+def transform_shapefile_to_rasterized_space(
+    gdf: geopandas.GeoDataFrame,
+    resolution: float,
+    sample_area: Optional[tuple[float, float, float, float]] = None,
+):
+    clipped = gdf.clip(sample_area)
+    if sample_area is not None:
+        clipped["geometry"] = clipped.geometry.translate(
+            xoff=-sample_area[0], yoff=-sample_area[1]
+        )
+    clipped["geometry"] = clipped.geometry.scale(
+        xfact=1 / resolution, yfact=1 / resolution, origin=(0, 0)
+    )
+
+    # Do this to line up properly with imshow
+    clipped["geometry"] = clipped.geometry.translate(xoff=-0.5, yoff=-0.5)
+    return clipped
+
+
+def bbox_geometry_to_rasterized_slice(
+    bbox: shapely.Polygon,
+    resolution: float,
+    sample_area: Optional[tuple[float, float, float, float]] = None,
+) -> tuple[int, int, int, int]:
+    if sample_area is not None:
+        bbox = translate(bbox, xoff=-sample_area[0], yoff=-sample_area[1])
+    bbox = scale(bbox, xfact=1 / resolution, yfact=1 / resolution, origin=(0, 0))
+
+    return (
+        math.floor(bbox.bounds[0]),
+        math.floor(bbox.bounds[1]),
+        math.ceil(bbox.bounds[2]),
+        math.ceil(bbox.bounds[3]),
+    )
