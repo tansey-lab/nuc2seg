@@ -276,7 +276,7 @@ def fit_celltyping_on_adata(
     adata: anndata.AnnData,
     min_components: int = 2,
     max_components: int = 20,
-    rng: torch.Generator = None,
+    seed: int = 0,
     device="cpu",
 ):
     adata = adata[:, sorted(adata.var_names)]
@@ -291,7 +291,7 @@ def fit_celltyping_on_adata(
         gene_names=adata.var_names.tolist(),
         min_components=min_components,
         max_components=max_components,
-        rng=rng,
+        seed=seed,
         device=device,
     )
 

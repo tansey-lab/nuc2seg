@@ -117,6 +117,7 @@ def main():
     logger.info(f"Using device: {device}")
 
     seeds = np.random.SeedSequence(args.seed).spawn(args.n_chains)
+    seed = seeds[args.index]
     rng = np.random.default_rng(seeds[args.index])
 
     if args.sample_area:
@@ -143,7 +144,7 @@ def main():
         adata=adata,
         min_components=args.min_n_celltypes,
         max_components=args.max_n_celltypes,
-        rng=rng,
+        seed=seed,
         device=device,
     )
 
