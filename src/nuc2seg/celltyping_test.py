@@ -1,6 +1,7 @@
 import geopandas
 import numpy as np
 import pytest
+import torch
 from shapely import Polygon, Point, box
 from nuc2seg.constants import NOISE_CELLTYPE
 
@@ -15,20 +16,19 @@ from nuc2seg.celltyping import (
 
 
 def test_fit_celltype_em_model():
-    rng = np.random.default_rng(0)
     n_genes, n_cells = 10, 100
 
     gene_counts = np.random.poisson(10, size=(n_cells, n_genes))
 
     celltyping_results = fit_celltype_em_model(
-        gene_counts,
+        torch.tensor(gene_counts).int(),
         gene_names=[f"gene_{i}" for i in range(n_genes)],
         min_components=2,
         max_components=10,
         max_em_steps=3,
         tol=1e-4,
         warm_start=False,
-        rng=rng,
+        seed=42,
     )
 
     (
@@ -66,14 +66,14 @@ def test_estimate_cell_types2():
     data[:66, 8:] = rng.poisson(1, size=(66, 4))
 
     celltyping_results = fit_celltype_em_model(
-        data,
+        torch.tensor(data).int(),
         gene_names=[f"gene_{i}" for i in range(n_genes)],
         min_components=2,
         max_components=5,
         max_em_steps=10,
         tol=1e-4,
         warm_start=False,
-        rng=rng,
+        seed=42,
     )
 
     (

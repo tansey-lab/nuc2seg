@@ -1,7 +1,7 @@
 import argparse
 import logging
 import anndata
-
+import torch
 import numpy as np
 
 from nuc2seg import log_config
@@ -81,7 +81,24 @@ def get_parser():
         type=int,
         default=25,
     )
+    parser.add_argument(
+        "--device",
+        help="Device to use for training.",
+        type=str,
+        default="auto",
+        choices=["cpu", "gpu", "tpu", "ipu", "mps", "auto"],
+    )
     return parser
+
+
+def get_device(device: str):
+    if device == "auto":
+        if torch.cuda.is_available():
+            return "gpu"
+        else:
+            return "cpu"
+    else:
+        return device
 
 
 def get_args():
@@ -94,8 +111,10 @@ def get_args():
 
 def main():
     args = get_args()
-
     log_config.configure_logging(args)
+
+    device = get_device(args.device)
+    logger.info(f"Using device: {device}")
 
     seeds = np.random.SeedSequence(args.seed).spawn(args.n_chains)
     rng = np.random.default_rng(seeds[args.index])
@@ -125,6 +144,7 @@ def main():
         min_components=args.min_n_celltypes,
         max_components=args.max_n_celltypes,
         rng=rng,
+        device=device,
     )
 
     celltype_results.save_h5(args.output)
