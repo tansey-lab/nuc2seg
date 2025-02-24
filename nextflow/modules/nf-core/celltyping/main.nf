@@ -1,6 +1,7 @@
 process CELLTYPING {
     tag "$meta.id"
     label 'process_high_memory'
+    label 'gpu'
     container "${ workflow.containerEngine == 'apptainer' && !task.ext.singularity_pull_docker_container ?
         ('docker://jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) :
         ('docker.io/jeffquinnmsk/nuc2seg:' + params.nuc2seg_version) }"

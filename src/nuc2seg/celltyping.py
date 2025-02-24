@@ -2,12 +2,13 @@ import anndata
 import geopandas
 import numpy as np
 import tqdm
+import torch
 from kneed import KneeLocator
 from scipy.special import logsumexp
-from scipy.special import softmax
 from scipy.sparse import issparse
 from nuc2seg.data import CelltypingResults
 from nuc2seg.xenium import logger
+from torch import distributions as dist
 
 
 def aic_bic(gene_counts, expression_profiles, prior_probs):
@@ -16,10 +17,10 @@ def aic_bic(gene_counts, expression_profiles, prior_probs):
     n_samples = gene_counts.shape[0]
 
     dof = n_components * (n_genes - 1) + n_components - 1
-    log_likelihood = logsumexp(
-        np.log(prior_probs[None])
-        + (gene_counts[:, None] * np.log(expression_profiles[None])).sum(axis=2),
-        axis=1,
+    log_likelihood = torch.logsumexp(
+        torch.log(prior_probs[None])
+        + (gene_counts[:, None] * torch.log(expression_profiles[None])).sum(dim=2),
+        dim=1,
     ).sum()
     aic = -2 * log_likelihood + 2 * dof
     bic = -2 * log_likelihood + dof * np.log(n_samples)
@@ -40,10 +41,10 @@ def estimate_cell_types(
     :param gene_counts: The gene counts for each cell, shape (n_cells, n_genes)
     :return: Array of probabilities for each cell type, shape(n_cell, n_cell_types)
     """
-    logits = np.log(prior_probs[None]) + (
-        gene_counts[:, None] * np.log(expression_profiles[None])
-    ).sum(axis=2)
-    return softmax(logits, axis=1)
+    logits = torch.log(prior_probs[None]) + (
+        gene_counts[:, None] * torch.log(expression_profiles[None])
+    ).sum(dim=2)
+    return torch.softmax(logits, dim=1)
 
 
 def fit_celltype_em_model(
@@ -54,130 +55,143 @@ def fit_celltype_em_model(
     max_em_steps=100,
     tol=1e-4,
     warm_start=False,
-    rng: np.random.Generator = None,
+    seed=None,
+    device: str = "cpu",
 ):
-    if rng is None:
-        rng = np.random.default_rng()
+    with torch.device(device):
+        if seed is not None:
+            torch.manual_seed(seed)
 
-    n_nuclei, n_genes = gene_counts.shape
+        n_nuclei, n_genes = gene_counts.shape
 
-    # Randomly initialize cell type profiles
-    cur_expression_profiles = rng.dirichlet(np.ones(n_genes), size=min_components)
+        unif = dist.Uniform(0, 1)
+        # Randomly initialize cell type profiles
+        dirichlet = dist.Dirichlet(torch.ones(n_genes))
+        cur_expression_profiles = dirichlet.sample((min_components,))
 
-    # Initialize probabilities to be uniform
-    cur_prior_probs = np.ones(min_components) / min_components
+        # Initialize probabilities to be uniform
+        cur_prior_probs = torch.ones(min_components) / min_components
 
-    # Track BIC and AIC scores
-    aic_scores = np.zeros(max_components - min_components + 1)
-    bic_scores = np.zeros(max_components - min_components + 1)
+        # Track BIC and AIC scores
+        aic_scores = torch.zeros(max_components - min_components + 1)
+        bic_scores = torch.zeros(max_components - min_components + 1)
 
-    # Iterate through every possible number of components
-    (
-        final_expression_profiles,
-        final_prior_probs,
-        final_cell_types,
-        final_expression_rates,
-    ) = ([], [], [], [])
-    prev_expression_profiles = np.zeros_like(cur_expression_profiles)
-    for idx, n_components in enumerate(
-        tqdm.trange(
-            min_components, max_components + 1, desc="estimate_cell_types", position=0
-        )
-    ):
-
-        # Warm start from the previous iteration
-        if warm_start and n_components > min_components:
-            # Expand and copy over the current parameters
-            next_prior_probs = np.zeros(n_components)
-            next_expression_profiles = np.zeros((n_components, n_genes))
-            next_prior_probs[: n_components - 1] = cur_prior_probs
-            next_expression_profiles[: n_components - 1] = cur_expression_profiles
-
-            # Split the dominant cluster
-            dominant = np.argmax(cur_prior_probs)
-            split_prob = rng.random()
-            next_prior_probs[-1] = next_prior_probs[dominant] * split_prob
-            next_prior_probs[dominant] = next_prior_probs[dominant] * (1 - split_prob)
-            next_expression_profiles[-1] = cur_expression_profiles[
-                dominant
-            ] * split_prob + (1 - split_prob) * rng.dirichlet(np.ones(n_genes))
-
-            cur_prior_probs = next_prior_probs
-            cur_expression_profiles = next_expression_profiles
-
-            logger.debug("priors:", cur_prior_probs)
-            logger.debug("expression:", cur_expression_profiles)
-        else:
-            # Cold start from a random location
-            cur_expression_profiles = rng.dirichlet(np.ones(n_genes), size=n_components)
-            cur_prior_probs = np.ones(n_components) / n_components
-
-        converge = tol + 1
-        cur_cell_types = None
-        for step in tqdm.trange(
-            max_em_steps,
-            desc=f"EM for n_components {n_components}",
-            unit="step",
-            position=1,
+        # Iterate through every possible number of components
+        (
+            final_expression_profiles,
+            final_prior_probs,
+            final_cell_types,
+            final_expression_rates,
+        ) = ([], [], [], [])
+        prev_expression_profiles = np.zeros_like(cur_expression_profiles)
+        for idx, n_components in enumerate(
+            tqdm.trange(
+                min_components,
+                max_components + 1,
+                desc="estimate_cell_types",
+                position=0,
+            )
         ):
 
-            # E-step: estimate cell type assignments (posterior probabilities)
-            cur_cell_types = estimate_cell_types(
-                prior_probs=cur_prior_probs,
-                expression_profiles=cur_expression_profiles,
-                gene_counts=gene_counts,
+            # Warm start from the previous iteration
+            if warm_start and n_components > min_components:
+                # Expand and copy over the current parameters
+                next_prior_probs = torch.zeros(n_components)
+                next_expression_profiles = torch.zeros((n_components, n_genes))
+                next_prior_probs[: n_components - 1] = cur_prior_probs
+                next_expression_profiles[: n_components - 1] = cur_expression_profiles
+
+                # Split the dominant cluster
+                dominant = torch.argmax(cur_prior_probs)
+                split_prob = unif.sample().item()
+                next_prior_probs[-1] = next_prior_probs[dominant] * split_prob
+                next_prior_probs[dominant] = next_prior_probs[dominant] * (
+                    1 - split_prob
+                )
+                next_expression_profiles[-1] = (
+                    cur_expression_profiles[dominant] * split_prob
+                    + (1 - split_prob) * dirichlet.sample()
+                )
+
+                cur_prior_probs = next_prior_probs
+                cur_expression_profiles = next_expression_profiles
+
+                logger.debug("priors:", cur_prior_probs)
+                logger.debug("expression:", cur_expression_profiles)
+            else:
+                # Cold start from a random location
+                cur_expression_profiles = dirichlet.sample((n_components,))
+                cur_prior_probs = torch.ones(n_components) / n_components
+
+            converge = tol + 1
+            cur_cell_types = None
+            for step in tqdm.trange(
+                max_em_steps,
+                desc=f"EM for n_components {n_components}",
+                unit="step",
+                position=1,
+            ):
+
+                # E-step: estimate cell type assignments (posterior probabilities)
+                cur_cell_types = estimate_cell_types(
+                    prior_probs=cur_prior_probs,
+                    expression_profiles=cur_expression_profiles,
+                    gene_counts=gene_counts,
+                )
+
+                # M-step (part 1): estimate cell type profiles
+                prev_expression_profiles = cur_expression_profiles
+                cur_expression_profiles = (
+                    cur_cell_types[..., None] * gene_counts[:, None]
+                ).sum(dim=0) + 1
+                cur_expression_profiles = (
+                    cur_expression_profiles
+                    / cur_expression_profiles.sum(dim=1, keepdims=True)
+                )
+
+                # M-step (part 2): estimate cell type probabilities
+                cur_prior_probs = (cur_cell_types.sum(dim=0) + 1) / (
+                    cur_cell_types.shape[0] + n_components
+                )
+                logger.debug(f"cur_prior_probs: {cur_prior_probs}")
+
+                # Track convergence of the cell type profiles
+                converge = np.linalg.norm(
+                    prev_expression_profiles - cur_expression_profiles
+                ) / np.linalg.norm(prev_expression_profiles)
+
+                logger.debug(f"Convergence: {converge:.4f}")
+                if converge <= tol:
+                    logger.debug(f"Stopping early.")
+                    break
+
+            # Save the results
+            final_expression_profiles.append(cur_expression_profiles)
+            final_prior_probs.append(cur_prior_probs)
+            if cur_cell_types is not None:
+                final_cell_types.append(cur_cell_types)
+
+            # Calculate BIC and AIC
+            aic_scores[idx], bic_scores[idx] = aic_bic(
+                gene_counts, cur_expression_profiles, cur_prior_probs
             )
 
-            # M-step (part 1): estimate cell type profiles
-            prev_expression_profiles = np.array(cur_expression_profiles)
-            cur_expression_profiles = (
-                cur_cell_types[..., None] * gene_counts[:, None]
-            ).sum(axis=0) + 1
-            cur_expression_profiles = (
-                cur_expression_profiles
-                / cur_expression_profiles.sum(axis=1, keepdims=True)
-            )
-
-            # M-step (part 2): estimate cell type probabilities
-            cur_prior_probs = (cur_cell_types.sum(axis=0) + 1) / (
-                cur_cell_types.shape[0] + n_components
-            )
-            logger.debug(f"cur_prior_probs: {cur_prior_probs}")
-
-            # Track convergence of the cell type profiles
-            converge = np.linalg.norm(
-                prev_expression_profiles - cur_expression_profiles
-            ) / np.linalg.norm(prev_expression_profiles)
-
-            logger.debug(f"Convergence: {converge:.4f}")
-            if converge <= tol:
-                logger.debug(f"Stopping early.")
-                break
-
-        # Save the results
-        final_expression_profiles.append(cur_expression_profiles)
-        final_prior_probs.append(cur_prior_probs)
-        if cur_cell_types is not None:
-            final_cell_types.append(cur_cell_types)
-
-        # Calculate BIC and AIC
-        aic_scores[idx], bic_scores[idx] = aic_bic(
-            gene_counts, cur_expression_profiles, cur_prior_probs
-        )
-
-        logger.debug(f"K={n_components}")
-        logger.debug(f"AIC: {aic_scores[idx]:.4f}")
-        logger.debug(f"BIC: {bic_scores[idx]:.4f}")
+            logger.debug(f"K={n_components}")
+            logger.debug(f"AIC: {aic_scores[idx]:.4f}")
+            logger.debug(f"BIC: {bic_scores[idx]:.4f}")
 
     relative_expression = calculate_celltype_relative_expression(
-        gene_counts, final_cell_types
+        gene_counts.detach().cpu().numpy(),
+        [x.detach().cpu().numpy() for x in final_cell_types],
     )
 
     return CelltypingResults(
-        aic_scores=aic_scores,
-        bic_scores=bic_scores,
-        expression_profiles=final_expression_profiles,
-        prior_probs=final_prior_probs,
+        aic_scores=aic_scores.detach().cpu().numpy(),
+        bic_scores=bic_scores.detach().cpu().numpy(),
+        expression_profiles=[
+            x.detach().cpu().numpy() for x in final_expression_profiles
+        ],
+        prior_probs=[x.detach().cpu().numpy() for x in final_prior_probs],
         relative_expression=relative_expression,
         min_n_components=min_components,
         max_n_components=max_components,
@@ -262,21 +276,23 @@ def fit_celltyping_on_adata(
     adata: anndata.AnnData,
     min_components: int = 2,
     max_components: int = 20,
-    rng: np.random.Generator = None,
+    seed: int = 0,
+    device="cpu",
 ):
     adata = adata[:, sorted(adata.var_names)]
 
     if issparse(adata.X):
-        counts_matrix = np.array(adata.X.todense())
+        counts_matrix = torch.tensor(adata.X.todense(), device=device).int()
     else:
-        counts_matrix = np.array(adata.X)
+        counts_matrix = torch.tensor(adata.X, device=device).int()
 
     return fit_celltype_em_model(
         counts_matrix,
         gene_names=adata.var_names.tolist(),
         min_components=min_components,
         max_components=max_components,
-        rng=rng,
+        seed=seed,
+        device=device,
     )
 
 
@@ -402,9 +418,9 @@ def predict_celltypes_for_segments_and_transcripts(
 
         results.append(
             estimate_cell_types(
-                expression_profiles=expression_profiles,
-                prior_probs=prior_probs,
-                gene_counts=gene_counts,
+                expression_profiles=torch.tensor(expression_profiles),
+                prior_probs=torch.tensor(prior_probs),
+                gene_counts=torch.tensor(gene_counts).int(),
             )
         )
 
@@ -432,12 +448,12 @@ def predict_celltypes_for_anndata(
         for g in gene_names:
             if g not in gene_counts.columns:
                 gene_counts[g] = 0
-        gene_counts = gene_counts[gene_names].values
+        gene_counts = torch.tensor(gene_counts[gene_names].values).int()
 
         results.append(
             estimate_cell_types(
-                expression_profiles=expression_profiles,
-                prior_probs=prior_probs,
+                expression_profiles=torch.tensor(expression_profiles),
+                prior_probs=torch.tensor(prior_probs),
                 gene_counts=gene_counts,
             )
         )
@@ -485,9 +501,11 @@ def predict_celltypes_for_anndata_with_noise_type(
 
         results.append(
             estimate_cell_types(
-                expression_profiles=expression_profiles_with_noise_profile,
-                prior_probs=adjusted_prior_probs,
-                gene_counts=gene_counts,
+                expression_profiles=torch.tensor(
+                    expression_profiles_with_noise_profile
+                ),
+                prior_probs=torch.tensor(adjusted_prior_probs),
+                gene_counts=torch.tensor(gene_counts).int(),
             )
         )
         current_index += chunk_size
@@ -518,4 +536,8 @@ def predict_celltype_probabilities_for_all_segments(
         1,
     )
 
-    return estimate_cell_types(prior_probs, expression_profiles, counts)
+    return estimate_cell_types(
+        torch.tensor(prior_probs),
+        torch.tensor(expression_profiles),
+        torch.tensor(counts).int(),
+    )
