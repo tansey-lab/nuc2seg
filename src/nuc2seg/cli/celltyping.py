@@ -117,8 +117,8 @@ def main():
     logger.info(f"Using device: {device}")
 
     seeds = np.random.SeedSequence(args.seed).spawn(args.n_chains)
-    seed = seeds[args.index]
     rng = np.random.default_rng(seeds[args.index])
+    seed = rng.integers(0, 2**32)
 
     if args.sample_area:
         sample_area = create_shapely_rectangle(

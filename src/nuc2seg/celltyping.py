@@ -448,12 +448,12 @@ def predict_celltypes_for_anndata(
         for g in gene_names:
             if g not in gene_counts.columns:
                 gene_counts[g] = 0
-        gene_counts = gene_counts[gene_names].values
+        gene_counts = torch.tensor(gene_counts[gene_names].values).int()
 
         results.append(
             estimate_cell_types(
-                expression_profiles=expression_profiles,
-                prior_probs=prior_probs,
+                expression_profiles=torch.tensor(expression_profiles),
+                prior_probs=torch.tensor(prior_probs),
                 gene_counts=gene_counts,
             )
         )
