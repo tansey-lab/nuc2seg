@@ -89,12 +89,6 @@ def get_parser():
         default=1.0,
     )
     parser.add_argument(
-        "--validation-frequency",
-        help="Frequency of validation.",
-        type=int,
-        default=500,
-    )
-    parser.add_argument(
         "--max-workers",
         help="Maximum number of workers to use for data loading.",
         type=int,
@@ -280,6 +274,7 @@ def main():
         logger=wandb_logger,
         val_check_interval=args.val_check_interval,
         callbacks=[checkpoint_callback],
+        log_every_n_steps=1,
     )
 
     # Fit model
