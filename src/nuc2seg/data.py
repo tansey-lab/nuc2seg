@@ -151,6 +151,14 @@ class Nuc2SegDataset:
         :param n_genes: int of the number of genes
         :param resolution: float of the resolution of the dataset (width of a pixel in microns)
         """
+        if not (
+            labels.shape == angles.shape == classes.shape
+            and transcripts.shape[1] == 3
+            and bbox.shape == (4,)
+        ):
+            raise ValueError(
+                f"Shapes of labels, angles, classes, transcripts, and bbox do not match: {labels.shape}, {angles.shape}, {classes.shape}, {transcripts.shape}, {bbox.shape}"
+            )
         self.labels = labels.astype(int)
         self.angles = angles.astype(float)
         self.classes = classes.astype(int)
@@ -591,6 +599,10 @@ class ModelPredictions:
         :param classes: array of shape (x, y, n_classes) of class predictions
         :param foreground: array of shape (x, y) of foreground probabilities
         """
+        if not (angles.shape == classes.shape[:2] == foreground.shape):
+            raise ValueError(
+                f"Shapes of angles, classes, and foreground do not match: {angles.shape}, {classes.shape}, {foreground.shape}"
+            )
         self.angles = angles
         self.classes = classes
         self.foreground = foreground
@@ -645,7 +657,7 @@ class ModelPredictions:
     def clip(self, bbox):
         return ModelPredictions(
             angles=self.angles[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
-            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3], :].copy(),
+            classes=self.classes[bbox[0] : bbox[2], bbox[1] : bbox[3], ...].copy(),
             foreground=self.foreground[bbox[0] : bbox[2], bbox[1] : bbox[3]].copy(),
         )
 
