@@ -181,7 +181,7 @@ def main():
         ad=adata,
         min_transcripts=args.min_celltyping_transcripts,
     )
-    cell_type_labels = np.argmax(celltype_predictions, axis=1) + 1
+    cell_type_labels = np.argmax(celltype_predictions, axis=1)
     nucleus_centroids = adata.obsm["spatial"]
     points = [shapely.geometry.Point(x, y) for x, y in nucleus_centroids]
     nucleus_celltype_geodf = geopandas.GeoDataFrame(geometry=points)
@@ -208,18 +208,13 @@ def main():
     segment_id_to_celltype = celltypes.to_dict()
 
     # Assign hard labels to nuclei
-    class_labels = np.copy(rasterized_dataset.labels)
+    class_labels = np.zeros_like(rasterized_dataset.labels, dtype=int)
     for segment_id in np.unique(rasterized_dataset.labels):
         if segment_id < 1:
             continue
-        celltype_for_segment = segment_id_to_celltype.get(segment_id, NOISE_CELLTYPE)
+        celltype_for_segment = segment_id_to_celltype.get(segment_id, 0)
 
-        if celltype_for_segment == NOISE_CELLTYPE:
-            class_labels[rasterized_dataset.labels == segment_id] = 0
-        else:
-            class_labels[rasterized_dataset.labels == segment_id] = (
-                celltype_for_segment - 1
-            )
+        class_labels[rasterized_dataset.labels == segment_id] = celltype_for_segment
 
     ds = Nuc2SegDataset(
         labels=rasterized_dataset.labels,

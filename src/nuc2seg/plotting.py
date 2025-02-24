@@ -266,7 +266,109 @@ def plot_model_predictions(
 
     plot_labels(ax["A"], dataset, bbox=None)
     plot_foreground(ax["C"], model_predictions, bbox=None)
-    plot_monocolored_seg_outlines(ax=ax["C"], gdf=segmentation_gdf)
+    plot_monocolored_seg_outlines(ax=ax["C"], gdf=segmentation_transformed)
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_model_class_predictions(
+    dataset: Nuc2SegDataset,
+    prior_segmentation_gdf: geopandas.GeoDataFrame,
+    segmentation_gdf: geopandas.GeoDataFrame,
+    model_predictions: ModelPredictions,
+    output_path: str,
+    bbox: shapely.Polygon,
+):
+    fig, ax = plt.subplots(
+        nrows=dataset.n_classes + 1,
+        ncols=1,
+        figsize=(10, 10 * (dataset.n_classes + 1)),
+        dpi=100,
+    )
+
+    x1, y1, x2, y2 = bbox_geometry_to_rasterized_slice(
+        bbox=bbox, resolution=dataset.resolution, sample_area=dataset.bbox
+    )
+
+    prior_segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=prior_segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+    segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+
+    model_predictions = model_predictions.clip((x1, y1, x2, y2))
+    dataset = dataset.clip((x1, y1, x2, y2))
+
+    for i in range(dataset.n_classes):
+        ax[i + 1].set_title(f"Class {i}")
+        im = ax[i + 1].imshow(
+            model_predictions.classes[:, :, i].T,
+            cmap="coolwarm",
+            vmin=model_predictions.classes.min(),
+            vmax=model_predictions.classes.max(),
+            interpolation="none",
+        )
+
+        fig.colorbar(im, ax=ax[i + 1])
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=prior_segmentation_transformed,
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=segmentation_transformed,
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=segmentation_transformed[
+                segmentation_transformed["celltype_assignment"] == i
+            ],
+            color="yellow",
+        )
+
+    imshow_data = np.zeros(
+        (dataset.classes.T.shape[0], dataset.classes.T.shape[1], 4)
+    ).astype(float)
+
+    for i in range(dataset.classes.T.shape[0]):
+        for j in range(dataset.classes.T.shape[1]):
+            if dataset.labels.T[i, j] > 0:
+                # get color from cm.tab10
+                color = cm.tab10(dataset.classes.T[i, j])[:3]
+                imshow_data[i, j, :] = np.array(
+                    [color[0], color[1], color[2], 1.0]
+                ).astype(float)
+
+    ax[0].imshow(imshow_data, interpolation="none")
+
+    # add class legend
+    legend_handles = []
+    for i in range(dataset.n_classes):
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=cm.tab10(i)[:3],
+                markersize=10,
+                label=f"Class {i}",
+            )
+        )
+    # put legend upper right
+    ax[0].legend(
+        handles=legend_handles,
+        loc="upper right",
+    )
+
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
@@ -290,11 +392,8 @@ def plot_multicolored_seg_outlines(
     gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=edge_colors, linewidth=0.5)
 
 
-def plot_monocolored_seg_outlines(
-    ax,
-    gdf: geopandas.GeoDataFrame,
-):
-    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor="black", linewidth=1.0)
+def plot_monocolored_seg_outlines(ax, gdf: geopandas.GeoDataFrame, color="black"):
+    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=color, linewidth=1.0)
 
 
 def plot_segmentation_comparison(
