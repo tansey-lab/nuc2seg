@@ -11,6 +11,7 @@ include { COMBINE_SEGMENTATIONS } from '../../../modules/nf-core/combine_segment
 include { COMBINE_PREDICTIONS } from '../../../modules/nf-core/combine_predictions/main'
 include { CALCULATE_BENCHMARKS } from '../../../modules/nf-core/calculate_benchmarks/main'
 include { CREATE_NUCLEAR_ANNDATA } from '../../../modules/nf-core/create_nuclear_anndata/main'
+include { PLOT_ROI } from '../../../modules/nf-core/plot_roi/main'
 
 def create_parallel_sequence_with_file(meta, fn, n_par) {
     def output = []
@@ -226,7 +227,25 @@ workflow NUC2SEG {
 
     Channel.fromList([
         tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true))
-    ]).join(COMBINE_SEGMENTATIONS.out.shapefile.map { tuple(it[0], it[1], "nuc2seg") }).tap { benchmarks_input }
+    ]).combine(
+        COMBINE_SEGMENTATIONS.out.shapefile.map { tuple(it[0], it[1], "nuc2seg") }.concat(
+            PREPROCESS.out.labels.map { tuple(it[0], it[1], "ground_labels") }
+        ), by: 0
+    ).tap { benchmarks_input }
 
     CALCULATE_BENCHMARKS( benchmarks_input )
+
+    Channel.fromList([
+        tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true))
+    ]).join(
+        preprocessed_dataset
+    ).join(
+        combined_prediction_results
+    ).join(
+        COMBINE_SEGMENTATIONS.out.shapefile
+    ).join(
+        PREPROCESS.out.labels
+    ).tap { plot_roi_input }
+
+    PLOT_ROI( plot_roi_input )
 }

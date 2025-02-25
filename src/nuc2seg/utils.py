@@ -310,6 +310,54 @@ def transform_shapefile_to_rasterized_space(
     return clipped
 
 
+def transform_bbox_to_slide_space(
+    bbox: shapely.Polygon,
+    resolution: float,
+    sample_area: Optional[tuple[float, float, float, float]] = None,
+):
+    if sample_area is not None:
+        bbox = translate(bbox, xoff=sample_area[0], yoff=sample_area[1])
+    bbox = scale(bbox, xfact=resolution, yfact=resolution, origin=(0, 0))
+
+    return (
+        math.floor(bbox.bounds[0]),
+        math.floor(bbox.bounds[1]),
+        math.ceil(bbox.bounds[2]),
+        math.ceil(bbox.bounds[3]),
+    )
+
+
+def transform_bbox_to_raster_space(
+    bbox: shapely.Polygon,
+    resolution: float,
+    sample_area: Optional[tuple[float, float, float, float]] = None,
+):
+    if sample_area is not None:
+        bbox = translate(bbox, xoff=-sample_area[0], yoff=-sample_area[1])
+
+    bbox = scale(bbox, xfact=resolution, yfact=resolution, origin=(0, 0))
+
+    return (
+        math.floor(bbox.bounds[0]),
+        math.floor(bbox.bounds[1]),
+        math.ceil(bbox.bounds[2]),
+        math.ceil(bbox.bounds[3]),
+    )
+
+
+def transform_shapefile_to_slide_space(
+    gdf: geopandas.GeoDataFrame,
+    resolution: float,
+    sample_area: Optional[tuple[float, float, float, float]] = None,
+):
+    gdf["geometry"] = gdf.geometry.translate(xoff=sample_area[0], yoff=sample_area[1])
+    gdf["geometry"] = gdf.geometry.scale(
+        xfact=resolution, yfact=resolution, origin=(sample_area[0], sample_area[1])
+    )
+
+    return gdf
+
+
 def bbox_geometry_to_rasterized_slice(
     bbox: shapely.Polygon,
     resolution: float,

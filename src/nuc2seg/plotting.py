@@ -347,6 +347,7 @@ def plot_model_class_predictions(
                     [color[0], color[1], color[2], 1.0]
                 ).astype(float)
 
+    ax[0].set_title("Labels")
     ax[0].imshow(imshow_data, interpolation="none")
 
     # add class legend

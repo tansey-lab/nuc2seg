@@ -1,13 +1,10 @@
 import argparse
 import logging
-import os.path
-
 import anndata
 import numpy as np
 import pandas
 import geopandas
 import shapely
-from matplotlib import pyplot as plt
 
 from nuc2seg import log_config
 from nuc2seg.celltyping import (
@@ -15,14 +12,14 @@ from nuc2seg.celltyping import (
     predict_celltypes_for_anndata_with_noise_type,
 )
 from nuc2seg.data import CelltypingResults, Nuc2SegDataset
-from nuc2seg.plotting import plot_celltype_estimation_results, rank_genes_groups_plot
 from nuc2seg.preprocessing import create_rasterized_dataset
 from nuc2seg.xenium import (
     load_vertex_file,
     load_and_filter_transcripts_as_points,
 )
+from nuc2seg.segment import segmentation_array_to_shapefile
 from nuc2seg.constants import NOISE_CELLTYPE
-from nuc2seg.utils import create_shapely_rectangle
+from nuc2seg.utils import create_shapely_rectangle, transform_shapefile_to_slide_space
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +50,12 @@ def get_parser():
     parser.add_argument(
         "--output",
         help="Output path.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--labels-output",
+        help="Training labels output as a GeoParquet shapefile. This shows which pixels were labeled for training",
         type=str,
         required=True,
     )
@@ -215,7 +218,6 @@ def main():
         celltype_for_segment = segment_id_to_celltype.get(segment_id, 0)
 
         class_labels[rasterized_dataset.labels == segment_id] = celltype_for_segment
-
     ds = Nuc2SegDataset(
         labels=rasterized_dataset.labels,
         angles=rasterized_dataset.angles,
@@ -229,3 +231,10 @@ def main():
 
     logger.info("Saving to h5")
     ds.save_h5(args.output)
+
+    logger.info("Saving labels to GeoParquet")
+    labels_shapefile = segmentation_array_to_shapefile(rasterized_dataset.labels)
+    labels_shapefile = transform_shapefile_to_slide_space(
+        labels_shapefile, ds.resolution, ds.bbox
+    )
+    labels_shapefile.to_parquet(args.labels_output)
