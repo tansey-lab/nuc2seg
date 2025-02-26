@@ -103,7 +103,7 @@ def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
                 color="w",
                 markerfacecolor=border_color,
                 markersize=10,
-                label="Border",
+                label="Unlabeled",
             ),
             plt.Line2D(
                 [0],

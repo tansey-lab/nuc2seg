@@ -23,12 +23,12 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
         resolution=1,
         foreground_distance=1,
         background_distance=4,
-        background_transcript_distance=3,
-        background_pixel_transcripts=5,
+        background_transcript_distance=2,
+        background_pixel_transcripts=2,
     )
 
     assert ds.labels.shape == (29, 19)
-    assert ds.transcripts.shape == (6, 3)
+    assert ds.transcripts.shape == (8, 3)
     assert ds.x_extent_pixels == 29
     assert ds.y_extent_pixels == 19
     assert ds.n_genes == 2
