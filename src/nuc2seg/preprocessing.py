@@ -12,6 +12,7 @@ import tqdm
 from blended_tiling import TilingModule
 from scipy.spatial import KDTree
 from shapely import box
+from nuc2seg.utils import transform_shapefile_to_rasterized_space
 
 from nuc2seg.data import (
     RasterizedDataset,
@@ -90,7 +91,10 @@ def create_rasterized_dataset(
     prior_segmentation_gdf["geometry"] = prior_segmentation_gdf.translate(
         -x_min, -y_min
     )
-    tx_geo_df["geometry"] = tx_geo_df.translate(-x_min, -y_min)
+
+    tx_geo_df = transform_shapefile_to_rasterized_space(
+        tx_geo_df, resolution, sample_area.bounds
+    )
 
     logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
@@ -115,7 +119,10 @@ def create_rasterized_dataset(
     labels_geo_df.drop_duplicates(subset=["x_index", "y_index"], inplace=True)
     logger.info("Calculating the nearest transcript neighbors")
     transcript_xy = np.array(
-        [tx_geo_df["x_location"].values, tx_geo_df["y_location"].values]
+        [
+            np.floor(tx_geo_df.centroid.x.values).astype(int),
+            np.floor(tx_geo_df.centroid.y.values).astype(int),
+        ]
     ).T
     kdtree = KDTree(transcript_xy)
 
@@ -123,9 +130,13 @@ def create_rasterized_dataset(
     pixels_xy = np.array(
         [labels_geo_df["x_index"].values, labels_geo_df["y_index"].values]
     ).T
-    labels_geo_df["transcript_distance"] = kdtree.query(
-        pixels_xy, k=background_pixel_transcripts + 1
+    labels_geo_df["distance_to_farthest_transcript"] = kdtree.query(
+        pixels_xy, k=background_pixel_transcripts
     )[0][:, -1]
+
+    labels_geo_df["in_transcript_dense_area"] = labels_geo_df[
+        "distance_to_farthest_transcript"
+    ] < (background_transcript_distance / resolution)
 
     logger.info("Assign pixels roughly on top of nuclei to belong to that nuclei label")
     pixel_labels = np.zeros(labels_geo_df.shape[0], dtype=int) - 1
@@ -137,11 +148,11 @@ def create_rasterized_dataset(
     logger.info(
         "Assign pixels to the background if they are far from nuclei and not near a dense region of transcripts"
     )
-    background_pixels = (
+    labels_geo_df["is_background_pixel"] = (
         (labels_geo_df["distance"] > background_distance)
         | labels_geo_df["distance"].isna()
-    ) & (labels_geo_df["transcript_distance"] > background_transcript_distance)
-    pixel_labels[background_pixels] = 0
+    ) & (~labels_geo_df["in_transcript_dense_area"])
+    pixel_labels[labels_geo_df["is_background_pixel"].values] = 0
 
     logger.info("Convert pixel labels to a grid")
     labels = pixel_labels.reshape(x_max_idx + 1, y_max_idx + 1)
@@ -149,7 +160,6 @@ def create_rasterized_dataset(
     # Assume for simplicity that it's a homogeneous poisson process for transcripts.
     # Add up all the transcripts in each pixel.
     logger.info("Add up all transcripts in each pixel")
-
     tx_geo_df = tx_geo_df.sjoin(idx_geo_df, how="inner")
 
     # Arbtirarily drop ties (transcript is on pixel edge)

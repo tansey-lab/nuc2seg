@@ -82,7 +82,7 @@ def get_parser():
         "--foreground-nucleus-distance",
         help="Distance from a nucleus to be considered foreground.",
         type=int,
-        default=1,
+        default=0,
     )
     parser.add_argument(
         "--background-nucleus-distance",
@@ -100,7 +100,7 @@ def get_parser():
         "--background-pixel-transcripts",
         help="Number of transcripts in a pixel to be considered foreground.",
         type=int,
-        default=2,
+        default=5,
     )
     parser.add_argument(
         "--sample-area",
