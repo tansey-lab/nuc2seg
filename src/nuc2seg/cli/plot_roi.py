@@ -1,39 +1,25 @@
 import argparse
 import logging
+from pathlib import Path
 
 import geopandas
 import numpy as np
-import pandas
-import h5py
-from pathlib import Path
+from shapely import box
 
 from nuc2seg import log_config
-from nuc2seg.celltyping import (
-    predict_celltypes_for_anndata,
-    select_best_celltyping_chain,
+from nuc2seg.data import Nuc2SegDataset, ModelPredictions
+from nuc2seg.plotting import (
+    plot_model_class_predictions,
+    plot_model_predictions,
+    create_interactive_segmentation_comparison,
 )
-from nuc2seg.data import Nuc2SegDataset, ModelPredictions, CelltypingResults
-from nuc2seg.segment import (
-    greedy_cell_segmentation,
-    convert_segmentation_to_shapefile,
-    ray_tracing_cell_segmentation,
-)
-from nuc2seg.postprocess import convert_transcripts_to_anndata
-from nuc2seg.xenium import (
-    load_and_filter_transcripts_as_points,
-)
-from nuc2seg.utils import get_tile_bounds
-from nuc2seg.utils import create_shapely_rectangle
-from shapely import box
 from nuc2seg.utils import (
     get_indexed_tiles,
     transform_bbox_to_slide_space,
     transform_bbox_to_raster_space,
 )
-from nuc2seg.plotting import (
-    plot_model_class_predictions,
-    plot_model_predictions,
-    create_interactive_segmentation_comparison,
+from nuc2seg.xenium import (
+    load_and_filter_transcripts_as_points,
 )
 
 logger = logging.getLogger(__name__)
