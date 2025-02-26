@@ -317,7 +317,12 @@ def transform_bbox_to_slide_space(
 ):
     if sample_area is not None:
         bbox = translate(bbox, xoff=sample_area[0], yoff=sample_area[1])
-    bbox = scale(bbox, xfact=resolution, yfact=resolution, origin=(0, 0))
+    bbox = scale(
+        bbox,
+        xfact=resolution,
+        yfact=resolution,
+        origin=(sample_area[0], sample_area[1]),
+    )
 
     return (
         math.floor(bbox.bounds[0]),

@@ -26,6 +26,7 @@ from bokeh.palettes import Category10
 from bokeh.plotting import figure
 from bokeh.resources import INLINE
 from matplotlib import cm, gridspec, animation
+import matplotlib.colors as mcolors
 from matplotlib import pyplot as plt
 from shapely import box
 
@@ -156,12 +157,20 @@ def plot_angles_quiver(
                 imshow_data[i, j, :] = np.array([0.45, 0.57, 0.70, 0.5]).astype(float)
 
     ax.imshow(imshow_data)
+    norm = mcolors.Normalize(vmin=angles.min(), vmax=angles.max())
 
     for xi in range(nuclei.shape[1]):
         for yi in range(nuclei.shape[0]):
             if mask[xi, yi]:
                 dx, dy = pol2cart(0.5, angles[xi, yi])
-                ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07)
+                ax.arrow(
+                    xi,
+                    yi,
+                    dx,
+                    dy,
+                    color=cm.hsv(norm(angles[xi, yi])),
+                    width=(1 / nuclei.shape[1] * 5),
+                )
     ax.set_title("Predicted angles and segmentation")
 
     legend_handles = []
@@ -201,9 +210,10 @@ def plot_foreground(ax, predictions: ModelPredictions, bbox=None):
 
     if bbox is not None:
         foreground = foreground[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-
-    ax.imshow(foreground.T, vmin=0, vmax=1, cmap="coolwarm", interpolation="none")
     ax.set_title("Predicted foreground")
+    return ax.imshow(
+        foreground.T, vmin=0, vmax=1, cmap="coolwarm", interpolation="none"
+    )
 
 
 def update_projection(ax_dict, ax_key, projection="3d", fig=None):
@@ -237,16 +247,11 @@ def plot_model_predictions(
         sample_area=bbox.bounds,
         resolution=dataset.resolution,
     )
-    segmentation_transformed = transform_shapefile_to_rasterized_space(
-        gdf=segmentation_gdf,
-        sample_area=bbox.bounds,
-        resolution=dataset.resolution,
-    )
 
     model_predictions = model_predictions.clip((x1, y1, x2, y2))
     dataset = dataset.clip((x1, y1, x2, y2))
 
-    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(30, 10))
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 30))
     plot_angles_quiver(
         ax=ax["B"],
         predictions=model_predictions,
@@ -257,16 +262,13 @@ def plot_model_predictions(
     plot_monocolored_seg_outlines(
         ax=ax["B"],
         gdf=prior_segmentation_transformed,
-    )
-
-    plot_monocolored_seg_outlines(
-        ax=ax["B"],
-        gdf=segmentation_transformed,
+        color="black",
     )
 
     plot_labels(ax["A"], dataset, bbox=None)
-    plot_foreground(ax["C"], model_predictions, bbox=None)
-    plot_monocolored_seg_outlines(ax=ax["C"], gdf=segmentation_transformed)
+    im = plot_foreground(ax["C"], model_predictions, bbox=None)
+    fig.colorbar(im, ax=ax["C"])
+    plot_monocolored_seg_outlines(ax=ax["C"], gdf=prior_segmentation_transformed)
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
@@ -342,7 +344,7 @@ def plot_model_class_predictions(
         for j in range(dataset.classes.T.shape[1]):
             if dataset.labels.T[i, j] > 0:
                 # get color from cm.tab10
-                color = cm.tab10(dataset.classes.T[i, j])[:3]
+                color = cm.tab10(dataset.classes.T[i, j] - 1)[:3]
                 imshow_data[i, j, :] = np.array(
                     [color[0], color[1], color[2], 1.0]
                 ).astype(float)

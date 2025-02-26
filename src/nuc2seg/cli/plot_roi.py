@@ -89,7 +89,7 @@ def get_parser():
 
 
 def get_roi(resolution, labels, size=200):
-    pixel_size = size / resolution
+    pixel_size = int(size / resolution)
 
     tiles = get_indexed_tiles(
         extent=labels.shape, tile_size=(pixel_size, pixel_size), overlap=0.0
@@ -125,13 +125,13 @@ def main():
         slide_bbox = box(x1, y1, x2, y2)
         raster_bbox = transform_bbox_to_raster_space(slide_bbox, ds.resolution, ds.bbox)
     else:
-        raster_bbox = get_roi(ds.resolution, predictions.labels)
-        slide_bbox = transform_bbox_to_slide_space(
-            box(*raster_bbox), ds.resolution, ds.bbox
+        raster_bbox = get_roi(ds.resolution, ds.labels)
+        slide_bbox = box(
+            *transform_bbox_to_slide_space(box(*raster_bbox), ds.resolution, ds.bbox)
         )
 
     logger.info(f"ROI in slide coordinates: {slide_bbox.bounds}")
-    logger.info(f"ROI in raster coordinates: {raster_bbox.bounds}")
+    logger.info(f"ROI in raster coordinates: {raster_bbox}")
 
     segments = geopandas.read_parquet(args.segments)
     prior_segments = geopandas.read_parquet(args.prior_segments)
@@ -154,8 +154,8 @@ def main():
         bbox=slide_bbox,
     )
 
-    segments_clip = segments.clip(raster_bbox)
-    prior_segments_clip = prior_segments.clip(raster_bbox)
+    segments_clip = segments.clip(slide_bbox)
+    prior_segments_clip = prior_segments.clip(slide_bbox)
     tx = load_and_filter_transcripts_as_points(args.transcripts, sample_area=slide_bbox)
     create_interactive_segmentation_comparison(
         polygon_gdfs=[prior_segments_clip, segments_clip],
