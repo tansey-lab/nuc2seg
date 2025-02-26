@@ -53,7 +53,7 @@ def get_parser():
         "--learning-rate",
         help="Learning rate.",
         type=float,
-        default=1e-5,
+        default=1e-4,
     )
     parser.add_argument(
         "--val-percent",

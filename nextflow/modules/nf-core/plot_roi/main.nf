@@ -25,6 +25,7 @@ process PLOT_ROI {
         --dataset ${dataset} \
         --predictions ${predictions} \
         --prior-segments ${prior_shapes} \
+        --truth-segments ${xenium_dir}/cell_boundaries.parquet \
         --segments ${shapes} \
         --output-dir ${prefix}/roi_plots \
         --transcripts ${xenium_dir}/transcripts.parquet \

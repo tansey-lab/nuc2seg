@@ -331,9 +331,56 @@ def plot_model_class_predictions(
         plot_monocolored_seg_outlines(
             ax=ax[i + 1],
             gdf=segmentation_transformed[
-                segmentation_transformed["celltype_assignment"] == i
+                (segmentation_transformed["celltype_assignment"] == i)
+                & (
+                    segmentation_transformed["celltype_assignment"]
+                    == segmentation_transformed["unet_celltype_assignment"]
+                )
             ],
             color="yellow",
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=segmentation_transformed[
+                (segmentation_transformed["celltype_assignment"] == i)
+                & (
+                    segmentation_transformed["celltype_assignment"]
+                    != segmentation_transformed["unet_celltype_assignment"]
+                )
+            ],
+            color="red",
+        )
+
+        # add class legend
+        legend_handles = []
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="yellow",
+                markerfacecolor="yellow",
+                markersize=10,
+                label=f"True Pos",
+            )
+        )
+
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="red",
+                markerfacecolor="red",
+                markersize=10,
+                label=f"False Pos",
+            )
+        )
+        # put legend upper right
+        ax[i + 1].legend(
+            handles=legend_handles,
+            loc="upper right",
         )
 
     imshow_data = np.zeros(

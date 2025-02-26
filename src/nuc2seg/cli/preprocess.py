@@ -98,9 +98,9 @@ def get_parser():
     )
     parser.add_argument(
         "--background-pixel-transcripts",
-        help="Number of transcripts in a pixel to be considered background.",
+        help="Number of transcripts in a pixel to be considered foreground.",
         type=int,
-        default=5,
+        default=2,
     )
     parser.add_argument(
         "--sample-area",

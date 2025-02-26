@@ -18,9 +18,7 @@ from nuc2seg.utils import (
     transform_bbox_to_slide_space,
     transform_bbox_to_raster_space,
 )
-from nuc2seg.xenium import (
-    load_and_filter_transcripts_as_points,
-)
+from nuc2seg.xenium import load_and_filter_transcripts_as_points, load_vertex_file
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +47,12 @@ def get_parser():
     parser.add_argument(
         "--prior-segments",
         help="GeoParquet Prior segments.",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--truth-segments",
+        help="GeoParquet truth segments.",
         type=str,
         required=True,
     )
@@ -121,6 +125,8 @@ def main():
 
     segments = geopandas.read_parquet(args.segments)
     prior_segments = geopandas.read_parquet(args.prior_segments)
+    truth_segments = load_vertex_file(args.truth_segments, sample_area=slide_bbox)
+    del truth_segments["nucleus_centroid"]
 
     plot_model_class_predictions(
         dataset=ds,
@@ -142,10 +148,12 @@ def main():
 
     segments_clip = segments.clip(slide_bbox)
     prior_segments_clip = prior_segments.clip(slide_bbox)
+    truth_segments_clip = truth_segments.clip(slide_bbox)
+
     tx = load_and_filter_transcripts_as_points(args.transcripts, sample_area=slide_bbox)
     create_interactive_segmentation_comparison(
-        polygon_gdfs=[prior_segments_clip, segments_clip],
-        names=["labels", "nuc2seg"],
+        polygon_gdfs=[prior_segments_clip, segments_clip, truth_segments_clip],
+        names=["labels", "nuc2seg", "xenium_mm"],
         points_gdf=tx,
         output_path=str(output_dir / "segmentation_comparison.html"),
     )
