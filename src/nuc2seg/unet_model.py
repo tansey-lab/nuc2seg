@@ -146,7 +146,7 @@ def calculate_unlabeled_foreground_loss(
         flattened_p_background * p_gene_given_background
     )  # <N Transcript>
 
-    return -1 * torch.log(per_transcript_likelihood).sum()
+    return -1 * torch.log(per_transcript_likelihood).mean()
 
 
 def training_step(
@@ -433,10 +433,6 @@ class SparseUNet(LightningModule):
         self.log("foreground_loss", foreground_loss)
         total_loss = foreground_loss
 
-        if unlabeled_foreground_loss is not None:
-            total_loss = total_loss + unlabeled_foreground_loss
-            self.log("unlabeled_foreground_loss", unlabeled_foreground_loss)
-
         if angle_loss is not None:
             total_loss = total_loss + angle_loss
             self.log("angle_loss", angle_loss)
@@ -444,6 +440,12 @@ class SparseUNet(LightningModule):
         if celltype_loss is not None:
             total_loss = total_loss + celltype_loss
             self.log("celltype_loss", celltype_loss)
+
+        self.log("core_loss", total_loss)
+
+        if unlabeled_foreground_loss is not None:
+            total_loss = total_loss + unlabeled_foreground_loss
+            self.log("unlabeled_foreground_loss", unlabeled_foreground_loss)
 
         self.log("loss", total_loss)
 

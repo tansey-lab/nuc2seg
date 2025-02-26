@@ -9,6 +9,8 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from typing import Optional
 from nuc2seg.utils import generate_tiles, get_tile_bounds
+from torchvision import transforms
+import albumentations
 
 logger = logging.getLogger(__name__)
 
@@ -453,6 +455,20 @@ class TiledDataset(Dataset):
         self.tile_height = tile_width
         self.tile_width = tile_height
         self.tile_overlap = tile_overlap
+        self.transforms = albumentations.Compose(
+            [
+                albumentations.HorizontalFlip(p=0.5),
+                albumentations.VerticalFlip(p=0.5),
+                albumentations.Rotate(15),
+                albumentations.RandomResizedCrop(
+                    size=(tile_width, tile_height), scale=(0.8, 1.0)
+                ),
+                albumentations.ToTensorV2(),
+            ],
+            keypoint_params=albumentations.KeypointParams(
+                format="xy", label_fields=["genes"]
+            ),
+        )
 
         self._tiler = TilingModule(
             tile_size=(tile_width, tile_height),
@@ -531,15 +547,29 @@ class TiledDataset(Dataset):
         labels_mask = tile_labels > -1
         nucleus_mask = tile_labels > 0
 
+        img_data = np.stack(
+            [tile_labels, tile_angles, tile_classes, labels_mask, nucleus_mask], axis=2
+        )
+        tx_points = torch.ones(tile_transcripts.shape[0], 3)
+        tx_points[:, 0] = torch.as_tensor(tile_transcripts[:, 0])
+        tx_points[:, 1] = torch.as_tensor(tile_transcripts[:, 1])
+
+        transformed = self.transforms(
+            image=img_data, keypoints=tx_points, genes=tile_transcripts[:, 2]
+        )
+        transformed_image = transformed["image"]
+        transformed_keypoints = transformed["keypoints"]
+        transformed_genes = transformed["genes"]
+
         return {
-            "X": torch.as_tensor(tile_transcripts[:, 0]).long(),
-            "Y": torch.as_tensor(tile_transcripts[:, 1]).long(),
-            "gene": torch.as_tensor(tile_transcripts[:, 2]).long(),
-            "labels": torch.as_tensor(tile_labels).long(),
-            "angles": torch.as_tensor(tile_angles).float(),
-            "classes": torch.as_tensor(tile_classes).long(),
-            "label_mask": torch.as_tensor(labels_mask).bool(),
-            "nucleus_mask": torch.as_tensor(nucleus_mask).bool(),
+            "X": torch.as_tensor(transformed_keypoints[:, 0]).long(),
+            "Y": torch.as_tensor(transformed_keypoints[:, 1]).long(),
+            "gene": torch.as_tensor(transformed_genes).long(),
+            "labels": torch.as_tensor(transformed_image[0, ...]).long(),
+            "angles": torch.as_tensor(transformed_image[1, ...]).float(),
+            "classes": torch.as_tensor(transformed_image[2, ...]).long(),
+            "label_mask": torch.as_tensor(transformed_image[3, ...]).bool(),
+            "nucleus_mask": torch.as_tensor(transformed_image[4, ...]).bool(),
         }
 
     def __getitem__(self, idx):

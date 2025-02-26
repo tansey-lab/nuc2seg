@@ -5,6 +5,7 @@ import geopandas
 import shapely
 
 import numpy as np
+import torch
 
 from nuc2seg.celltyping import fit_celltype_em_model
 from nuc2seg.data import Nuc2SegDataset, ModelPredictions
@@ -84,7 +85,7 @@ def test_plot_celltype_estimation_results():
 
     try:
         celltyping_results = fit_celltype_em_model(
-            gene_counts,
+            torch.tensor(gene_counts).int(),
             gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
             min_components=2,
             max_components=4,
@@ -130,7 +131,7 @@ def test_rank_genes_groups_plot():
 
     try:
         celltyping_results = fit_celltype_em_model(
-            gene_counts,
+            torch.tensor(gene_counts).int(),
             gene_names=np.array([f"gene_{i}" for i in range(n_genes)]),
             min_components=2,
             max_components=4,

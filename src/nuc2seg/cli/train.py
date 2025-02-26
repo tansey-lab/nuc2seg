@@ -53,7 +53,7 @@ def get_parser():
         "--learning-rate",
         help="Learning rate.",
         type=float,
-        default=1e-5,
+        default=1e-4,
     )
     parser.add_argument(
         "--val-percent",
@@ -256,9 +256,7 @@ def main():
         )
 
     # save checkpoints based on "val_loss" metric
-    checkpoint_callback = ModelCheckpoint(
-        save_top_k=1, monitor="val_accuracy", mode="max"
-    )
+    checkpoint_callback = ModelCheckpoint(save_top_k=1, monitor="loss", mode="min")
 
     # Init trainer
     wandb_logger = WandbLogger(

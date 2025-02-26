@@ -26,6 +26,7 @@ from bokeh.palettes import Category10
 from bokeh.plotting import figure
 from bokeh.resources import INLINE
 from matplotlib import cm, gridspec, animation
+import matplotlib.colors as mcolors
 from matplotlib import pyplot as plt
 from shapely import box
 
@@ -156,12 +157,20 @@ def plot_angles_quiver(
                 imshow_data[i, j, :] = np.array([0.45, 0.57, 0.70, 0.5]).astype(float)
 
     ax.imshow(imshow_data)
+    norm = mcolors.Normalize(vmin=angles.min(), vmax=angles.max())
 
     for xi in range(nuclei.shape[1]):
         for yi in range(nuclei.shape[0]):
             if mask[xi, yi]:
                 dx, dy = pol2cart(0.5, angles[xi, yi])
-                ax.arrow(xi + 0.5, yi + 0.5, dx, dy, width=0.07)
+                ax.arrow(
+                    xi,
+                    yi,
+                    dx,
+                    dy,
+                    color=cm.hsv(norm(angles[xi, yi])),
+                    width=(1 / nuclei.shape[1] * 5),
+                )
     ax.set_title("Predicted angles and segmentation")
 
     legend_handles = []
@@ -201,9 +210,10 @@ def plot_foreground(ax, predictions: ModelPredictions, bbox=None):
 
     if bbox is not None:
         foreground = foreground[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-
-    ax.imshow(foreground.T, vmin=0, vmax=1, cmap="coolwarm", interpolation="none")
     ax.set_title("Predicted foreground")
+    return ax.imshow(
+        foreground.T, vmin=0, vmax=1, cmap="coolwarm", interpolation="none"
+    )
 
 
 def update_projection(ax_dict, ax_key, projection="3d", fig=None):
@@ -237,16 +247,11 @@ def plot_model_predictions(
         sample_area=bbox.bounds,
         resolution=dataset.resolution,
     )
-    segmentation_transformed = transform_shapefile_to_rasterized_space(
-        gdf=segmentation_gdf,
-        sample_area=bbox.bounds,
-        resolution=dataset.resolution,
-    )
 
     model_predictions = model_predictions.clip((x1, y1, x2, y2))
     dataset = dataset.clip((x1, y1, x2, y2))
 
-    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(30, 10))
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 30))
     plot_angles_quiver(
         ax=ax["B"],
         predictions=model_predictions,
@@ -257,16 +262,163 @@ def plot_model_predictions(
     plot_monocolored_seg_outlines(
         ax=ax["B"],
         gdf=prior_segmentation_transformed,
-    )
-
-    plot_monocolored_seg_outlines(
-        ax=ax["B"],
-        gdf=segmentation_transformed,
+        color="black",
     )
 
     plot_labels(ax["A"], dataset, bbox=None)
-    plot_foreground(ax["C"], model_predictions, bbox=None)
-    plot_monocolored_seg_outlines(ax=ax["C"], gdf=segmentation_gdf)
+    im = plot_foreground(ax["C"], model_predictions, bbox=None)
+    fig.colorbar(im, ax=ax["C"])
+    plot_monocolored_seg_outlines(ax=ax["C"], gdf=prior_segmentation_transformed)
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_model_class_predictions(
+    dataset: Nuc2SegDataset,
+    prior_segmentation_gdf: geopandas.GeoDataFrame,
+    segmentation_gdf: geopandas.GeoDataFrame,
+    model_predictions: ModelPredictions,
+    output_path: str,
+    bbox: shapely.Polygon,
+):
+    fig, ax = plt.subplots(
+        nrows=dataset.n_classes + 1,
+        ncols=1,
+        figsize=(10, 10 * (dataset.n_classes + 1)),
+        dpi=100,
+    )
+
+    x1, y1, x2, y2 = bbox_geometry_to_rasterized_slice(
+        bbox=bbox, resolution=dataset.resolution, sample_area=dataset.bbox
+    )
+
+    prior_segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=prior_segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+    segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+
+    model_predictions = model_predictions.clip((x1, y1, x2, y2))
+    dataset = dataset.clip((x1, y1, x2, y2))
+
+    for i in range(dataset.n_classes):
+        ax[i + 1].set_title(f"Class {i}")
+        im = ax[i + 1].imshow(
+            model_predictions.classes[:, :, i].T,
+            cmap="coolwarm",
+            vmin=model_predictions.classes.min(),
+            vmax=model_predictions.classes.max(),
+            interpolation="none",
+        )
+
+        fig.colorbar(im, ax=ax[i + 1])
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=prior_segmentation_transformed,
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=segmentation_transformed,
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=segmentation_transformed[
+                (segmentation_transformed["celltype_assignment"] == i)
+                & (
+                    segmentation_transformed["celltype_assignment"]
+                    == segmentation_transformed["unet_celltype_assignment"]
+                )
+            ],
+            color="yellow",
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=ax[i + 1],
+            gdf=segmentation_transformed[
+                (segmentation_transformed["celltype_assignment"] == i)
+                & (
+                    segmentation_transformed["celltype_assignment"]
+                    != segmentation_transformed["unet_celltype_assignment"]
+                )
+            ],
+            color="red",
+        )
+
+        # add class legend
+        legend_handles = []
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="yellow",
+                markerfacecolor="yellow",
+                markersize=10,
+                label=f"True Pos",
+            )
+        )
+
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="red",
+                markerfacecolor="red",
+                markersize=10,
+                label=f"False Pos",
+            )
+        )
+        # put legend upper right
+        ax[i + 1].legend(
+            handles=legend_handles,
+            loc="upper right",
+        )
+
+    imshow_data = np.zeros(
+        (dataset.classes.T.shape[0], dataset.classes.T.shape[1], 4)
+    ).astype(float)
+
+    for i in range(dataset.classes.T.shape[0]):
+        for j in range(dataset.classes.T.shape[1]):
+            if dataset.labels.T[i, j] > 0:
+                # get color from cm.tab10
+                color = cm.tab10(dataset.classes.T[i, j] - 1)[:3]
+                imshow_data[i, j, :] = np.array(
+                    [color[0], color[1], color[2], 1.0]
+                ).astype(float)
+
+    ax[0].set_title("Labels")
+    ax[0].imshow(imshow_data, interpolation="none")
+
+    # add class legend
+    legend_handles = []
+    for i in range(dataset.n_classes):
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=cm.tab10(i)[:3],
+                markersize=10,
+                label=f"Class {i}",
+            )
+        )
+    # put legend upper right
+    ax[0].legend(
+        handles=legend_handles,
+        loc="upper right",
+    )
+
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
@@ -290,11 +442,8 @@ def plot_multicolored_seg_outlines(
     gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=edge_colors, linewidth=0.5)
 
 
-def plot_monocolored_seg_outlines(
-    ax,
-    gdf: geopandas.GeoDataFrame,
-):
-    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor="black", linewidth=1.0)
+def plot_monocolored_seg_outlines(ax, gdf: geopandas.GeoDataFrame, color="black"):
+    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=color, linewidth=1.0)
 
 
 def plot_segmentation_comparison(

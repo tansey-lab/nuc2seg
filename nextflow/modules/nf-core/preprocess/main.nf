@@ -10,6 +10,7 @@ process PREPROCESS {
 
     output:
     tuple val(meta), path("${prefix}/preprocessed.h5")                  , emit: dataset
+    tuple val(meta), path("${prefix}/label_segments.parquet")           , emit: labels
     path  "versions.yml"                                                , emit: versions
 
 
@@ -28,6 +29,7 @@ process PREPROCESS {
         --transcripts-file ${xenium_dir}/transcripts.parquet \
         --adata ${adata} \
         --output ${prefix}/preprocessed.h5 \
+        --labels-output ${prefix}/label_segments.parquet \
         --celltyping-results ${cell_typing_results} \
         --resolution ${params.resolution} \
         ${n_celltypes_arg} \

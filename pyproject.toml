@@ -50,7 +50,8 @@ dependencies = [
     "pyometiff",
     "numpy_groupies",
     "statannotations",
-    "bokeh"
+    "bokeh",
+    "albumentations"
 ]
 
 [project.optional-dependencies]
@@ -80,6 +81,7 @@ segmented_xenium_to_anndata = "nuc2seg.cli.segmented_xenium_to_anndata:main"
 calculate_benchmarks = "nuc2seg.cli.calculate_benchmarks:main"
 create_interactive_segmentation_comparison = "nuc2seg.cli.create_interactive_segmentation_comparison:main"
 plot_celltyping_results = "nuc2seg.cli.plot_celltyping_results:main"
+plot_roi = "nuc2seg.cli.plot_roi:main"
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]
