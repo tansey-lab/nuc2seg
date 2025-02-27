@@ -140,6 +140,32 @@ def test_transcripts_df():
             "codeword_index": 54,
             "gene_id": 1,
         },
+        {
+            "transcript_id": 7,
+            "cell_id": "UNASSIGNED",
+            "overlaps_nucleus": 0,
+            "feature_name": "gene1",
+            "x_location": 17,
+            "y_location": 17,
+            "z_location": 13.079690933227539,
+            "qv": 40.0,
+            "fov_name": "C18",
+            "codeword_index": 54,
+            "gene_id": 0,
+        },
+        {
+            "transcript_id": 8,
+            "cell_id": "UNASSIGNED",
+            "overlaps_nucleus": 0,
+            "feature_name": "gene2",
+            "x_location": 17,
+            "y_location": 17,
+            "z_location": 13.079690933227539,
+            "qv": 40.0,
+            "fov_name": "C18",
+            "codeword_index": 54,
+            "gene_id": 1,
+        },
     ]
 
     df = pandas.DataFrame(RECORDS)

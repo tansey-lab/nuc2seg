@@ -40,6 +40,7 @@ from nuc2seg.segment import greedy_cell_segmentation
 from nuc2seg.utils import (
     transform_shapefile_to_rasterized_space,
     bbox_geometry_to_rasterized_slice,
+    normalized_radians_to_radians,
 )
 
 
@@ -103,7 +104,7 @@ def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
                 color="w",
                 markerfacecolor=border_color,
                 markersize=10,
-                label="Border",
+                label="Unlabeled",
             ),
             plt.Line2D(
                 [0],
@@ -131,78 +132,33 @@ def plot_labels(ax, dataset: Nuc2SegDataset, bbox=None):
 
 def plot_angles_quiver(
     ax,
-    dataset: Nuc2SegDataset,
-    predictions: ModelPredictions,
-    bbox=None,
+    angles,
+    mask,
 ):
-    angles = predictions.angles
-    labels = dataset.labels
+    angles = normalized_radians_to_radians(angles.T)
+    mask = mask.T
+    imshow_data = np.zeros((mask.shape[0], mask.shape[1], 4)).astype(float)
 
-    if bbox is not None:
-        angles = angles[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-        labels = labels[bbox[0] : bbox[2], bbox[1] : bbox[3]]
-        nuclei = labels > 0
-        mask = labels == -1
-    else:
-        nuclei = labels > 0
-        mask = labels == -1
-
-    nuclei = nuclei.T
-
-    imshow_data = np.zeros((nuclei.shape[0], nuclei.shape[1], 4)).astype(float)
-
-    for i in range(mask.T.shape[0]):
-        for j in range(mask.T.shape[1]):
-            if not mask.T[i, j]:
+    for i in range(mask.shape[0]):
+        for j in range(mask.shape[1]):
+            if not mask[i, j]:
                 imshow_data[i, j, :] = np.array([0.45, 0.57, 0.70, 0.5]).astype(float)
 
     ax.imshow(imshow_data)
-    norm = mcolors.Normalize(vmin=angles.min(), vmax=angles.max())
+    norm = mcolors.Normalize(vmin=np.nanmin(angles), vmax=np.nanmax(angles))
 
-    for xi in range(nuclei.shape[1]):
-        for yi in range(nuclei.shape[0]):
+    for xi in range(mask.shape[0]):
+        for yi in range(mask.shape[1]):
             if mask[xi, yi]:
                 dx, dy = pol2cart(0.5, angles[xi, yi])
                 ax.arrow(
-                    xi,
                     yi,
+                    xi,
                     dx,
                     dy,
                     color=cm.hsv(norm(angles[xi, yi])),
-                    width=(1 / nuclei.shape[1] * 5),
+                    width=(1 / mask.shape[1] * 5),
                 )
-    ax.set_title("Predicted angles and segmentation")
-
-    legend_handles = []
-    legend_handles.append(
-        plt.Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor="black",
-            markersize=10,
-            label="Nucleus",
-        )
-    )
-
-    legend_handles.append(
-        plt.Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor=(0.45, 0.57, 0.70, 0.5),
-            markersize=10,
-            label="Background",
-        )
-    )
-
-    ax.legend(
-        handles=legend_handles,
-        loc="center left",
-        bbox_to_anchor=(1, 0.5),
-    )
 
 
 def plot_foreground(ax, predictions: ModelPredictions, bbox=None):
@@ -222,6 +178,68 @@ def update_projection(ax_dict, ax_key, projection="3d", fig=None):
     rows, cols, start, stop = ax_dict[ax_key].get_subplotspec().get_geometry()
     ax_dict[ax_key].remove()
     ax_dict[ax_key] = fig.add_subplot(rows, cols, start + 1, projection=projection)
+
+
+def plot_preprocessing(dataset: Nuc2SegDataset, output_path: str):
+    layout = """
+    A
+    B
+    C
+    """
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 30))
+    plot_labels(ax["A"], dataset, bbox=None)
+
+    plot_angles_quiver(
+        ax=ax["B"],
+        angles=dataset.angles,
+        mask=(dataset.labels > 0),
+    )
+    ax["B"].set_title("Labeled angles")
+
+    plot_nuclei_labels(ax["C"], dataset)
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_nuclei_labels(ax, dataset: Nuc2SegDataset):
+    imshow_data = np.zeros(
+        (dataset.classes.T.shape[0], dataset.classes.T.shape[1], 4)
+    ).astype(float)
+
+    for i in range(dataset.classes.T.shape[0]):
+        for j in range(dataset.classes.T.shape[1]):
+            if dataset.labels.T[i, j] > 0:
+                # get color from cm.tab10
+                color = cm.tab10(dataset.classes.T[i, j] - 1)[:3]
+                imshow_data[i, j, :] = np.array(
+                    [color[0], color[1], color[2], 1.0]
+                ).astype(float)
+
+    ax.set_title("Labels")
+    ax.imshow(imshow_data, interpolation="none")
+
+    legend_handles = []
+    for i in np.unique(dataset.classes):
+        if i == 0:
+            continue
+        i = i - 1
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=cm.tab10(i)[:3],
+                markersize=10,
+                label=f"Class {i}",
+            )
+        )
+    # put legend upper right
+    ax.legend(
+        handles=legend_handles,
+        loc="upper right",
+    )
 
 
 def plot_model_predictions(
@@ -254,9 +272,38 @@ def plot_model_predictions(
     fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 30))
     plot_angles_quiver(
         ax=ax["B"],
-        predictions=model_predictions,
-        bbox=None,
-        dataset=dataset,
+        angles=model_predictions.angles,
+        mask=(dataset.labels == -1),
+    )
+    legend_handles = []
+    legend_handles.append(
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="black",
+            markersize=10,
+            label="Nucleus",
+        )
+    )
+
+    legend_handles.append(
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=(0.45, 0.57, 0.70, 0.5),
+            markersize=10,
+            label="Background",
+        )
+    )
+
+    ax["B"].legend(
+        handles=legend_handles,
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
     )
 
     plot_monocolored_seg_outlines(
@@ -264,6 +311,8 @@ def plot_model_predictions(
         gdf=prior_segmentation_transformed,
         color="black",
     )
+
+    ax["B"].set_title("Predicted angles")
 
     plot_labels(ax["A"], dataset, bbox=None)
     im = plot_foreground(ax["C"], model_predictions, bbox=None)

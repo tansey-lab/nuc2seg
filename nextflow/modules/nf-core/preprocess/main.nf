@@ -11,6 +11,7 @@ process PREPROCESS {
     output:
     tuple val(meta), path("${prefix}/preprocessed.h5")                  , emit: dataset
     tuple val(meta), path("${prefix}/label_segments.parquet")           , emit: labels
+    tuple val(meta), path("${prefix}/preprocessed_preprocessing.pdf")   , emit: pdf
     path  "versions.yml"                                                , emit: versions
 
 

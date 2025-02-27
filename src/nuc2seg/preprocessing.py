@@ -12,6 +12,10 @@ import tqdm
 from blended_tiling import TilingModule
 from scipy.spatial import KDTree
 from shapely import box
+from nuc2seg.utils import (
+    transform_shapefile_to_rasterized_space,
+    transform_bbox_to_raster_space,
+)
 
 from nuc2seg.data import (
     RasterizedDataset,
@@ -71,10 +75,6 @@ def create_rasterized_dataset(
     background_transcript_distance=4,
     background_pixel_transcripts=5,
 ):
-    if "segment_id" in prior_segmentation_gdf.columns:
-        del prior_segmentation_gdf["segment_id"]
-    prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
-    prior_segmentation_gdf["segment_id"] += 1
 
     prior_segmentation_gdf = prior_segmentation_gdf.copy()
     n_genes = tx_geo_df["gene_id"].max() + 1
@@ -82,27 +82,33 @@ def create_rasterized_dataset(
         del tx_geo_df["transcript_id"]
     tx_geo_df.reset_index(names="transcript_id", inplace=True)
 
-    x_min, y_min, x_max, y_max = sample_area.bounds
-
-    width = x_max - x_min
-    height = y_max - y_min
-
-    prior_segmentation_gdf["geometry"] = prior_segmentation_gdf.translate(
-        -x_min, -y_min
+    tx_geo_df = transform_shapefile_to_rasterized_space(
+        tx_geo_df, resolution, sample_area.bounds
     )
-    tx_geo_df["geometry"] = tx_geo_df.translate(-x_min, -y_min)
+
+    prior_segmentation_gdf = transform_shapefile_to_rasterized_space(
+        prior_segmentation_gdf, resolution, sample_area.bounds
+    )
+
+    if "segment_id" in prior_segmentation_gdf.columns:
+        del prior_segmentation_gdf["segment_id"]
+    prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
+    prior_segmentation_gdf["segment_id"] += 1
 
     logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
-    idx_geo_df = create_pixel_geodf(width, height, resolution)
+    idx_geo_df = create_pixel_geodf(
+        (sample_area.bounds[2] - sample_area.bounds[0]) / resolution,
+        (sample_area.bounds[3] - sample_area.bounds[1]) / resolution,
+    )
 
     x_max_idx = idx_geo_df["x_index"].max()
     y_max_idx = idx_geo_df["y_index"].max()
 
     logger.info("Find the nearest segment to each pixel")
     # Find the nearest segment to each pixel
-    prior_segmentation_gdf["centroid_x"] = prior_segmentation_gdf.centroid.x - x_min
-    prior_segmentation_gdf["centroid_y"] = prior_segmentation_gdf.centroid.y - y_min
+    prior_segmentation_gdf["centroid_x"] = prior_segmentation_gdf.centroid.x
+    prior_segmentation_gdf["centroid_y"] = prior_segmentation_gdf.centroid.y
     labels_geo_df = gpd.sjoin_nearest(
         idx_geo_df,
         prior_segmentation_gdf,
@@ -115,7 +121,10 @@ def create_rasterized_dataset(
     labels_geo_df.drop_duplicates(subset=["x_index", "y_index"], inplace=True)
     logger.info("Calculating the nearest transcript neighbors")
     transcript_xy = np.array(
-        [tx_geo_df["x_location"].values, tx_geo_df["y_location"].values]
+        [
+            np.floor(tx_geo_df.centroid.x.values).astype(int),
+            np.floor(tx_geo_df.centroid.y.values).astype(int),
+        ]
     ).T
     kdtree = KDTree(transcript_xy)
 
@@ -123,9 +132,19 @@ def create_rasterized_dataset(
     pixels_xy = np.array(
         [labels_geo_df["x_index"].values, labels_geo_df["y_index"].values]
     ).T
-    labels_geo_df["transcript_distance"] = kdtree.query(
-        pixels_xy, k=background_pixel_transcripts + 1
-    )[0][:, -1]
+
+    if background_pixel_transcripts == 1:
+        labels_geo_df["distance_to_farthest_transcript"] = kdtree.query(
+            pixels_xy, k=background_pixel_transcripts
+        )[0]
+    else:
+        labels_geo_df["distance_to_farthest_transcript"] = kdtree.query(
+            pixels_xy, k=background_pixel_transcripts
+        )[0][:, -1]
+
+    labels_geo_df["in_transcript_dense_area"] = labels_geo_df[
+        "distance_to_farthest_transcript"
+    ] < (background_transcript_distance / resolution)
 
     logger.info("Assign pixels roughly on top of nuclei to belong to that nuclei label")
     pixel_labels = np.zeros(labels_geo_df.shape[0], dtype=int) - 1
@@ -137,11 +156,11 @@ def create_rasterized_dataset(
     logger.info(
         "Assign pixels to the background if they are far from nuclei and not near a dense region of transcripts"
     )
-    background_pixels = (
+    labels_geo_df["is_background_pixel"] = (
         (labels_geo_df["distance"] > background_distance)
         | labels_geo_df["distance"].isna()
-    ) & (labels_geo_df["transcript_distance"] > background_transcript_distance)
-    pixel_labels[background_pixels] = 0
+    ) & (~labels_geo_df["in_transcript_dense_area"])
+    pixel_labels[labels_geo_df["is_background_pixel"].values] = 0
 
     logger.info("Convert pixel labels to a grid")
     labels = pixel_labels.reshape(x_max_idx + 1, y_max_idx + 1)
@@ -149,7 +168,6 @@ def create_rasterized_dataset(
     # Assume for simplicity that it's a homogeneous poisson process for transcripts.
     # Add up all the transcripts in each pixel.
     logger.info("Add up all transcripts in each pixel")
-
     tx_geo_df = tx_geo_df.sjoin(idx_geo_df, how="inner")
 
     # Arbtirarily drop ties (transcript is on pixel edge)
@@ -202,7 +220,7 @@ def create_rasterized_dataset(
         labels=labels,
         angles=angles,
         transcripts=transcripts_arr,
-        bbox=np.array([x_min, y_min, x_max, y_max]),
+        bbox=np.array(sample_area.bounds),
         n_genes=n_genes,
         resolution=resolution,
     )

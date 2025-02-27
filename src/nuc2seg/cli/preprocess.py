@@ -19,7 +19,12 @@ from nuc2seg.xenium import (
 )
 from nuc2seg.segment import segmentation_array_to_shapefile
 from nuc2seg.constants import NOISE_CELLTYPE
-from nuc2seg.utils import create_shapely_rectangle, transform_shapefile_to_slide_space
+from nuc2seg.utils import (
+    create_shapely_rectangle,
+    transform_shapefile_to_slide_space,
+    get_roi,
+)
+from nuc2seg.plotting import plot_preprocessing
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +87,7 @@ def get_parser():
         "--foreground-nucleus-distance",
         help="Distance from a nucleus to be considered foreground.",
         type=int,
-        default=1,
+        default=0,
     )
     parser.add_argument(
         "--background-nucleus-distance",
@@ -100,7 +105,7 @@ def get_parser():
         "--background-pixel-transcripts",
         help="Number of transcripts in a pixel to be considered foreground.",
         type=int,
-        default=2,
+        default=5,
     )
     parser.add_argument(
         "--sample-area",
@@ -157,6 +162,10 @@ def main():
         fn=args.nuclei_file,
         sample_area=sample_area,
     ).reset_index(drop=True)
+    if "segment_id" in nuclei_geo_df.columns:
+        del nuclei_geo_df["segment_id"]
+    nuclei_geo_df.reset_index(names="segment_id", inplace=True)
+    nuclei_geo_df["segment_id"] += 1
 
     tx_geo_df = load_and_filter_transcripts_as_points(
         transcripts_file=args.transcripts_file,
@@ -231,6 +240,13 @@ def main():
 
     logger.info("Saving to h5")
     ds.save_h5(args.output)
+
+    logger.info("Plotting preprocessing")
+    roi_bbox = get_roi(ds.resolution, ds.labels)
+    plot_preprocessing(
+        dataset=ds.clip(roi_bbox),
+        output_path=args.output.replace(".h5", "_preprocessing.pdf"),
+    )
 
     logger.info("Saving labels to GeoParquet")
     labels_shapefile = segmentation_array_to_shapefile(rasterized_dataset.labels)

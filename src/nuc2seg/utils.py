@@ -305,8 +305,6 @@ def transform_shapefile_to_rasterized_space(
         xfact=1 / resolution, yfact=1 / resolution, origin=(0, 0)
     )
 
-    # Do this to line up properly with imshow
-    clipped["geometry"] = clipped.geometry.translate(xoff=-0.5, yoff=-0.5)
     return clipped
 
 
@@ -378,3 +376,29 @@ def bbox_geometry_to_rasterized_slice(
         math.ceil(bbox.bounds[2]),
         math.ceil(bbox.bounds[3]),
     )
+
+
+def get_roi(resolution, labels, size=200):
+    pixel_size = int(size / resolution)
+
+    tiles = get_indexed_tiles(
+        extent=labels.shape, tile_size=(pixel_size, pixel_size), overlap=0.0
+    )
+
+    n_nuclei = {}
+
+    for tile_idx, bounds in tiles.items():
+        x1, y1, x2, y2 = bounds
+        tile = labels[y1:y2, x1:x2]
+        n_nuclei[tile_idx] = len(np.unique(tile[tile > 0]))
+
+    median_n_nuclei = sorted(list(n_nuclei.values()))[len(n_nuclei) // 2]
+
+    for tile_idx, n in n_nuclei.items():
+        if n == median_n_nuclei:
+            x1, y1, x2, y2 = tiles[tile_idx]
+            return x1, y1, x2, y2
+
+
+def normalized_radians_to_radians(arr):
+    return (arr * 2 * np.pi) - np.pi
