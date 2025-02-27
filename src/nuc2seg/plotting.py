@@ -266,6 +266,12 @@ def plot_model_predictions(
         resolution=dataset.resolution,
     )
 
+    segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+
     model_predictions = model_predictions.clip((x1, y1, x2, y2))
     dataset = dataset.clip((x1, y1, x2, y2))
 
@@ -273,7 +279,7 @@ def plot_model_predictions(
     plot_angles_quiver(
         ax=ax["B"],
         angles=model_predictions.angles,
-        mask=(dataset.labels == -1),
+        mask=(dataset.labels != 0),
     )
     legend_handles = []
     legend_handles.append(
@@ -284,7 +290,19 @@ def plot_model_predictions(
             color="w",
             markerfacecolor="black",
             markersize=10,
-            label="Nucleus",
+            label="Prior",
+        )
+    )
+
+    legend_handles.append(
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="lightgray",
+            markersize=10,
+            label="Segmentation",
         )
     )
 
@@ -305,7 +323,11 @@ def plot_model_predictions(
         loc="center left",
         bbox_to_anchor=(1, 0.5),
     )
-
+    plot_monocolored_seg_outlines(
+        ax=ax["B"],
+        gdf=segmentation_transformed,
+        color="lightgray",
+    )
     plot_monocolored_seg_outlines(
         ax=ax["B"],
         gdf=prior_segmentation_transformed,

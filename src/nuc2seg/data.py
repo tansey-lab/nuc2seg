@@ -149,7 +149,7 @@ class Nuc2SegDataset:
         """
         :param labels: array of shape (x, y) of pixel labels,
             0 is background, -1 is border, > 1 is a unique contiguous nucleus
-        :param angles: array of shape (x, y) of angles in radians
+        :param angles: array of shape (x, y) of angles in normalized (0, 1) radians
         :param classes: array of shape (x, y) of the cell type of each pixel, 1-indexed
         :param transcripts: array of shape (n_transcripts, 3), where the columns are x, y, gene_id
         :param bbox: array of shape (4,) of the bounding box of the dataset
