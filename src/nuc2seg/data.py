@@ -119,6 +119,10 @@ class RasterizedDataset:
     def y_extent_pixels(self):
         return self.labels.shape[1]
 
+    @property
+    def shape(self):
+        return self.labels.shape
+
     @staticmethod
     def load_h5(path):
         with h5py.File(path, "r") as f:

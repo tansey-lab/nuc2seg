@@ -242,9 +242,9 @@ def main():
     ds.save_h5(args.output)
 
     logger.info("Plotting preprocessing")
-    raster_bbox = get_roi(ds.resolution, ds.labels)
+    roi_bbox = get_roi(ds.resolution, ds.labels)
     plot_preprocessing(
-        dataset=raster_bbox,
+        dataset=ds.clip(roi_bbox),
         output_path=args.output.replace(".h5", "_preprocessing.pdf"),
     )
 

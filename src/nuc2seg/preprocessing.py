@@ -130,9 +130,15 @@ def create_rasterized_dataset(
     pixels_xy = np.array(
         [labels_geo_df["x_index"].values, labels_geo_df["y_index"].values]
     ).T
-    labels_geo_df["distance_to_farthest_transcript"] = kdtree.query(
-        pixels_xy, k=background_pixel_transcripts
-    )[0][:, -1]
+
+    if background_pixel_transcripts == 1:
+        labels_geo_df["distance_to_farthest_transcript"] = kdtree.query(
+            pixels_xy, k=background_pixel_transcripts
+        )[0]
+    else:
+        labels_geo_df["distance_to_farthest_transcript"] = kdtree.query(
+            pixels_xy, k=background_pixel_transcripts
+        )[0][:, -1]
 
     labels_geo_df["in_transcript_dense_area"] = labels_geo_df[
         "distance_to_farthest_transcript"

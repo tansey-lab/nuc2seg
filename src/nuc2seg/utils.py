@@ -400,3 +400,7 @@ def get_roi(resolution, labels, size=200):
         if n == median_n_nuclei:
             x1, y1, x2, y2 = tiles[tile_idx]
             return x1, y1, x2, y2
+
+
+def normalized_radians_to_radians(arr):
+    return (arr * 2 * np.pi) - np.pi

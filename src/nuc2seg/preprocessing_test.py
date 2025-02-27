@@ -13,6 +13,7 @@ from nuc2seg.preprocessing import (
     tile_transcripts_to_disk,
     create_pixel_geodf,
 )
+from nuc2seg.utils import transform_shapefile_to_rasterized_space
 
 
 def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
@@ -23,6 +24,7 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
     test_transcripts_df["geometry"] = test_transcripts_df.geometry.translate(
         xoff=10, yoff=10
     )
+    background_pixel_transcripts = 2
     ds = create_rasterized_dataset(
         prior_segmentation_gdf=test_nuclei_df,
         tx_geo_df=test_transcripts_df,
@@ -31,7 +33,7 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
         foreground_distance=1,
         background_distance=4,
         background_transcript_distance=2,
-        background_pixel_transcripts=2,
+        background_pixel_transcripts=background_pixel_transcripts,
     )
 
     assert ds.labels.shape == (29, 19)
@@ -39,6 +41,17 @@ def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):
     assert ds.x_extent_pixels == 29
     assert ds.y_extent_pixels == 19
     assert ds.n_genes == 2
+
+    test_transcripts_df_rasterized = transform_shapefile_to_rasterized_space(
+        test_transcripts_df, resolution=ds.resolution, sample_area=ds.bbox
+    )
+
+    for i in np.arange(ds.shape[0]):
+        for j in np.arange(ds.shape[1]):
+            x_filter = np.floor(test_transcripts_df_rasterized.centroid.x) == i
+            y_filter = np.floor(test_transcripts_df_rasterized.centroid.y) == j
+            if (x_filter & y_filter).sum() >= background_pixel_transcripts:
+                assert ds.labels[i, j] != 0
 
     # Assert coordinated are transformed relative to the bbox
     assert ds.transcripts[:, 0].min() == 9.0
