@@ -300,18 +300,6 @@ def plot_model_predictions(
             [0],
             marker="o",
             color="w",
-            markerfacecolor="lightgray",
-            markersize=10,
-            label="Segmentation",
-        )
-    )
-
-    legend_handles.append(
-        plt.Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
             markerfacecolor=(0.45, 0.57, 0.70, 0.5),
             markersize=10,
             label="Background",
@@ -323,15 +311,24 @@ def plot_model_predictions(
         loc="center left",
         bbox_to_anchor=(1, 0.5),
     )
-    plot_monocolored_seg_outlines(
-        ax=ax["B"],
-        gdf=segmentation_transformed,
-        color="lightgray",
-    )
+
     plot_monocolored_seg_outlines(
         ax=ax["B"],
         gdf=prior_segmentation_transformed,
         color="black",
+    )
+
+    plot_monocolored_seg_outlines(
+        ax=ax["B"],
+        gdf=segmentation_transformed,
+        color=[
+            (cm.tab10(i % 10)[0], cm.tab10(i % 10)[1], cm.tab10(i % 10)[2], 0.7)
+            for i in range(len(segmentation_transformed))
+        ],
+        facecolor=[
+            (cm.tab10(i % 10)[0], cm.tab10(i % 10)[1], cm.tab10(i % 10)[2], 0.5)
+            for i in range(len(segmentation_transformed))
+        ],
     )
 
     ax["B"].set_title("Predicted angles")
@@ -513,8 +510,10 @@ def plot_multicolored_seg_outlines(
     gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=edge_colors, linewidth=0.5)
 
 
-def plot_monocolored_seg_outlines(ax, gdf: geopandas.GeoDataFrame, color="black"):
-    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=color, linewidth=1.0)
+def plot_monocolored_seg_outlines(
+    ax, gdf: geopandas.GeoDataFrame, facecolor=(0, 0, 0, 0), color="black"
+):
+    gdf.plot(ax=ax, facecolor=facecolor, edgecolor=color, linewidth=1.0)
 
 
 def plot_segmentation_comparison(
