@@ -224,6 +224,68 @@ def update_projection(ax_dict, ax_key, projection="3d", fig=None):
     ax_dict[ax_key] = fig.add_subplot(rows, cols, start + 1, projection=projection)
 
 
+def plot_preprocessing(dataset: Nuc2SegDataset, output_path: str):
+    layout = """
+    A
+    B
+    C
+    """
+    fig, ax = plt.subplot_mosaic(mosaic=layout, figsize=(10, 30))
+    plot_labels(ax["A"], dataset, bbox=None)
+
+    plot_angles_quiver(
+        ax=ax["B"],
+        predictions=dataset.angles,
+        bbox=None,
+        dataset=dataset,
+    )
+
+    plot_nuclei_labels(ax["C"], dataset)
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_nuclei_labels(ax, dataset: Nuc2SegDataset):
+    imshow_data = np.zeros(
+        (dataset.classes.T.shape[0], dataset.classes.T.shape[1], 4)
+    ).astype(float)
+
+    for i in range(dataset.classes.T.shape[0]):
+        for j in range(dataset.classes.T.shape[1]):
+            if dataset.labels.T[i, j] > 0:
+                # get color from cm.tab10
+                color = cm.tab10(dataset.classes.T[i, j] - 1)[:3]
+                imshow_data[i, j, :] = np.array(
+                    [color[0], color[1], color[2], 1.0]
+                ).astype(float)
+
+    ax.set_title("Labels")
+    ax.imshow(imshow_data, interpolation="none")
+
+    legend_handles = []
+    for i in range(np.unique(dataset.classes)):
+        if i == 0:
+            continue
+        i = i - 1
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=cm.tab10(i)[:3],
+                markersize=10,
+                label=f"Class {i}",
+            )
+        )
+    # put legend upper right
+    ax.legend(
+        handles=legend_handles,
+        loc="upper right",
+    )
+
+
 def plot_model_predictions(
     dataset: Nuc2SegDataset,
     prior_segmentation_gdf: geopandas.GeoDataFrame,

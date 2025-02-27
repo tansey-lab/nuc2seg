@@ -3,7 +3,6 @@ import logging
 from pathlib import Path
 
 import geopandas
-import numpy as np
 from shapely import box
 
 from nuc2seg import log_config
@@ -14,9 +13,9 @@ from nuc2seg.plotting import (
     create_interactive_segmentation_comparison,
 )
 from nuc2seg.utils import (
-    get_indexed_tiles,
     transform_bbox_to_slide_space,
     transform_bbox_to_raster_space,
+    get_roi,
 )
 from nuc2seg.xenium import load_and_filter_transcripts_as_points, load_vertex_file
 
@@ -76,28 +75,6 @@ def get_parser():
         "Will choose region of interest based on the dataset if not provided.",
     )
     return parser
-
-
-def get_roi(resolution, labels, size=200):
-    pixel_size = int(size / resolution)
-
-    tiles = get_indexed_tiles(
-        extent=labels.shape, tile_size=(pixel_size, pixel_size), overlap=0.0
-    )
-
-    n_nuclei = {}
-
-    for tile_idx, bounds in tiles.items():
-        x1, y1, x2, y2 = bounds
-        tile = labels[y1:y2, x1:x2]
-        n_nuclei[tile_idx] = len(np.unique(tile[tile > 0]))
-
-    median_n_nuclei = sorted(list(n_nuclei.values()))[len(n_nuclei) // 2]
-
-    for tile_idx, n in n_nuclei.items():
-        if n == median_n_nuclei:
-            x1, y1, x2, y2 = tiles[tile_idx]
-            return x1, y1, x2, y2
 
 
 def main():

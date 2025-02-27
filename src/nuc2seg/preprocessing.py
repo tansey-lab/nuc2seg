@@ -72,10 +72,6 @@ def create_rasterized_dataset(
     background_transcript_distance=4,
     background_pixel_transcripts=5,
 ):
-    if "segment_id" in prior_segmentation_gdf.columns:
-        del prior_segmentation_gdf["segment_id"]
-    prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
-    prior_segmentation_gdf["segment_id"] += 1
 
     prior_segmentation_gdf = prior_segmentation_gdf.copy()
     n_genes = tx_geo_df["gene_id"].max() + 1
@@ -88,13 +84,17 @@ def create_rasterized_dataset(
     width = x_max - x_min
     height = y_max - y_min
 
-    prior_segmentation_gdf["geometry"] = prior_segmentation_gdf.translate(
-        -x_min, -y_min
-    )
-
     tx_geo_df = transform_shapefile_to_rasterized_space(
         tx_geo_df, resolution, sample_area.bounds
     )
+
+    prior_segmentation_gdf = transform_shapefile_to_rasterized_space(
+        prior_segmentation_gdf, resolution, sample_area.bounds
+    )
+    if "segment_id" in prior_segmentation_gdf.columns:
+        del prior_segmentation_gdf["segment_id"]
+    prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
+    prior_segmentation_gdf["segment_id"] += 1
 
     logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
@@ -105,8 +105,8 @@ def create_rasterized_dataset(
 
     logger.info("Find the nearest segment to each pixel")
     # Find the nearest segment to each pixel
-    prior_segmentation_gdf["centroid_x"] = prior_segmentation_gdf.centroid.x - x_min
-    prior_segmentation_gdf["centroid_y"] = prior_segmentation_gdf.centroid.y - y_min
+    prior_segmentation_gdf["centroid_x"] = prior_segmentation_gdf.centroid.x
+    prior_segmentation_gdf["centroid_y"] = prior_segmentation_gdf.centroid.y
     labels_geo_df = gpd.sjoin_nearest(
         idx_geo_df,
         prior_segmentation_gdf,
