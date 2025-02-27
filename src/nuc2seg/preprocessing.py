@@ -12,7 +12,10 @@ import tqdm
 from blended_tiling import TilingModule
 from scipy.spatial import KDTree
 from shapely import box
-from nuc2seg.utils import transform_shapefile_to_rasterized_space
+from nuc2seg.utils import (
+    transform_shapefile_to_rasterized_space,
+    transform_bbox_to_raster_space,
+)
 
 from nuc2seg.data import (
     RasterizedDataset,
@@ -79,11 +82,6 @@ def create_rasterized_dataset(
         del tx_geo_df["transcript_id"]
     tx_geo_df.reset_index(names="transcript_id", inplace=True)
 
-    x_min, y_min, x_max, y_max = sample_area.bounds
-
-    width = x_max - x_min
-    height = y_max - y_min
-
     tx_geo_df = transform_shapefile_to_rasterized_space(
         tx_geo_df, resolution, sample_area.bounds
     )
@@ -91,6 +89,7 @@ def create_rasterized_dataset(
     prior_segmentation_gdf = transform_shapefile_to_rasterized_space(
         prior_segmentation_gdf, resolution, sample_area.bounds
     )
+
     if "segment_id" in prior_segmentation_gdf.columns:
         del prior_segmentation_gdf["segment_id"]
     prior_segmentation_gdf.reset_index(names="segment_id", inplace=True)
@@ -98,7 +97,10 @@ def create_rasterized_dataset(
 
     logger.info("Creating pixel geometry dataframe")
     # Create a dataframe with an entry for every pixel
-    idx_geo_df = create_pixel_geodf(width, height, resolution)
+    idx_geo_df = create_pixel_geodf(
+        (sample_area.bounds[2] - sample_area.bounds[0]) / resolution,
+        (sample_area.bounds[3] - sample_area.bounds[1]) / resolution,
+    )
 
     x_max_idx = idx_geo_df["x_index"].max()
     y_max_idx = idx_geo_df["y_index"].max()
@@ -218,7 +220,7 @@ def create_rasterized_dataset(
         labels=labels,
         angles=angles,
         transcripts=transcripts_arr,
-        bbox=np.array([x_min, y_min, x_max, y_max]),
+        bbox=np.array(sample_area.bounds),
         n_genes=n_genes,
         resolution=resolution,
     )

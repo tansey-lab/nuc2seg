@@ -305,8 +305,6 @@ def transform_shapefile_to_rasterized_space(
         xfact=1 / resolution, yfact=1 / resolution, origin=(0, 0)
     )
 
-    # Do this to line up properly with imshow
-    clipped["geometry"] = clipped.geometry.translate(xoff=-0.5, yoff=-0.5)
     return clipped
 
 
