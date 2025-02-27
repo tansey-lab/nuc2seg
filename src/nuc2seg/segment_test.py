@@ -165,7 +165,7 @@ def test_greedy_cell_segmentation_early_stop():
             x_component = 32 - x
             y_component = 32 - y
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = angle[1]
+            angles[x, y] = (angle[1] + np.pi) / (2 * np.pi)
 
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
@@ -211,7 +211,7 @@ def test_ray_tracing_segmentation_early_stop():
             x_component = 32 - x
             y_component = 25 - y
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = angle[1]
+            angles[x, y] = (angle[1] + np.pi) / (2 * np.pi)
 
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
@@ -488,7 +488,7 @@ def test_label_free_greedy_expansion():
             x_component = (x_extent_pixels / 2) - (x + 0.5)
             y_component = (y_extent_pixels / 2) - (y + 0.5)
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = angle[1]
+            angles[x, y] = (angle[1] + np.pi) / (2 * np.pi)
 
     start_xy = np.mgrid[0:x_extent_pixels, 0:y_extent_pixels]
     start_xy = np.array(list(zip(start_xy[0].flatten(), start_xy[1].flatten())))

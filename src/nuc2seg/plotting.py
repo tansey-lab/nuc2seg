@@ -266,6 +266,12 @@ def plot_model_predictions(
         resolution=dataset.resolution,
     )
 
+    segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+
     model_predictions = model_predictions.clip((x1, y1, x2, y2))
     dataset = dataset.clip((x1, y1, x2, y2))
 
@@ -273,7 +279,7 @@ def plot_model_predictions(
     plot_angles_quiver(
         ax=ax["B"],
         angles=model_predictions.angles,
-        mask=(dataset.labels == -1),
+        mask=(dataset.labels != 0),
     )
     legend_handles = []
     legend_handles.append(
@@ -284,7 +290,7 @@ def plot_model_predictions(
             color="w",
             markerfacecolor="black",
             markersize=10,
-            label="Nucleus",
+            label="Prior",
         )
     )
 
@@ -310,6 +316,19 @@ def plot_model_predictions(
         ax=ax["B"],
         gdf=prior_segmentation_transformed,
         color="black",
+    )
+
+    plot_monocolored_seg_outlines(
+        ax=ax["B"],
+        gdf=segmentation_transformed,
+        color=[
+            (cm.tab10(i % 10)[0], cm.tab10(i % 10)[1], cm.tab10(i % 10)[2], 0.7)
+            for i in range(len(segmentation_transformed))
+        ],
+        facecolor=[
+            (cm.tab10(i % 10)[0], cm.tab10(i % 10)[1], cm.tab10(i % 10)[2], 0.5)
+            for i in range(len(segmentation_transformed))
+        ],
     )
 
     ax["B"].set_title("Predicted angles")
@@ -491,8 +510,10 @@ def plot_multicolored_seg_outlines(
     gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=edge_colors, linewidth=0.5)
 
 
-def plot_monocolored_seg_outlines(ax, gdf: geopandas.GeoDataFrame, color="black"):
-    gdf.plot(ax=ax, facecolor=(0, 0, 0, 0), edgecolor=color, linewidth=1.0)
+def plot_monocolored_seg_outlines(
+    ax, gdf: geopandas.GeoDataFrame, facecolor=(0, 0, 0, 0), color="black"
+):
+    gdf.plot(ax=ax, facecolor=facecolor, edgecolor=color, linewidth=1.0)
 
 
 def plot_segmentation_comparison(
