@@ -651,7 +651,6 @@ def convert_segmentation_to_shapefile(
 
         mean_probs = mean_class_prob_per_cell[gb_idx, :]
         class_assignment = int(np.argmax(mean_probs))
-
         record["unet_celltype_assignment"] = class_assignment
         for i, val in enumerate(mean_probs):
             record[f"unet_celltype_{i}_prob"] = val

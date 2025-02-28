@@ -11,6 +11,7 @@ from nuc2seg.plotting import (
     plot_model_class_predictions,
     plot_model_predictions,
     create_interactive_segmentation_comparison,
+    plot_model_raw_and_average_class_prediction,
 )
 from nuc2seg.utils import (
     transform_bbox_to_slide_space,
@@ -120,6 +121,14 @@ def main():
         segmentation_gdf=segments,
         model_predictions=predictions,
         output_path=str(output_dir / "model_predictions.pdf"),
+        bbox=slide_bbox,
+    )
+
+    plot_model_raw_and_average_class_prediction(
+        dataset=ds,
+        segmentation_gdf=segments,
+        model_predictions=predictions,
+        output_path=str(output_dir / "model_raw_and_average_class_prediction.pdf"),
         bbox=slide_bbox,
     )
 

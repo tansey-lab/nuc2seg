@@ -364,6 +364,7 @@ def test_convert_segmentation_to_shapefile():
     classes = np.zeros((64, 100, 4))
 
     classes[10:20, 10:20, :] = np.array([0.9, 0.01, 0.01, 0.01])
+    classes[15:20, 10:20, :] = np.array([0.8, 0.01, 0.01, 0.01])
     classes[30:40, 30:40, :] = np.array([0.01, 0.9, 0.01, 0.01])
 
     predictions = ModelPredictions(
@@ -401,8 +402,8 @@ def test_convert_segmentation_to_shapefile():
     assert gdf.iloc[1].unet_celltype_assignment == 1
     assert gdf.iloc[0].geometry.area == 25
     assert gdf.iloc[1].geometry.area == 25
-    assert gdf.iloc[0].unet_celltype_0_prob >= 0.89
-    assert gdf.iloc[1].unet_celltype_1_prob >= 0.89
+    np.testing.assert_almost_equal(gdf.iloc[0].unet_celltype_0_prob, 0.85)
+    np.testing.assert_almost_equal(gdf.iloc[1].unet_celltype_1_prob, 0.9)
 
     dataset.resolution = 1.0
     gdf = convert_segmentation_to_shapefile(
@@ -417,8 +418,8 @@ def test_convert_segmentation_to_shapefile():
     assert gdf.iloc[1].unet_celltype_assignment == 1
     assert gdf.iloc[0].geometry.area == 100
     assert gdf.iloc[1].geometry.area == 100
-    assert gdf.iloc[0].unet_celltype_0_prob >= 0.89
-    assert gdf.iloc[1].unet_celltype_1_prob >= 0.89
+    np.testing.assert_almost_equal(gdf.iloc[0].unet_celltype_0_prob, 0.85)
+    np.testing.assert_almost_equal(gdf.iloc[1].unet_celltype_1_prob, 0.9)
 
 
 def test_convert_transcripts_to_anndata():
