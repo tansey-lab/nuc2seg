@@ -399,7 +399,7 @@ def plot_model_class_predictions(
         plot_monocolored_seg_outlines(
             ax=ax[i + 1],
             gdf=segmentation_transformed[
-                (segmentation_transformed["celltype_assignment"] == i)
+                (segmentation_transformed["unet_celltype_assignment"] == i)
                 & (
                     segmentation_transformed["celltype_assignment"]
                     == segmentation_transformed["unet_celltype_assignment"]
@@ -411,7 +411,7 @@ def plot_model_class_predictions(
         plot_monocolored_seg_outlines(
             ax=ax[i + 1],
             gdf=segmentation_transformed[
-                (segmentation_transformed["celltype_assignment"] == i)
+                (segmentation_transformed["unet_celltype_assignment"] == i)
                 & (
                     segmentation_transformed["celltype_assignment"]
                     != segmentation_transformed["unet_celltype_assignment"]
@@ -486,6 +486,171 @@ def plot_model_class_predictions(
         handles=legend_handles,
         loc="upper right",
     )
+
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_model_raw_and_average_class_prediction(
+    dataset: Nuc2SegDataset,
+    segmentation_gdf: geopandas.GeoDataFrame,
+    model_predictions: ModelPredictions,
+    output_path: str,
+    bbox: shapely.Polygon,
+):
+    fig, ax = plt.subplots(
+        nrows=dataset.n_classes,
+        ncols=2,
+        figsize=(20, 10 * (dataset.n_classes)),
+        dpi=100,
+    )
+
+    x1, y1, x2, y2 = bbox_geometry_to_rasterized_slice(
+        bbox=bbox, resolution=dataset.resolution, sample_area=dataset.bbox
+    )
+
+    segmentation_transformed = transform_shapefile_to_rasterized_space(
+        gdf=segmentation_gdf,
+        sample_area=bbox.bounds,
+        resolution=dataset.resolution,
+    )
+
+    model_predictions = model_predictions.clip((x1, y1, x2, y2))
+    dataset = dataset.clip((x1, y1, x2, y2))
+
+    avg_min = 1
+    avg_max = 0
+
+    for i in range(0, dataset.n_classes):
+        if segmentation_transformed[f"unet_celltype_{i}_prob"].min() < avg_min:
+            avg_min = segmentation_transformed[f"unet_celltype_{i}_prob"].min()
+        if segmentation_transformed[f"unet_celltype_{i}_prob"].max() > avg_max:
+            avg_max = segmentation_transformed[f"unet_celltype_{i}_prob"].max()
+
+    for i in range(0, dataset.n_classes):
+        class_index = i
+        raw_ax = ax[i, 0]
+        avg_ax = ax[i, 1]
+
+        raw_ax.set_title(f"Raw Class Predictions {class_index}")
+        im = raw_ax.imshow(
+            model_predictions.classes[:, :, class_index].T,
+            cmap="coolwarm",
+            vmin=model_predictions.classes[:, :, class_index].T.min(),
+            vmax=model_predictions.classes[:, :, class_index].T.max(),
+            interpolation="none",
+        )
+
+        fig.colorbar(im, ax=raw_ax)
+
+        plot_monocolored_seg_outlines(
+            ax=raw_ax,
+            gdf=segmentation_transformed,
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=raw_ax,
+            gdf=segmentation_transformed[
+                (segmentation_transformed["unet_celltype_assignment"] == i)
+                & (
+                    segmentation_transformed["celltype_assignment"]
+                    == segmentation_transformed["unet_celltype_assignment"]
+                )
+            ],
+            color="yellow",
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=raw_ax,
+            gdf=segmentation_transformed[
+                (segmentation_transformed["unet_celltype_assignment"] == class_index)
+                & (
+                    segmentation_transformed["celltype_assignment"]
+                    != segmentation_transformed["unet_celltype_assignment"]
+                )
+            ],
+            color="red",
+        )
+        # add class legend
+        legend_handles = []
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="yellow",
+                markerfacecolor="yellow",
+                markersize=10,
+                label=f"Unet True, MM True",
+            )
+        )
+
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="red",
+                markerfacecolor="red",
+                markersize=10,
+                label=f"Unet True, MM False",
+            )
+        )
+        # put legend upper right
+        raw_ax.legend(
+            handles=legend_handles,
+            loc="upper right",
+        )
+
+        avg_ax.set_title(f"Average Class Predictions {class_index}")
+
+        # Set the range for the colormap
+        norm = mcolors.Normalize(vmin=avg_min, vmax=avg_max)
+        segmentation_transformed.plot(
+            column=f"unet_celltype_{class_index}_prob",
+            ax=avg_ax,
+            cmap=cm.coolwarm,
+            norm=norm,
+            legend=False,  # We'll create our own colorbar
+            edgecolor="black",
+            linewidth=1,
+        )
+
+        plot_monocolored_seg_outlines(
+            ax=avg_ax,
+            gdf=segmentation_transformed[
+                segmentation_transformed["unet_celltype_assignment"] == class_index
+            ],
+            color="yellow",
+        )
+        # add class legend
+        legend_handles = []
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="yellow",
+                markerfacecolor="yellow",
+                markersize=10,
+                label=f"Unet True",
+            )
+        )
+        # put legend upper right
+        avg_ax.legend(
+            handles=legend_handles,
+            loc="upper right",
+        )
+
+        # flip y axis
+        avg_ax.invert_yaxis()
+
+        # Add a colorbar
+        sm = cm.ScalarMappable(cmap=cm.coolwarm, norm=norm)
+        sm.set_array([])  # This is a workaround for an issue with matplotlib
+        cbar = fig.colorbar(sm, ax=avg_ax)
+        cbar.set_label("Average Probability", fontsize=12)
 
     fig.tight_layout()
     fig.savefig(output_path)
