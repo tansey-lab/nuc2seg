@@ -1,5 +1,6 @@
 """ Full assembly of the parts to form the complete network """
 
+import wandb
 from typing import Optional
 
 from pytorch_lightning.core import LightningModule, LightningDataModule
@@ -14,6 +15,8 @@ from nuc2seg.evaluate import (
     celltype_accuracy,
 )
 from nuc2seg.unet_parts import *
+from nuc2seg.plotting import plot_validation_results
+from nuc2seg.utils import normalized_radians_to_radians
 
 
 class UNet(nn.Module):
@@ -527,6 +530,33 @@ class SparseUNet(LightningModule):
         )
 
         celltype_accuracy_value = celltype_accuracy(prediction, classes)
+
+        val_plot = plot_validation_results(
+            labels=labels.detach().cpu().numpy().squeeze(),
+            labeled_angles=normalized_radians_to_radians(
+                angles.detach().cpu().numpy().squeeze()
+            ),
+            labeled_classes=classes.detach().cpu().numpy().squeeze(),
+            predicted_foreground=torch.sigmoid(prediction[..., 0])
+            .detach()
+            .cpu()
+            .numpy()
+            .squeeze(),
+            predicted_angles=normalized_radians_to_radians(
+                torch.sigmoid(prediction[..., 1]).detach().cpu().numpy()
+            ).squeeze(),
+            predicted_classes=torch.softmax(prediction[..., 2:], dim=-1)
+            .detach()
+            .cpu()
+            .numpy()
+            .squeeze(),
+            foreground_accuracy=foreground_accuracy_value.detach().cpu().numpy(),
+            angle_accuracy=angle_accuracy_value.detach().cpu().numpy(),
+            class_accuracy=celltype_accuracy_value.detach().cpu().numpy(),
+            epoch=self.current_epoch,
+        )
+
+        wandb.log({"validation_plot": wandb.Image(val_plot)})
 
         self.validation_step_outputs.append(
             {
