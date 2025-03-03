@@ -40,10 +40,10 @@ def test_transform_shapefile_to_rasterized_space(test_nuclei_df):
 def test_reassign_angles_for_centroids():
     labels = torch.tensor(
         [
-            [0, 0, 0, 0, 0],
+            [2, 2, 0, 0, 0],
+            [2, 2, 1, 1, 0],
             [0, 1, 1, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 1, 1, 1, 0],
+            [0, 1, 1, 1, 1],
             [-1, -1, 0, 0, 0],
         ]
     )
@@ -56,3 +56,5 @@ def test_reassign_angles_for_centroids():
         .cpu()
         .numpy()
     )
+
+    assert result

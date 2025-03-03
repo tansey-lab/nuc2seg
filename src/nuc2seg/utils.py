@@ -419,37 +419,35 @@ def calculate_center_of_mass(tensor, x):
     mask = tensor == x
 
     # If no values equal x, return None
-    if not torch.any(mask):
+    if not np.any(mask):
         return None
 
     # Get coordinates of all points where value equals x
-    points = torch.argwhere(mask).float()
+    points = np.argwhere(mask)
 
     # Calculate center of mass (mean of all coordinates)
-    center_of_mass = points.mean(dim=0)
+    center_of_mass = points.mean(axis=0)
 
     # Return as (row, column) tuple
     return (center_of_mass[0] + 0.5, center_of_mass[1] + 0.5)
 
 
-def reassign_angles_for_centroids(labels: torch.tensor):
+def reassign_angles_for_centroids(labels: torch.tensor, centroids: torch.tensor):
     """
-    :param labels: H x W array of labels\
+    :param labels: H x W array of labels
+    :param centroids: dictionary of centroids
     :return: H x W array of angles
     """
     angles = torch.zeros_like(labels).float()
-
-    centroids = {}
-    for i in range(0, torch.max(labels)):
-        centroids[i] = calculate_center_of_mass(labels, i + 1)
 
     for x in range(labels.shape[0]):
         for y in range(labels.shape[1]):
             if labels[x, y] <= 0:
                 continue
             cell_idx = labels[x, y] - 1
-            x_component = centroids[cell_idx.item()][0] - (x + 0.5)
-            y_component = centroids[cell_idx.item()][1] - (y + 0.5)
+            centroid = centroids[cell_idx.item()]
+            x_component = centroid[0] - (x + 0.5)
+            y_component = centroid[1] - (y + 0.5)
             angle = cart2pol(x=x_component, y=y_component)
             angles[x, y] += (angle[1] + torch.pi) / (2 * torch.pi)
     return angles

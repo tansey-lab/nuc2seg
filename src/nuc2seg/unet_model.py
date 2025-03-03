@@ -556,7 +556,8 @@ class SparseUNet(LightningModule):
             epoch=self.current_epoch,
         )
 
-        wandb.log({"validation_plot": wandb.Image(val_plot)})
+        if wandb.run is not None:
+            wandb.log({"validation_plot": wandb.Image(val_plot)})
 
         self.validation_step_outputs.append(
             {
