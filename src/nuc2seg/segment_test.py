@@ -11,7 +11,6 @@ from blended_tiling import TilingModule
 from shapely import Polygon, Point
 
 from nuc2seg.data import ModelPredictions, Nuc2SegDataset
-from nuc2seg.preprocessing import cart2pol
 from nuc2seg.segment import (
     greedy_expansion,
     label_connected_components,
@@ -28,7 +27,7 @@ from nuc2seg.segment import (
     ray_tracing_cell_segmentation,
 )
 from nuc2seg.postprocess import convert_transcripts_to_anndata
-from nuc2seg.utils import get_indices_for_ndarray
+from nuc2seg.utils import get_indices_for_ndarray, cart2pol
 
 
 def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():

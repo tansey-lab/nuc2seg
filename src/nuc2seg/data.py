@@ -8,7 +8,7 @@ from blended_tiling import TilingModule
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from typing import Optional
-from nuc2seg.utils import generate_tiles, get_tile_bounds
+from nuc2seg.utils import generate_tiles, get_tile_bounds, reassign_angles_for_centroids
 from torchvision import transforms
 import albumentations
 
@@ -551,29 +551,35 @@ class TiledDataset(Dataset):
         labels_mask = tile_labels > -1
         nucleus_mask = tile_labels > 0
 
-        img_data = np.stack(
-            [tile_labels, tile_angles, tile_classes, labels_mask, nucleus_mask], axis=2
-        )
         tx_points = torch.ones(tile_transcripts.shape[0], 3)
         tx_points[:, 0] = torch.as_tensor(tile_transcripts[:, 0])
         tx_points[:, 1] = torch.as_tensor(tile_transcripts[:, 1])
 
         transformed = self.transforms(
-            image=img_data, keypoints=tx_points, genes=tile_transcripts[:, 2]
+            image=np.zeros((tile_labels.shape[0], tile_labels.shape[1], 1)),
+            keypoints=tx_points,
+            genes=tile_transcripts[:, 2],
+            masks=[labels_mask, nucleus_mask, tile_classes],
         )
         transformed_image = transformed["image"]
         transformed_keypoints = transformed["keypoints"]
         transformed_genes = transformed["genes"]
+        transformed_labels_mask, transformed_nucleus_mask, transformed_tile_classes = (
+            transformed["masks"]
+        )
+
+        labels = torch.as_tensor(transformed_image[0, ...]).long()
+        angles = reassign_angles_for_centroids(labels)
 
         return {
             "X": torch.as_tensor(transformed_keypoints[:, 0]).long(),
             "Y": torch.as_tensor(transformed_keypoints[:, 1]).long(),
             "gene": torch.as_tensor(transformed_genes).long(),
-            "labels": torch.as_tensor(transformed_image[0, ...]).long(),
-            "angles": torch.as_tensor(transformed_image[1, ...]).float(),
-            "classes": torch.as_tensor(transformed_image[2, ...]).long(),
-            "label_mask": torch.as_tensor(transformed_image[3, ...]).bool(),
-            "nucleus_mask": torch.as_tensor(transformed_image[4, ...]).bool(),
+            "labels": transformed_labels_mask.long(),
+            "angles": angles,
+            "classes": transformed_tile_classes.long(),
+            "label_mask": transformed_labels_mask.bool(),
+            "nucleus_mask": transformed_nucleus_mask.bool(),
         }
 
     def __getitem__(self, idx):

@@ -15,7 +15,7 @@ from nuc2seg.plotting import (
     rank_genes_groups_plot,
     plot_greedy_cell_segmentation,
 )
-from nuc2seg.preprocessing import cart2pol
+from nuc2seg.utils import cart2pol
 
 
 def test_plot_model_predictions():

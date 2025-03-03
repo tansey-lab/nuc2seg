@@ -7,7 +7,7 @@ from scipy.special import softmax, expit
 from torch import Tensor
 
 from nuc2seg.data import collate_tiles
-from nuc2seg.preprocessing import pol2cart
+from nuc2seg.utils import pol2cart
 
 
 def dice_coeff(

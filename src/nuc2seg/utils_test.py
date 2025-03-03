@@ -1,9 +1,12 @@
+import numpy as np
+import torch
 from shapely import box
 from nuc2seg.utils import (
     filter_anndata_to_sample_area,
     filter_anndata_to_min_transcripts,
     subset_anndata,
     transform_shapefile_to_rasterized_space,
+    reassign_angles_for_centroids,
 )
 
 
@@ -32,3 +35,24 @@ def test_transform_shapefile_to_rasterized_space(test_nuclei_df):
     )
     assert len(result) == 1
     assert result.geometry.tolist()[0].area == 4.0
+
+
+def test_reassign_angles_for_centroids():
+    labels = torch.tensor(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0],
+            [0, 1, 1, 1, 0],
+            [0, 1, 1, 1, 0],
+            [-1, -1, 0, 0, 0],
+        ]
+    )
+
+    result = (
+        reassign_angles_for_centroids(
+            labels,
+        )
+        .detach()
+        .cpu()
+        .numpy()
+    )

@@ -21,11 +21,11 @@ from nuc2seg.data import (
     Nuc2SegDataset,
     SegmentationResults,
 )
-from nuc2seg.preprocessing import pol2cart
 from nuc2seg.utils import (
     get_indices_for_ndarray,
     create_torch_polygon,
     normalized_radians_to_radians,
+    pol2cart,
 )
 
 logger = logging.getLogger(__name__)

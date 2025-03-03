@@ -37,12 +37,12 @@ from nuc2seg.data import (
     ModelPredictions,
     CelltypingResults,
 )
-from nuc2seg.preprocessing import pol2cart
 from nuc2seg.segment import greedy_cell_segmentation
 from nuc2seg.utils import (
     transform_shapefile_to_rasterized_space,
     bbox_geometry_to_rasterized_slice,
     normalized_radians_to_radians,
+    pol2cart,
 )
 
 
