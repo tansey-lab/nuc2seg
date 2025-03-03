@@ -249,6 +249,7 @@ class SparseUNet(LightningModule):
         celltype_loss_factor: float = 1.0,
         moving_average_size: int = 100,
         loss_reweighting: bool = True,
+        plot_validation_results: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -291,6 +292,7 @@ class SparseUNet(LightningModule):
                 self.hparams.celltype_criterion_weights, dtype=torch.float
             ).to(self.device),
         )
+        self.validation_plot_complete = False
 
     def setup(self, *args, **kwargs):
         # Make sure these hyper parameter tensors are on the correct device
@@ -531,33 +533,35 @@ class SparseUNet(LightningModule):
 
         celltype_accuracy_value = celltype_accuracy(prediction, classes)
 
-        val_plot = plot_validation_results(
-            labels=labels.detach().cpu().numpy().squeeze(),
-            labeled_angles=normalized_radians_to_radians(
-                angles.detach().cpu().numpy().squeeze()
-            ),
-            labeled_classes=classes.detach().cpu().numpy().squeeze(),
-            predicted_foreground=torch.sigmoid(prediction[..., 0])
-            .detach()
-            .cpu()
-            .numpy()
-            .squeeze(),
-            predicted_angles=normalized_radians_to_radians(
-                torch.sigmoid(prediction[..., 1]).detach().cpu().numpy()
-            ).squeeze(),
-            predicted_classes=torch.softmax(prediction[..., 2:], dim=-1)
-            .detach()
-            .cpu()
-            .numpy()
-            .squeeze(),
-            foreground_accuracy=foreground_accuracy_value.detach().cpu().numpy(),
-            angle_accuracy=angle_accuracy_value.detach().cpu().numpy(),
-            class_accuracy=celltype_accuracy_value.detach().cpu().numpy(),
-            epoch=self.current_epoch,
-        )
+        if not self.validation_plot_complete and self.hparams.plot_validation_results:
+            val_plot = plot_validation_results(
+                labels=labels.detach().cpu().numpy().squeeze(),
+                labeled_angles=normalized_radians_to_radians(
+                    angles.detach().cpu().numpy().squeeze()
+                ),
+                labeled_classes=classes.detach().cpu().numpy().squeeze(),
+                predicted_foreground=torch.sigmoid(prediction[..., 0])
+                .detach()
+                .cpu()
+                .numpy()
+                .squeeze(),
+                predicted_angles=normalized_radians_to_radians(
+                    torch.sigmoid(prediction[..., 1]).detach().cpu().numpy()
+                ).squeeze(),
+                predicted_classes=torch.softmax(prediction[..., 2:], dim=-1)
+                .detach()
+                .cpu()
+                .numpy()
+                .squeeze(),
+                foreground_accuracy=foreground_accuracy_value.detach().cpu().numpy(),
+                angle_accuracy=angle_accuracy_value.detach().cpu().numpy(),
+                class_accuracy=celltype_accuracy_value.detach().cpu().numpy(),
+                epoch=self.current_epoch,
+            )
 
-        if wandb.run is not None:
-            wandb.log({"validation_plot": wandb.Image(val_plot)})
+            if wandb.run is not None:
+                wandb.log({"validation_plot": wandb.Image(val_plot)})
+            self.validation_plot_complete = True
 
         self.validation_step_outputs.append(
             {
@@ -574,6 +578,9 @@ class SparseUNet(LightningModule):
             batch["gene"],
         )
         return {"value": self.forward(x, y, z), "tile_index": batch_idx}
+
+    def on_validation_epoch_start(self) -> None:
+        self.validation_plot_complete = False
 
     def on_validation_epoch_end(self):
         if len(self.validation_step_outputs) == 0:
