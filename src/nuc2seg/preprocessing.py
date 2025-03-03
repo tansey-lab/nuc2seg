@@ -14,7 +14,7 @@ from scipy.spatial import KDTree
 from shapely import box
 from nuc2seg.utils import (
     transform_shapefile_to_rasterized_space,
-    transform_bbox_to_raster_space,
+    cart2pol,
 )
 
 from nuc2seg.data import (
@@ -24,19 +24,6 @@ from nuc2seg.data import (
 from nuc2seg.utils import generate_tiles
 
 logger = logging.getLogger(__name__)
-
-
-def cart2pol(x, y):
-    """Convert Cartesian coordinates to polar coordinates"""
-    rho = np.sqrt(x**2 + y**2)
-    phi = np.arctan2(y, x)
-    return (rho, phi)
-
-
-def pol2cart(rho, phi):
-    x = rho * np.cos(phi)
-    y = rho * np.sin(phi)
-    return (x, y)
 
 
 def create_pixel_geodf(width, height, resolution=1):

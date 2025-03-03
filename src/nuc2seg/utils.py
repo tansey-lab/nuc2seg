@@ -402,3 +402,65 @@ def get_roi(resolution, labels, size=200):
 
 def normalized_radians_to_radians(arr):
     return (arr * 2 * np.pi) - np.pi
+
+
+def calculate_center_of_mass(tensor, x):
+    """
+    Calculate the center of mass for a 2D tensor where all values equal to x are considered.
+
+    Parameters:
+    tensor (numpy.ndarray): 2D tensor of integer values
+    x (int): Value to consider for center of mass calculation
+
+    Returns:
+    tuple: (row_center, col_center) representing the center of mass coordinates
+    """
+    # Create a mask where values equal x
+    mask = tensor == x
+
+    # If no values equal x, return None
+    if not np.any(mask):
+        return None
+
+    # Get coordinates of all points where value equals x
+    points = np.argwhere(mask)
+
+    # Calculate center of mass (mean of all coordinates)
+    center_of_mass = points.mean(axis=0)
+
+    # Return as (row, column) tuple
+    return (center_of_mass[0] + 0.5, center_of_mass[1] + 0.5)
+
+
+def reassign_angles_for_centroids(labels: torch.tensor, centroids: torch.tensor):
+    """
+    :param labels: H x W array of labels
+    :param centroids: dictionary of centroids
+    :return: H x W array of angles
+    """
+    angles = torch.zeros_like(labels).float()
+
+    for x in range(labels.shape[0]):
+        for y in range(labels.shape[1]):
+            if labels[x, y] <= 0:
+                continue
+            cell_idx = labels[x, y] - 1
+            centroid = centroids[cell_idx.item()]
+            x_component = centroid[0] - (x + 0.5)
+            y_component = centroid[1] - (y + 0.5)
+            angle = cart2pol(x=x_component, y=y_component)
+            angles[x, y] += (angle[1] + torch.pi) / (2 * torch.pi)
+    return angles
+
+
+def cart2pol(x, y):
+    """Convert Cartesian coordinates to polar coordinates"""
+    rho = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
+    return (rho, phi)
+
+
+def pol2cart(rho, phi):
+    x = rho * np.cos(phi)
+    y = rho * np.sin(phi)
+    return (x, y)

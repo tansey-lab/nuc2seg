@@ -8,7 +8,7 @@ from pytorch_lightning import Trainer
 from torch import nn
 
 from nuc2seg.data import Nuc2SegDataset, TiledDataset, collate_tiles
-from nuc2seg.preprocessing import cart2pol
+from nuc2seg.utils import cart2pol
 from nuc2seg.unet_model import (
     SparseUNet,
     Nuc2SegDataModule,

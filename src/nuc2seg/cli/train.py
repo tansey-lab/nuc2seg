@@ -179,6 +179,12 @@ def get_parser():
         type=int,
         default=1,
     )
+    parser.add_argument(
+        "--plot-validation-results",
+        help="Plot validation results.",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
     return parser
 
 
@@ -241,6 +247,7 @@ def main():
             loss_reweighting=args.loss_reweighting,
             celltype_frequencies=celltype_frequencies,
             background_frequencies=background_frequencies,
+            plot_validation_results=args.plot_validation_results,
         )
     else:
         logger.info(f"Resuming from checkpoint {args.checkpoint}")

@@ -21,11 +21,11 @@ from nuc2seg.data import (
     Nuc2SegDataset,
     SegmentationResults,
 )
-from nuc2seg.preprocessing import pol2cart
 from nuc2seg.utils import (
     get_indices_for_ndarray,
     create_torch_polygon,
     normalized_radians_to_radians,
+    pol2cart,
 )
 
 logger = logging.getLogger(__name__)
@@ -367,12 +367,8 @@ def greedy_cell_segmentation(
     x_indices = indices_2d[:, 0]
     y_indices = indices_2d[:, 1]
 
-    flow_xy = flow_destination(
-        indices_2d, normalized_radians_to_radians(predictions.angles), flow1_magnitude
-    )
-    flow_xy2 = flow_destination(
-        indices_2d, normalized_radians_to_radians(predictions.angles), flow2_magnitude
-    )
+    flow_xy = flow_destination(indices_2d, predictions.angles, flow1_magnitude)
+    flow_xy2 = flow_destination(indices_2d, predictions.angles, flow2_magnitude)
 
     # Get the pixels that are sufficiently predicted to be foreground
     foreground_mask = (predictions.foreground >= foreground_threshold)[
@@ -790,9 +786,7 @@ def ray_tracing_cell_segmentation(
     use_labels=True,
     use_early_stopping=True,
 ):
-    angles = torch.tensor(
-        normalized_radians_to_radians(predictions.angles), device=device
-    )
+    angles = torch.tensor(predictions.angles, device=device)
     polygons: list[shapely.Polygon] = segmentation_array_to_shapefile(
         dataset.labels
     ).geometry.to_list()

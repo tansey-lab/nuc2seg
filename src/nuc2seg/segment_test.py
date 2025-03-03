@@ -11,7 +11,6 @@ from blended_tiling import TilingModule
 from shapely import Polygon, Point
 
 from nuc2seg.data import ModelPredictions, Nuc2SegDataset
-from nuc2seg.preprocessing import cart2pol
 from nuc2seg.segment import (
     greedy_expansion,
     label_connected_components,
@@ -28,7 +27,7 @@ from nuc2seg.segment import (
     ray_tracing_cell_segmentation,
 )
 from nuc2seg.postprocess import convert_transcripts_to_anndata
-from nuc2seg.utils import get_indices_for_ndarray
+from nuc2seg.utils import get_indices_for_ndarray, cart2pol
 
 
 def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
@@ -165,7 +164,7 @@ def test_greedy_cell_segmentation_early_stop():
             x_component = 32 - x
             y_component = 32 - y
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = (angle[1] + np.pi) / (2 * np.pi)
+            angles[x, y] = angle[1]
 
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
@@ -211,7 +210,7 @@ def test_ray_tracing_segmentation_early_stop():
             x_component = 32 - x
             y_component = 25 - y
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = (angle[1] + np.pi) / (2 * np.pi)
+            angles[x, y] = angle[1]
 
     ds = Nuc2SegDataset(
         labels=labels.astype(int),
@@ -489,7 +488,7 @@ def test_label_free_greedy_expansion():
             x_component = (x_extent_pixels / 2) - (x + 0.5)
             y_component = (y_extent_pixels / 2) - (y + 0.5)
             angle = cart2pol(x=x_component, y=y_component)
-            angles[x, y] = (angle[1] + np.pi) / (2 * np.pi)
+            angles[x, y] = angle[1]
 
     start_xy = np.mgrid[0:x_extent_pixels, 0:y_extent_pixels]
     start_xy = np.array(list(zip(start_xy[0].flatten(), start_xy[1].flatten())))

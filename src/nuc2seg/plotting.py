@@ -8,6 +8,8 @@ import pandas
 import seaborn as sns
 import shapely
 import tqdm
+from PIL import Image
+import io
 from bokeh.io import output_file, save
 from bokeh.layouts import column, row
 from bokeh.models import (
@@ -35,12 +37,12 @@ from nuc2seg.data import (
     ModelPredictions,
     CelltypingResults,
 )
-from nuc2seg.preprocessing import pol2cart
 from nuc2seg.segment import greedy_cell_segmentation
 from nuc2seg.utils import (
     transform_shapefile_to_rasterized_space,
     bbox_geometry_to_rasterized_slice,
     normalized_radians_to_radians,
+    pol2cart,
 )
 
 
@@ -135,7 +137,6 @@ def plot_angles_quiver(
     angles,
     mask,
 ):
-    angles = normalized_radians_to_radians(angles.T)
     mask = mask.T
     imshow_data = np.zeros((mask.shape[0], mask.shape[1], 4)).astype(float)
 
@@ -145,18 +146,18 @@ def plot_angles_quiver(
                 imshow_data[i, j, :] = np.array([0.45, 0.57, 0.70, 0.5]).astype(float)
 
     ax.imshow(imshow_data)
-    norm = mcolors.Normalize(vmin=np.nanmin(angles), vmax=np.nanmax(angles))
+    norm = mcolors.Normalize(vmin=-np.pi, vmax=np.pi)
 
     for xi in range(mask.shape[0]):
         for yi in range(mask.shape[1]):
             if mask[xi, yi]:
-                dx, dy = pol2cart(0.5, angles[xi, yi])
+                dx, dy = pol2cart(0.5, angles.T[xi, yi])
                 ax.arrow(
                     yi,
                     xi,
                     dx,
                     dy,
-                    color=cm.hsv(norm(angles[xi, yi])),
+                    color=cm.hsv(norm(angles.T[xi, yi])),
                     width=(1 / mask.shape[1] * 5),
                 )
 
@@ -191,7 +192,7 @@ def plot_preprocessing(dataset: Nuc2SegDataset, output_path: str):
 
     plot_angles_quiver(
         ax=ax["B"],
-        angles=dataset.angles,
+        angles=normalized_radians_to_radians(dataset.angles),
         mask=(dataset.labels > 0),
     )
     ax["B"].set_title("Labeled angles")
@@ -655,6 +656,64 @@ def plot_model_raw_and_average_class_prediction(
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
+
+
+def plot_validation_results(
+    labels,
+    labeled_angles,
+    labeled_classes,
+    predicted_foreground,
+    predicted_angles,
+    predicted_classes,
+    foreground_accuracy,
+    angle_accuracy,
+    class_accuracy,
+    epoch,
+):
+    n_classes = predicted_classes.shape[-1]
+    fig, ax = plt.subplots(
+        nrows=n_classes + 2,
+        ncols=2,
+        figsize=(8, 4 * (n_classes + 2)),
+    )
+    fig.suptitle(f"Accuracy at Epoch: {epoch}")
+
+    foreground_labels = labels.copy()
+    foreground_labels[labels == -1] = 0.5
+    foreground_labels[labels > 0] = 1
+    ax[0, 0].imshow(foreground_labels.T, cmap="coolwarm", interpolation="none")
+    ax[0, 0].set_title("Foreground Labels")
+    ax[0, 1].imshow(predicted_foreground.T, cmap="coolwarm", interpolation="none")
+
+    # Add a colorbar
+    norm = mcolors.Normalize(vmin=0, vmax=1)
+    sm = cm.ScalarMappable(cmap=cm.coolwarm, norm=norm)
+    sm.set_array([])  # This is a workaround for an issue with matplotlib
+    cbar = fig.colorbar(sm, ax=ax[0, 1])
+    cbar.set_label(f"Foreground Prob\nAccuracy={foreground_accuracy}", fontsize=12)
+
+    plot_angles_quiver(ax[1, 0], labeled_angles, labels > 0)
+    ax[1, 0].set_title(f"Labeled Angles")
+    plot_angles_quiver(ax[1, 1], predicted_angles, labels > 0)
+    ax[1, 1].set_title(f"Predicted Angles\nAccuracy={angle_accuracy}")
+
+    for i in range(n_classes):
+        ax[i + 2, 0].imshow(
+            (labeled_classes.T == i + 1), cmap="binary", interpolation="none"
+        )
+        ax[i + 2, 0].set_title(f"Class {i} Labels")
+        ax[i + 2, 1].imshow(
+            predicted_classes[:, :, i].T, cmap="coolwarm", interpolation="none"
+        )
+        ax[i + 2, 1].set_title(f"Class {i} Predictions\nAccuracy={class_accuracy}")
+
+    buf = io.BytesIO()
+
+    fig.tight_layout()
+    fig.savefig(buf)
+    buf.seek(0)
+    img = Image.open(buf)
+    return img
 
 
 def plot_final_segmentation(nuclei_gdf, segmentation_gdf, output_path):
