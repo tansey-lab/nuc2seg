@@ -36,6 +36,7 @@ def test_model_predict():
     )
 
     pred = unet.forward(
+        prior_mask=torch.zeros((1, 64, 64)),
         x=torch.tensor([[0, 1, 0, 1]]),
         y=torch.tensor([[0, 0, 1, 1]]),
         z=torch.tensor([[0, 1, 2, 2]]),

@@ -1,6 +1,7 @@
 """ Full assembly of the parts to form the complete network """
 
 import wandb
+import numpy as np
 from typing import Optional
 
 from pytorch_lightning.core import LightningModule, LightningDataModule
@@ -250,6 +251,7 @@ class SparseUNet(LightningModule):
         moving_average_size: int = 100,
         loss_reweighting: bool = True,
         plot_validation_results: bool = False,
+        prior_mask_reveal_rate: float = 0.5,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -277,7 +279,7 @@ class SparseUNet(LightningModule):
         self.filters = XavierInitEmbedding(n_channels, n_filters)
         self.n_classes = n_classes + 2
         self.unet = UNet(
-            self.hparams.n_filters, self.n_classes, bilinear=self.hparams.bilinear
+            self.hparams.n_filters + 1, self.n_classes, bilinear=self.hparams.bilinear
         )
         self.foreground_criterion = nn.BCEWithLogitsLoss(reduction="mean")
         self.validation_step_outputs = []
@@ -368,7 +370,7 @@ class SparseUNet(LightningModule):
             celltype_loss * celltype_weight if celltype_loss is not None else None,
         )
 
-    def forward(self, x, y, z):
+    def forward(self, prior_mask, x, y, z):
         """
 
         :param x: X coordinate of transcripts, <Batch x Max N Transcripts per Tile in Batch>
@@ -391,6 +393,8 @@ class SparseUNet(LightningModule):
         t_input = torch.permute(
             t_input, (0, 3, 1, 2)
         )  # Needs to be Batch x Channels x ImageX x ImageY
+
+        t_input = torch.concatenate([prior_mask[:, None, :, :], t_input], dim=1)
         return torch.permute(
             self.unet(t_input), (0, 2, 3, 1)
         )  # Map back to Batch x ImageX x Image Y x Classes
@@ -402,6 +406,29 @@ class SparseUNet(LightningModule):
             weight_decay=self.hparams.weight_decay,
             betas=self.hparams.betas,
         )
+
+    def reveal_random_prior_segs(self, labels):
+        labels = labels.detach().cpu().numpy()
+        output = np.zeros_like(labels)
+        rng = np.random.default_rng(self.global_step)
+        for i in range(labels.shape[0]):
+            n_prior_segments_in_batch = labels[i].max()
+
+            if n_prior_segments_in_batch <= 0:
+                continue
+            n_prior_segments_to_reveal = max(
+                int(n_prior_segments_in_batch * self.hparams.prior_mask_reveal_rate), 1
+            )
+            prior_segments = (
+                rng.choice(
+                    np.arange(n_prior_segments_in_batch),
+                    n_prior_segments_to_reveal,
+                    replace=False,
+                )
+                + 1
+            )
+            output[i] = np.isin(labels[i], prior_segments)
+        return torch.tensor(output, device=self.device).float()
 
     def training_step(self, batch, batch_idx):
         (x, y, gene, labels, angles, classes, label_mask, nucleus_mask) = (
@@ -415,7 +442,9 @@ class SparseUNet(LightningModule):
             batch["nucleus_mask"],
         )
 
-        prediction = self.forward(x, y, gene)
+        label_mask_revealed = self.reveal_random_prior_segs(labels)
+
+        prediction = self.forward(label_mask_revealed, x, y, gene)
 
         foreground_loss, unlabeled_foreground_loss, angle_loss, celltype_loss = (
             training_step(
@@ -523,7 +552,7 @@ class SparseUNet(LightningModule):
             return
 
         # predict the mask
-        prediction = self.forward(x, y, z)
+        prediction = self.forward(nucleus_mask.float(), x, y, z)
         foreground_accuracy_value = foreground_accuracy(prediction, labels)
         angle_accuracy_value = angle_accuracy(
             predictions=prediction,
@@ -572,12 +601,21 @@ class SparseUNet(LightningModule):
         )
 
     def predict_step(self, batch, batch_idx):
-        x, y, z = (
+        (x, y, gene, labels, angles, classes, label_mask, nucleus_mask) = (
             batch["X"],
             batch["Y"],
             batch["gene"],
+            batch["labels"],
+            batch["angles"],
+            batch["classes"],
+            batch["label_mask"],
+            batch["nucleus_mask"],
         )
-        return {"value": self.forward(x, y, z), "tile_index": batch_idx}
+
+        return {
+            "value": self.forward(nucleus_mask.float(), x, y, gene),
+            "tile_index": batch_idx,
+        }
 
     def on_validation_epoch_start(self) -> None:
         self.validation_plot_complete = False
