@@ -225,11 +225,19 @@ workflow NUC2SEG {
 
     COMBINE_SEGMENTATIONS( combine_segmentations_input )
 
+    if (params.dataset == null) {
+        PREPROCESS.out.labels.tap { prior_shapes }
+    } else {
+        Channel.fromList([tuple( [ id: name, single_end:false ],
+          file(params.prior_shapes, checkIfExists: true)
+        )]).tap { prior_shapes }
+    }
+
     Channel.fromList([
         tuple( [ id: name, single_end:false ], file(params.xenium_dir, checkIfExists: true))
     ]).combine(
         COMBINE_SEGMENTATIONS.out.shapefile.map { tuple(it[0], it[1], "nuc2seg") }.concat(
-            PREPROCESS.out.labels.map { tuple(it[0], it[1], "ground_labels") }
+            prior_shapes.map { tuple(it[0], it[1], "ground_labels") }
         ), by: 0
     ).tap { benchmarks_input }
 
@@ -244,7 +252,7 @@ workflow NUC2SEG {
     ).join(
         COMBINE_SEGMENTATIONS.out.shapefile
     ).join(
-        PREPROCESS.out.labels
+        prior_shapes
     ).tap { plot_roi_input }
 
     PLOT_ROI( plot_roi_input )
