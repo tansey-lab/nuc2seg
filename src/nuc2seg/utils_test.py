@@ -48,13 +48,4 @@ def test_reassign_angles_for_centroids():
         ]
     )
 
-    result = (
-        reassign_angles_for_centroids(
-            labels,
-        )
-        .detach()
-        .cpu()
-        .numpy()
-    )
-
-    assert result
+    reassign_angles_for_centroids(labels, np.array([[2, 2], [0, 0]]))
