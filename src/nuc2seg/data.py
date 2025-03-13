@@ -555,6 +555,9 @@ class TiledDataset(Dataset):
         local_ids = np.unique(tile_labels)
         local_ids = local_ids[local_ids > 0]
         for i, c in enumerate(local_ids):
+            mask = tile_labels == c
+            if mask.sum() == 0:
+                raise RuntimeError(f"Tile {x1}-{x2}, {y1}-{y2} has missing nuclei. ")
             tile_labels[tile_labels == c] = i + 1
 
         tile_angles = angles[x1:x2, y1:y2]

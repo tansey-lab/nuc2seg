@@ -1,4 +1,3 @@
-import math
 import os.path
 import logging
 from multiprocessing.pool import ThreadPool
@@ -6,15 +5,14 @@ from multiprocessing.pool import ThreadPool
 import geopandas
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import shapely
 import tqdm
 from blended_tiling import TilingModule
 from scipy.spatial import KDTree
-from shapely import box
 from nuc2seg.utils import (
     transform_shapefile_to_rasterized_space,
     cart2pol,
+    create_pixel_geodf,
 )
 
 from nuc2seg.data import (
@@ -24,32 +22,6 @@ from nuc2seg.data import (
 from nuc2seg.utils import generate_tiles
 
 logger = logging.getLogger(__name__)
-
-
-def create_pixel_geodf(width, height, resolution=1):
-    n_width_pixels = math.ceil(width / resolution)
-    n_height_pixels = math.ceil(height / resolution)
-
-    rows = []
-    for i in range(n_width_pixels):
-        for j in range(n_height_pixels):
-            rows.append(
-                {
-                    "x_index": i,
-                    "y_index": j,
-                    "geometry": box(
-                        i * resolution,
-                        j * resolution,
-                        (i + 1) * resolution,
-                        (j + 1) * resolution,
-                    ),
-                    "pixel_center_x": i * resolution + resolution / 2,
-                    "pixel_center_y": j * resolution + resolution / 2,
-                }
-            )
-
-    df = pd.DataFrame(rows)
-    return geopandas.GeoDataFrame(df, geometry="geometry")
 
 
 def create_rasterized_dataset(

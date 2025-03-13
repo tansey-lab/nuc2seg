@@ -7,12 +7,16 @@ from typing import Optional
 import anndata
 import geopandas
 import numpy as np
+import pandas as pd
 import shapely
 from blended_tiling import TilingModule
 from shapely import box, Polygon
 from shapely.geometry import box
 from shapely.affinity import translate, scale
 import torch
+from shapely.ops import linemerge, unary_union, polygonize, clip_by_rect
+from shapely.geometry import LineString, Polygon
+
 
 logger = logging.getLogger(__name__)
 
@@ -464,3 +468,121 @@ def pol2cart(rho, phi):
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
     return (x, y)
+
+
+def raster_to_polygon(raster):
+    # get coordinates of true values in nparray
+    x1, y1 = np.where(raster)
+    x2 = x1 + 1
+    y2 = y1 + 1
+
+    shapes = []
+    for x1, y1, x2, y2 in zip(x1, y1, x2, y2):
+        shapes.append(box(x1, y1, x2, y2))
+
+    return shapely.union_all(shapes)
+
+
+def cut_polygon_by_line(polygon, line):
+    merged = linemerge([polygon.boundary, line])
+    borders = unary_union(merged)
+    polygons = polygonize(borders)
+    return list(polygons)
+
+
+def randomly_bisect_and_mask_segments(labels, rng=None):
+    if rng is None:
+        rng = np.random.default_rng()
+
+    output = np.zeros_like(labels)
+
+    pixel_geo_df = create_pixel_geodf(labels.shape[0], labels.shape[1], resolution=1)
+
+    for i in range(0, labels.max()):
+        mask = labels == i + 1
+        polygon = raster_to_polygon(mask)
+
+        if polygon.area == 0.0:
+            continue
+
+        # get bounding box of polygon
+        x1, y1, x2, y2 = polygon.bounds
+        bbox = box(x1, y1, x2, y2)
+
+        centroid = polygon.centroid
+
+        # sample a random angle and create a line through the centroid at that angle
+        angle = rng.uniform(0, 2 * np.pi)
+        line = shapely.geometry.LineString(
+            [
+                (centroid.x + 1000 * np.cos(angle), centroid.y + 1000 * np.sin(angle)),
+                (centroid.x - 1000 * np.cos(angle), centroid.y - 1000 * np.sin(angle)),
+            ]
+        )
+
+        # clip the line to the polygon
+        clipped = line.intersection(bbox)
+
+        # get length of line
+        length = clipped.length
+
+        # sample random point on line
+        truncation = rng.uniform(0, length)
+
+        # drop the whole nucleus if we cut at an extreme
+        if (truncation / length) < 0.1:
+            continue
+
+        # or keep it all if we would cut at the other extreme
+        if (truncation / length) > 0.9:
+            output[mask] = i + 1
+            continue
+
+        point = clipped.interpolate(rng.uniform(0, length))
+
+        # create a line perpendicular to the original line at the point
+        angle = angle + np.pi / 2
+        line = shapely.geometry.LineString(
+            [
+                (point.x + 1000 * np.cos(angle), point.y + 1000 * np.sin(angle)),
+                (point.x - 1000 * np.cos(angle), point.y - 1000 * np.sin(angle)),
+            ]
+        )
+
+        bisected_bbox = cut_polygon_by_line(bbox, line)
+
+        # randomly choose one of the two polygons
+        bisected_bbox_half = rng.choice(bisected_bbox)
+
+        clipped_polygon = polygon.intersection(bisected_bbox_half)
+
+        pixels_clipped = pixel_geo_df.clip(clipped_polygon)
+        pixels_clipped = pixels_clipped[pixels_clipped.geometry.area > 0.2]
+        output[pixels_clipped.x_index.values, pixels_clipped.y_index.values] = i + 1
+    return output
+
+
+def create_pixel_geodf(width, height, resolution=1):
+    n_width_pixels = math.ceil(width / resolution)
+    n_height_pixels = math.ceil(height / resolution)
+
+    rows = []
+    for i in range(n_width_pixels):
+        for j in range(n_height_pixels):
+            rows.append(
+                {
+                    "x_index": i,
+                    "y_index": j,
+                    "geometry": box(
+                        i * resolution,
+                        j * resolution,
+                        (i + 1) * resolution,
+                        (j + 1) * resolution,
+                    ),
+                    "pixel_center_x": i * resolution + resolution / 2,
+                    "pixel_center_y": j * resolution + resolution / 2,
+                }
+            )
+
+    df = pd.DataFrame(rows)
+    return geopandas.GeoDataFrame(df, geometry="geometry")

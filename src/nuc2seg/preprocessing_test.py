@@ -11,9 +11,8 @@ from shapely.affinity import translate
 from nuc2seg.preprocessing import (
     create_rasterized_dataset,
     tile_transcripts_to_disk,
-    create_pixel_geodf,
 )
-from nuc2seg.utils import transform_shapefile_to_rasterized_space
+from nuc2seg.utils import transform_shapefile_to_rasterized_space, create_pixel_geodf
 
 
 def test_create_rasterized_dataset(test_nuclei_df, test_transcripts_df):

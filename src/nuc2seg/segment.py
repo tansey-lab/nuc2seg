@@ -24,7 +24,6 @@ from nuc2seg.data import (
 from nuc2seg.utils import (
     get_indices_for_ndarray,
     create_torch_polygon,
-    normalized_radians_to_radians,
     pol2cart,
 )
 
@@ -497,19 +496,6 @@ def collinear(p1, p2, p3):
     return np.isclose(
         (p1[1] - p2[1]) * (p1[0] - p3[0]), (p1[1] - p3[1]) * (p1[0] - p2[0])
     )
-
-
-def raster_to_polygon(raster):
-    # get coordinates of true values in nparray
-    x1, y1 = np.where(raster)
-    x2 = x1 + 1
-    y2 = y1 + 1
-
-    shapes = []
-    for x1, y1, x2, y2 in zip(x1, y1, x2, y2):
-        shapes.append(box(x1, y1, x2, y2))
-
-    return shapely.union_all(shapes)
 
 
 def pixel_coords_to_polygon(coords):

@@ -17,7 +17,10 @@ from nuc2seg.evaluate import (
 )
 from nuc2seg.unet_parts import *
 from nuc2seg.plotting import plot_validation_results
-from nuc2seg.utils import normalized_radians_to_radians
+from nuc2seg.utils import (
+    normalized_radians_to_radians,
+    randomly_bisect_and_mask_segments,
+)
 
 
 class UNet(nn.Module):
@@ -412,22 +415,7 @@ class SparseUNet(LightningModule):
         output = np.zeros_like(labels)
         rng = np.random.default_rng(self.global_step)
         for i in range(labels.shape[0]):
-            n_prior_segments_in_batch = labels[i].max()
-
-            if n_prior_segments_in_batch <= 0:
-                continue
-            n_prior_segments_to_reveal = max(
-                int(n_prior_segments_in_batch * self.hparams.prior_mask_reveal_rate), 1
-            )
-            prior_segments = (
-                rng.choice(
-                    np.arange(n_prior_segments_in_batch),
-                    n_prior_segments_to_reveal,
-                    replace=False,
-                )
-                + 1
-            )
-            output[i] = np.isin(labels[i], prior_segments)
+            output[i] = randomly_bisect_and_mask_segments(labels[i], rng)
         return torch.tensor(output, device=self.device).float()
 
     def training_step(self, batch, batch_idx):

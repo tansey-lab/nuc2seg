@@ -7,6 +7,7 @@ from nuc2seg.utils import (
     subset_anndata,
     transform_shapefile_to_rasterized_space,
     reassign_angles_for_centroids,
+    randomly_bisect_and_mask_segments,
 )
 
 
@@ -49,3 +50,23 @@ def test_reassign_angles_for_centroids():
     )
 
     reassign_angles_for_centroids(labels, np.array([[2, 2], [0, 0]]))
+
+
+def test_randomly_bisect_and_mask_segments():
+    labels = torch.tensor(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0],
+            [0, 1, 1, 1, 0],
+            [0, 1, 1, 1, 0],
+            [-1, -1, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 2, 2, 2, 0],
+            [0, 2, 2, 2, 0],
+            [0, 2, 2, 2, 0],
+            [-1, -1, 0, 0, 0],
+        ]
+    )
+
+    result = randomly_bisect_and_mask_segments(labels)
+    print(result)

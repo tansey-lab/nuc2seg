@@ -16,7 +16,6 @@ from nuc2seg.segment import (
     label_connected_components,
     flow_destination,
     greedy_cell_segmentation,
-    raster_to_polygon,
     stitch_predictions,
     convert_segmentation_to_shapefile,
     collinear,
@@ -27,7 +26,7 @@ from nuc2seg.segment import (
     ray_tracing_cell_segmentation,
 )
 from nuc2seg.postprocess import convert_transcripts_to_anndata
-from nuc2seg.utils import get_indices_for_ndarray, cart2pol
+from nuc2seg.utils import get_indices_for_ndarray, cart2pol, raster_to_polygon
 
 
 def test_greedy_expansion_updates_pixel_with_distance_according_to_iter():
