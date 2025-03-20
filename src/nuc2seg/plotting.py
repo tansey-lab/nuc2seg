@@ -1,5 +1,6 @@
 import json
 import os.path
+from collections import defaultdict
 from typing import Optional
 
 import geopandas
@@ -9,6 +10,7 @@ import seaborn as sns
 import shapely
 import tqdm
 from PIL import Image
+from itertools import cycle
 import io
 from bokeh.io import output_file, save
 from bokeh.layouts import column, row
@@ -23,8 +25,11 @@ from bokeh.models import (
     SaveTool,
     TapTool,
     InlineStyleSheet,
+    CategoricalColorMapper,
+    Legend,
+    LegendItem,
 )
-from bokeh.palettes import Category10
+from bokeh.palettes import Category10, Category20
 from bokeh.plotting import figure
 from bokeh.resources import INLINE
 from matplotlib import cm, gridspec, animation
@@ -1487,6 +1492,131 @@ def create_interactive_segmentation_comparison(
     # Create layout
 
     layout = row(p, column(polygon_checkbox, checkbox))
+    # Configure output to save as standalone HTML
+    output_file(output_path, title=title, mode="inline")
+
+    # Save the plot as HTML with embedded data
+    save(layout, filename=output_path, title=title, resources=INLINE)
+
+    return layout
+
+
+def create_interactive_celltype_morphology(
+    polygon_gdfs,
+    names,
+    celltype_attribute="celltype",
+    title="Celltype Morphology Viewer",
+    output_path="geoplot.html",
+):
+    """
+    Create an interactive Bokeh plot to display multiple polygon GeoDataFrames with radio button selection
+    and optional point data with checkbox control.
+
+    Parameters:
+    -----------
+    polygon_gdfs : list of GeoDataFrames
+        List of GeoDataFrames containing polygon data to visualize
+    names : list of str
+        Names for each polygon GeoDataFrame to display in radio buttons
+    point_layer_name : str
+        Name for the point layer checkbox
+    title : str
+        Title for the plot
+    output_path : str
+        Path where the HTML file will be saved
+    """
+    # Convert Polygon GeoDataFrames to GeoJSONDataSource format
+
+    unique_celltypes = set()
+    attributes_to_keep = [celltype_attribute, "geometry"]
+
+    geosources = defaultdict(list)
+    for idx, gdf in enumerate(polygon_gdfs):
+        gdf = gdf[attributes_to_keep]
+        for label in gdf[celltype_attribute].unique():
+            gdf_filtered = gdf[gdf[celltype_attribute] == label]
+            geojson = json.loads(gdf_filtered.to_json())
+            geojson_source = GeoJSONDataSource(geojson=json.dumps(geojson))
+            geosources[label].append(geojson_source)
+            unique_celltypes.add(label)
+
+    # Create figure with explicit tools
+    tools = [PanTool(), WheelZoomTool(), ResetTool(), SaveTool(), TapTool()]
+
+    p = figure(title=title, height=800, width=800, tools=tools, aspect_ratio="auto")
+    p.title.text_font_size = "24pt"
+    p.axis.visible = False
+    p.grid.visible = False
+
+    # Create polygon renderers
+    polygon_renderers = defaultdict(list)
+
+    if len(unique_celltypes) < 3:
+        celltype_colors = Category10[3][: len(unique_celltypes)]
+        celltype_colors = [
+            f"rgba({int(int(color[1:3], 16))}, {int(int(color[3:5], 16))}, {int(int(color[5:7], 16))}, 0.7)"
+            for color in celltype_colors
+        ]
+    elif len(unique_celltypes) <= 20:
+        celltype_colors = Category20[len(unique_celltypes)]
+        celltype_colors = [
+            f"rgba({int(int(color[1:3], 16))}, {int(int(color[3:5], 16))}, {int(int(color[5:7], 16))}, 0.7)"
+            for color in celltype_colors
+        ]
+    else:
+        celltype_colors = [
+            f"rgba({int(int(color[1:3], 16))}, {int(int(color[3:5], 16))}, {int(int(color[5:7], 16))}, 0.7)"
+            for color in Category20[20]
+        ]
+        celltype_colors = [
+            x for x in cycle(celltype_colors) for _ in range(len(unique_celltypes))
+        ]
+
+    celltype_colormapper = CategoricalColorMapper(
+        factors=list(sorted(list(unique_celltypes))), palette=list(celltype_colors)
+    )
+
+    for label, sources in geosources.items():
+        for source in sources:
+            renderer = p.patches(
+                "xs",
+                "ys",
+                fill_color={
+                    "field": celltype_attribute,
+                    "transform": celltype_colormapper,
+                },
+                fill_alpha=0.7,
+                line_color="black",
+                line_width=0.5,
+                source=source,
+                legend_label=label,
+            )
+            polygon_renderers[label].append(renderer)
+            renderer.visible = False
+
+            # Add tap callback to hide clicked shapes
+            tap_callback = CustomJS(
+                args=dict(source=source),
+                code="""
+                            // Get the clicked feature index
+                            const ind = cb_obj.indices[0];
+                            if (ind !== undefined) {
+                                // Get the current visible data
+                                const visible = source.data['visible'];
+
+                                // Toggle visibility
+                                visible[ind] = 0;  // Hide the clicked shape
+
+                                // Trigger a data change
+                                source.change.emit();
+                            }
+                        """,
+            )
+            renderer.data_source.selected.js_on_change("indices", tap_callback)
+
+    p.legend.click_policy = "hide"
+
+    layout = row(p)
     # Configure output to save as standalone HTML
     output_file(output_path, title=title, mode="inline")
 

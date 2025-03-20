@@ -14,6 +14,7 @@ from nuc2seg.plotting import (
     plot_celltype_estimation_results,
     rank_genes_groups_plot,
     plot_greedy_cell_segmentation,
+    create_interactive_celltype_morphology,
 )
 from nuc2seg.utils import cart2pol
 
@@ -196,3 +197,48 @@ def test_plot_greedy_cell_segmentation():
         )
     finally:
         shutil.rmtree(output_dir)
+
+
+def test_create_interactive_celltype_morphology():
+    RECORDS = [
+        {
+            "geometry": shapely.Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]),
+            "nucleus_label": 1,
+            "nucleus_centroid": shapely.Point(0.5, 0.5),
+            "nucleus_centroid_x": 0.5,
+            "nucleus_centroid_y": 0.5,
+        },
+        {
+            "geometry": shapely.Polygon([[10, 10], [10, 11], [11, 11], [11, 10]]),
+            "nucleus_label": 2,
+            "nucleus_centroid": shapely.Point(10.5, 10.5),
+            "nucleus_centroid_x": 10.5,
+            "nucleus_centroid_y": 10.5,
+        },
+        {
+            "geometry": shapely.Polygon([[20, 20], [20, 21], [21, 21], [21, 20]]),
+            "nucleus_label": 3,
+            "nucleus_centroid": shapely.Point(20.5, 20.5),
+            "nucleus_centroid_x": 20.5,
+            "nucleus_centroid_y": 20.5,
+        },
+        {
+            "geometry": shapely.Polygon([[30, 30], [30, 31], [31, 31], [31, 30]]),
+            "nucleus_label": 4,
+            "nucleus_centroid": shapely.Point(30.5, 30.5),
+            "nucleus_centroid_x": 30.5,
+            "nucleus_centroid_y": 30.5,
+        },
+    ]
+
+    test_nuclei_df = geopandas.GeoDataFrame(RECORDS).set_geometry("geometry")
+
+    test_nuclei_df["celltype"] = ["A", "B", "B", "A"]
+    test_nuclei_df = test_nuclei_df[["celltype", "geometry"]]
+    create_interactive_celltype_morphology(
+        [test_nuclei_df],
+        ["nuclei"],
+        celltype_attribute="celltype",
+        title="Celltype Morphology Viewer",
+        output_path="/tmp/geoplot.html",
+    )
